@@ -1,0 +1,6 @@
+{
+  "name": "Life Site Dashboard",
+  "description": "A calm, single-screen personal dashboard bringing together Google Calendar, Todoist, Obsidian notes, weather, global search, and rapid voice/keyboard capture.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

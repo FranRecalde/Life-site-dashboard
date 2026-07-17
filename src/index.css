@@ -1,0 +1,142 @@
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Hanken Grotesk", sans-serif;
+
+  --color-primary-base: #00288e;
+  --color-primary-hover: #1e40af;
+}
+
+html, body, #root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Fluid atmospheric background blobs */
+.blob {
+  filter: blur(100px);
+  opacity: 0.25;
+  pointer-events: none;
+  z-index: -10;
+  position: absolute;
+  border-radius: 9999px;
+}
+
+/* Glassmorphism navigation */
+.glass-nav {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+}
+
+.dark .glass-nav {
+  background: rgba(19, 27, 46, 0.75);
+  backdrop-filter: blur(16px);
+}
+
+/* Custom scrollbar for desktop dashboard panels */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.5);
+}
+
+/* Life Site Entrance Hall Layout Styles */
+.life-site-entrance-hall {
+  --color-gold-accent: #c5a86a;
+  --color-gold-light: #e4cb93;
+  --color-gold-dark: #9a7d44;
+  --color-bg-deep: #070b13;
+  --color-bg-card: #0d1527;
+  --color-border-slate: rgba(30, 41, 59, 0.6);
+}
+
+.life-site-entrance-hall a, 
+.life-site-entrance-hall button {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Subtle gold neon ambient indicator */
+.life-site-entrance-hall .glow-dot {
+  box-shadow: 0 0 10px var(--color-gold-accent), 0 0 20px var(--color-gold-light);
+}
+
+/* Scrollbar styling overrides for the dark sidebar navigation lists */
+.life-site-entrance-hall nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.life-site-entrance-hall nav::-webkit-scrollbar-thumb {
+  background: rgba(197, 168, 106, 0.15);
+  border-radius: 2px;
+}
+
+.life-site-entrance-hall nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(197, 168, 106, 0.35);
+}
+
+/* Dark shell readability & full width integration for Projects Panel in Entrance Hall */
+.life-site-entrance-hall .bg-white {
+  background-color: #0d1527 !important;
+  color: #f1f5f9 !important;
+}
+
+.life-site-entrance-hall .border-\[\#eaedff\] {
+  border-color: rgba(30, 41, 59, 0.6) !important;
+}
+
+.life-site-entrance-hall .border-\[\#eaedff\]\/60 {
+  border-color: rgba(30, 41, 59, 0.3) !important;
+}
+
+.life-site-entrance-hall .text-\[\#131b2e\] {
+  color: #e2e8f0 !important;
+}
+
+.life-site-entrance-hall .text-\[\#00288e\] {
+  color: #c5a86a !important;
+}
+
+.life-site-entrance-hall .bg-\[\#faf8ff\] {
+  background-color: rgba(30, 41, 59, 0.4) !important;
+}
+
+.life-site-entrance-hall .bg-\[\#f0f2ff\] {
+  background-color: rgba(30, 41, 59, 0.6) !important;
+}
+
+.life-site-entrance-hall .text-amber-800 {
+  color: #fbbf24 !important;
+}
+
+.life-site-entrance-hall .bg-amber-100 {
+  background-color: rgba(251, 191, 36, 0.15) !important;
+}
+

@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net - Default Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Server-Side only structures - Client access is completely blocked
+    match /settings/global_settings {
+      allow read, write: if false;
+    }
+
+    match /sessions/{sessionId} {
+      allow read, write: if false;
+    }
+
+    // Habits & Habit Entries - Server-Side only, completely blocked for direct client/browser reads or writes
+    match /habits/{habitId} {
+      allow read, write: if false;
+
+      match /entries/{entryId} {
+        allow read, write: if false;
+      }
+    }
+  }
+}

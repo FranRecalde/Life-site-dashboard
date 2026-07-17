@@ -1,0 +1,60 @@
+# Dependencies and generated output
+node_modules/
+build/
+dist/
+coverage/
+
+# Environment and secret material
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*credentials*.json
+*client-secret*.json
+*client_secret*.json
+*service-account*.json
+*service_account*.json
+*oauth*.json
+*token*.json
+
+# Runtime authentication and local application state
+data/
+sessions/
+cookies/
+auth-state/
+*.session
+*.session.*
+*.cookie
+*.cookies
+storage-state*.json
+
+# Local Obsidian vaults, private notes, and generated inbox content
+.obsidian/
+obsidian-vault/
+vault/
+private-notes/
+private_notes/
+generated-inbox/
+generated_inbox/
+generated-notes/
+generated_notes/
+
+# Local backups, logs, and temporary files
+backups/
+backup/
+tmp/
+temp/
+.tmp/
+*.bak
+*.backup
+*.old
+*.log
+*~
+
+# Operating-system and editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/

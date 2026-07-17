@@ -1,0 +1,171 @@
+{
+  "entities": {
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "User settings configuration document",
+      "type": "object",
+      "properties": {
+        "theme": {
+          "type": "string"
+        },
+        "refreshIntervalMinutes": {
+          "type": "number"
+        },
+        "defaultCalendarView": {
+          "type": "string"
+        },
+        "firstDayOfWeek": {
+          "type": "string"
+        },
+        "dateFormat": {
+          "type": "string"
+        },
+        "notesDefaultMode": {
+          "type": "string"
+        },
+        "obsidian": {
+          "type": "object"
+        },
+        "todoist": {
+          "type": "object"
+        },
+        "weather": {
+          "type": "object"
+        },
+        "calendar": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "theme",
+        "refreshIntervalMinutes",
+        "obsidian",
+        "todoist",
+        "weather",
+        "calendar"
+      ]
+    },
+    "SessionData": {
+      "title": "SessionData",
+      "description": "Authenticated user session document",
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "username",
+        "createdAt",
+        "expiresAt"
+      ]
+    },
+    "Habit": {
+      "title": "Habit",
+      "description": "Habit definition document",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "context": {
+          "type": "string",
+          "enum": ["personal", "professional"]
+        },
+        "schedule": {
+          "type": "object",
+          "description": "Discriminated union for schedule types (daily, weekdays, selected_days, weekly_target)"
+        },
+        "startDate": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "archivedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "context",
+        "schedule",
+        "startDate",
+        "archived",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "HabitEntry": {
+      "title": "HabitEntry",
+      "description": "Habit completion entry document",
+      "type": "object",
+      "properties": {
+        "habitId": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "completed": {
+          "type": "boolean"
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "habitId",
+        "date",
+        "completed",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/settings/global_settings": {
+      "schema": "UserSettings",
+      "description": "The global user settings configuration"
+    },
+    "/sessions/{sessionId}": {
+      "schema": "SessionData",
+      "description": "Stores current authenticated user session data"
+    },
+    "/habits/{habitId}": {
+      "schema": "Habit",
+      "description": "Stores user habit tracker definitions"
+    },
+    "/habits/{habitId}/entries/{entryId}": {
+      "schema": "HabitEntry",
+      "description": "Stores dated daily check-ins for a specific habit"
+    }
+  }
+}
