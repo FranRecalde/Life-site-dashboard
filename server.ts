@@ -20,6 +20,14 @@ import { createStores } from './server/storage/createStores';
 import { testFirestoreConnection } from './server/storage/firestoreClient';
 import { getSecretStore, getSecretProvider, redactSecrets } from './server/storage/secretStore';
 import {
+  buildGoogleAuthorizationUrl,
+  buildGoogleTokenExchangeBody,
+  createSignedGoogleOAuthState,
+  isUsableGoogleOAuthSession,
+  resolveGoogleOAuthRedirectUri,
+  validateSignedGoogleOAuthState,
+} from './server/auth/googleOAuth';
+import {
   getLocalYYYYMMDD,
   calculateScheduledHabitStreak,
   calculateWeeklyTargetProgress,
@@ -996,16 +1004,24 @@ async function startServer() {
   // -------------------------------------------------------------
 
   app.get('/api/auth/google/url', authMiddleware, (req: any, res) => {
+    let redirectUri: string;
+    try {
+      redirectUri = resolveGoogleOAuthRedirectUri({
+        host: req.get('host'),
+        forwardedHost: req.get('x-forwarded-host'),
+        forwardedProtocol: req.get('x-forwarded-proto'),
+        protocol: req.protocol,
+      });
+    } catch {
+      return res.status(400).json({ success: false, error: 'Unapproved OAuth request host' });
+    }
+
     const secrets = loadSecrets();
     const clientId = secrets.googleClientId || process.env.GOOGLE_CLIENT_ID;
 
     if (!clientId) {
       return res.status(400).json({ success: false, error: 'Google Client ID is not configured' });
     }
-
-    const redirectUri = process.env.APP_URL 
-      ? `${process.env.APP_URL}/api/auth/google/callback` 
-      : `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
 
     // Least-privilege combination: read-only calendar list, and read/write calendar events
     const scope = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events';
@@ -1024,18 +1040,26 @@ async function startServer() {
     }
 
     const sessionSecretVal = process.env.SESSION_SECRET || 'default-session-secret-fallback';
-    const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
-    const signature = crypto.createHmac('sha256', sessionSecretVal)
-      .update(sessionToken + ':' + expiry)
-      .digest('hex');
-    const stateValue = `${expiry}.${signature}`;
+    const stateValue = createSignedGoogleOAuthState(sessionToken, sessionSecretVal);
 
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${encodeURIComponent(stateValue)}`;
+    const authUrl = buildGoogleAuthorizationUrl(clientId, redirectUri, scope, stateValue);
 
     res.json({ success: true, url: authUrl });
   });
 
   app.get('/api/auth/google/callback', async (req: any, res) => {
+    let redirectUri: string;
+    try {
+      redirectUri = resolveGoogleOAuthRedirectUri({
+        host: req.get('host'),
+        forwardedHost: req.get('x-forwarded-host'),
+        forwardedProtocol: req.get('x-forwarded-proto'),
+        protocol: req.protocol,
+      });
+    } catch {
+      return res.status(400).send('Unapproved OAuth request host');
+    }
+
     const code = req.query.code as string;
     if (!code) {
       return res.redirect('/?error=oauth_failed');
@@ -1044,16 +1068,6 @@ async function startServer() {
     const state = req.query.state as string;
     if (!state) {
       return res.status(400).send('OAuth state parameter is missing');
-    }
-
-    const [expiryStr, signature] = state.split('.');
-    if (!expiryStr || !signature) {
-      return res.status(400).send('OAuth state parameter is malformed');
-    }
-
-    const expiry = parseInt(expiryStr, 10);
-    if (isNaN(expiry) || expiry < Date.now()) {
-      return res.status(400).send('OAuth state parameter has expired');
     }
 
     // Tie it to the authenticated session
@@ -1070,17 +1084,20 @@ async function startServer() {
     }
 
     const session = await STORES.sessions.getSession(sessionToken);
-    if (!session || STORES.sessions.isExpired(session)) {
+    if (!isUsableGoogleOAuthSession(session, storedSession => STORES.sessions.isExpired(storedSession))) {
       return res.status(400).send('Session has expired or is invalid');
     }
 
     // Sign it using the existing server session secret
     const sessionSecretVal = process.env.SESSION_SECRET || 'default-session-secret-fallback';
-    const expectedSignature = crypto.createHmac('sha256', sessionSecretVal)
-      .update(sessionToken + ':' + expiry)
-      .digest('hex');
-
-    if (signature !== expectedSignature) {
+    const stateValidation = validateSignedGoogleOAuthState(state, sessionToken, sessionSecretVal);
+    if ('reason' in stateValidation) {
+      if (stateValidation.reason === 'malformed') {
+        return res.status(400).send('OAuth state parameter is malformed');
+      }
+      if (stateValidation.reason === 'expired') {
+        return res.status(400).send('OAuth state parameter has expired');
+      }
       return res.status(400).send('OAuth state parameter signature is invalid');
     }
 
@@ -1093,20 +1110,10 @@ async function startServer() {
         return res.status(400).send('Google credentials missing on server.');
       }
 
-      const redirectUri = process.env.APP_URL 
-        ? `${process.env.APP_URL}/api/auth/google/callback` 
-        : `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
-
       const response = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          code,
-          client_id: clientId,
-          client_secret: clientSecret,
-          redirect_uri: redirectUri,
-          grant_type: 'authorization_code'
-        }).toString()
+        body: buildGoogleTokenExchangeBody(code, clientId, clientSecret, redirectUri)
       });
 
       const tokenData = await response.json();
