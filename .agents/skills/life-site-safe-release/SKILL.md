@@ -43,6 +43,12 @@ in plain English.
   authorization to create a Cloud Run revision.
 - Never run a `gcloud` deployment command until the user gives the exact staging
   approval phrase required below.
+- Never use Cloud Run's `--timeout` flag to address a local command timeout. It
+  controls application request duration, not source packaging, upload, or Cloud
+  Build submission. Give the local execution environment enough time for those
+  submission steps, then use bounded read-only polling.
+- Never retry a staging deployment automatically after an unexpected local exit
+  or timeout. Reconcile the existing operation first using read-only checks.
 - Never send normal production traffic to a new revision automatically.
 - Treat staging deployment and production promotion as separate approval gates.
   Approval to deploy to staging never authorizes a production traffic change.
@@ -87,6 +93,12 @@ in plain English.
    credentials, private notes, local runtime data, test artifacts containing
    user data, and unrelated local files. Stop if the candidate source bundle is
    ambiguous or unsafe.
+10. Search tracked application source for runtime uses of `APP_URL`, excluding
+    environment files, generated output, dependencies, documentation, and this
+    release skill. Record whether verified runtime code still consumes it. In
+    particular, preserve the OAuth repair that resolves production and staging
+    callback origins only from approved incoming Cloud Run hostnames; never
+    reintroduce `APP_URL` as an OAuth redirect fallback.
 
 Distinguish clearly in the report that `DEPLOYED_COMMIT` is committed code on
 GitHub and is not yet a Cloud Run revision.
@@ -126,6 +138,26 @@ unsafe.
    or a hardcoded value.
 4. Show the current production revision and the identical per-release rollback
    target to the user before creating a revision.
+5. Retrieve the exact permanent `staging` traffic-tag URL and current staging-tag
+   revision from safe traffic fields. Do not construct either value.
+6. Perform one narrowly scoped, read-only inspection of the deployed service's
+   `APP_URL` entry. Select and parse only that entry; never dump the complete
+   environment, other values, or secret references. Report exactly one safe
+   classification without printing the value:
+   - `permanent production origin`
+   - `permanent staging origin`
+   - `stale predeploy origin`
+   - `missing`
+   - `ambiguous`
+7. Classify an `APP_URL` hostname beginning with an obsolete `predeploy-...`
+   traffic tag as `stale predeploy origin`. Do not modify it. If verified runtime
+   application code still consumes `APP_URL`, stop before deployment and require
+   a separate explicitly approved configuration repair. If no runtime use
+   remains, report the stale value as later cleanup but do not block this release
+   solely because the unused setting remains. Stop on an ambiguous classification.
+8. Reconfirm that the verified OAuth implementation accepts only the approved
+   permanent production and exact Cloud Run-provided staging hostnames. Do not
+   weaken its host validation or share cookies or sessions across hostnames.
 
 ## Mandatory staging approval gate
 
@@ -143,8 +175,14 @@ gcloud run deploy life-site-dashboard \
   --project gen-lang-client-0802447346 \
   --region europe-west2 \
   --no-traffic \
-  --tag staging
+  --tag staging \
+  --update-labels life_site_commit=DEPLOYED_COMMIT \
+  --async
 ```
+
+`DEPLOYED_COMMIT` is a planning placeholder in the displayed command. In the
+actual command, replace it with the exact verified full commit SHA. Use
+`--update-labels`, never `--labels`, so unrelated existing labels are preserved.
 
 Then stop and wait. Do not run any `gcloud` deployment command until the user
 explicitly says exactly:
@@ -156,9 +194,11 @@ Deploy the verified commit to staging
 Treat similar wording as insufficient. After receiving the exact phrase and
 immediately before deploying, repeat the exact `DEPLOYED_COMMIT`, the current
 production revision, `PREVIOUS_PRODUCTION_REVISION`, and the exact command shown
-above. Reconfirm that the verified commit and current production revision have
-not changed. If either changed or any value is missing or ambiguous, stop and
-require the preparation phases and staging approval gate to be completed again.
+above with the full commit substituted for `DEPLOYED_COMMIT`. Reconfirm that the
+verified commit, current production revision, APP_URL classification, and
+runtime-use result have not changed. If any value changed or is missing or
+ambiguous, stop and require the preparation phases and staging approval gate to
+be completed again.
 
 This approval authorizes Phase 4 only. It does not authorize production
 promotion or any production traffic change.
@@ -167,8 +207,23 @@ promotion or any production traffic change.
 
 Enter this phase only after the mandatory staging approval gate has been
 satisfied. Reconfirm the clean-tree and exact-commit checks immediately before
-deployment. Then run exactly this deployment, preserving all existing service
-configuration:
+deployment.
+
+Before submission, record this safe reconciliation baseline in the task:
+
+- Deployment start time in an unambiguous UTC format.
+- `DEPLOYED_COMMIT`.
+- The revision receiving 100 percent of normal production traffic, which must
+  still equal `PREVIOUS_PRODUCTION_REVISION`.
+- The current revision targeted by the permanent `staging` tag, or an explicit
+  safe `none` value if the tag does not exist.
+- Existing recent Cloud Run revision names and creation times. Read names and
+  times only; do not inspect unrelated revision configuration.
+
+Allow the local command environment enough execution time for source packaging,
+upload, and Cloud Build submission. Then replace `DEPLOYED_COMMIT` below with the
+exact verified full commit SHA and run exactly this deployment, preserving all
+existing service configuration:
 
 ```text
 gcloud run deploy life-site-dashboard \
@@ -176,22 +231,65 @@ gcloud run deploy life-site-dashboard \
   --project gen-lang-client-0802447346 \
   --region europe-west2 \
   --no-traffic \
-  --tag staging
+  --tag staging \
+  --update-labels life_site_commit=DEPLOYED_COMMIT \
+  --async
 ```
 
-After deployment:
+Do not add Cloud Run's `--timeout` flag. The `--async` flag permits controlled
+status reconciliation after submission; it does not authorize a second deploy.
 
-1. Query safe revision and traffic fields and identify the exact revision now
-   targeted by the `staging` tag. Set it as `STAGING_REVISION_NAME`.
-2. Confirm the staging tag resolves to that exact revision.
-3. Confirm the new revision receives zero normal production traffic. Explain
-   that it remains reachable through its staging-tag URL despite receiving no
-   normal production traffic.
-4. Obtain and report the exact staging-tag URL from Cloud Run. Do not construct
-   or guess the URL.
-5. Report the mapping from `DEPLOYED_COMMIT` to `STAGING_REVISION_NAME` and state
-   explicitly that production has not changed.
-6. Do not promote the revision.
+### Poll and reconcile the asynchronous deployment
+
+After submission, use bounded, read-only polling of Cloud Build status, Cloud Run
+revision names, creation times, readiness conditions, the single
+`metadata.labels.life_site_commit` value, and safe service traffic fields. Do not
+print build inputs, complete revision configuration, environment variables,
+secret references, or private runtime information.
+
+If the local deployment command exits unexpectedly or reaches its local timeout,
+do not retry, submit another deployment, move the staging tag manually, or
+overwrite any revision. Enter the same read-only reconciliation process first.
+
+At each poll:
+
+1. Require the revision receiving normal production traffic to remain exactly
+   `PREVIOUS_PRODUCTION_REVISION` at 100 percent. Stop immediately if production
+   changes or becomes split or ambiguous.
+2. Compare revision names and creation times with the baseline. Identify only
+   revisions created after the recorded deployment start time and absent from
+   the baseline.
+3. For each new candidate, read only its exact name, creation time, readiness
+   condition, and `metadata.labels.life_site_commit`. Require exactly one new
+   revision whose label exists and exactly equals the full `DEPLOYED_COMMIT`.
+4. Inspect the permanent `staging` tag through safe traffic fields. While work is
+   still progressing, it may target only the recorded baseline staging revision
+   or the single correctly labelled candidate. Any other target is unexpected.
+5. Poll the matching Cloud Build operation when retrievable, using safe build ID,
+   creation time, and status only. Treat it as supporting evidence; never use a
+   build record as the sole commit-to-revision proof.
+6. Continue bounded polling while the build or revision is definitively in a
+   pending or running state. Run bounded polling cycles until a definite result,
+   explaining progress without guessing and never triggering an automatic retry.
+7. Treat a build or deployment terminal failure as failure. Also stop if no
+   correctly labelled revision exists after terminal completion, multiple
+   labelled candidates exist, any unexpected new revision or staging-tag target
+   appears, or the result remains ambiguous.
+
+Declare success only when all of the following are proven together:
+
+- Exactly one new revision created after the recorded start time carries
+  `metadata.labels.life_site_commit=DEPLOYED_COMMIT`.
+- Set that exact revision name as `STAGING_REVISION_NAME`.
+- The permanent `staging` tag points exactly to `STAGING_REVISION_NAME`.
+- `STAGING_REVISION_NAME` is ready and receives zero normal production traffic.
+- `PREVIOUS_PRODUCTION_REVISION` still receives 100 percent of normal production
+  traffic.
+
+Obtain and report the exact staging-tag URL from Cloud Run; never construct or
+guess it. Report the label-proven mapping from `DEPLOYED_COMMIT` to
+`STAGING_REVISION_NAME`, and state explicitly that production has not changed.
+Do not promote the revision.
 
 ## Phase 5 — Wait for user testing
 
@@ -223,8 +321,10 @@ Treat similar wording as insufficient. After receiving the phrase:
 
 1. Requery safe Cloud Run traffic fields and reconfirm that the `staging` tag
    still points to `STAGING_REVISION_NAME`.
-2. Reconfirm that `DEPLOYED_COMMIT` is the verified commit associated with that
-   staged release.
+2. Read only `metadata.labels.life_site_commit` for `STAGING_REVISION_NAME` and
+   require it to exist and exactly equal the full `DEPLOYED_COMMIT`. Use this
+   label, the staging-tag mapping, and zero-normal-traffic state as the primary
+   commit-to-revision proof; build metadata is supporting evidence only.
 3. Reconfirm that `PREVIOUS_PRODUCTION_REVISION` is the rollback revision
    captured before this release and that it is still the revision receiving
    normal production traffic.
