@@ -1,19 +1,28 @@
 import { Firestore } from '@google-cloud/firestore';
 
 let dbInstance: Firestore | null = null;
+let dbAddress: string | null = null;
 
 /**
- * Initializes and returns the Firestore client using Application Default Credentials (ADC).
- * Never requires a hardcoded service account JSON file.
+ * Initializes Firestore with an explicit project and database address.
+ * Credentials still come from ADC, but resource discovery never does.
  */
-export function getFirestoreClient(): Firestore {
+export function getFirestoreClient(projectId: string, databaseId: string): Firestore {
+  if (!projectId || !databaseId) {
+    throw new Error('Firestore project and database must be explicitly configured.');
+  }
+
+  const requestedAddress = `${projectId}/${databaseId}`;
+  if (dbInstance && dbAddress !== requestedAddress) {
+    throw new Error('Firestore client was already initialized for a different explicit address.');
+  }
+
   if (!dbInstance) {
-    const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.FIRESTORE_PROJECT_ID;
-    const databaseId = process.env.FIRESTORE_DATABASE_ID;
     dbInstance = new Firestore({
       projectId,
-      ...(databaseId ? { databaseId } : {})
+      databaseId,
     });
+    dbAddress = requestedAddress;
   }
   return dbInstance;
 }
@@ -22,14 +31,13 @@ export function getFirestoreClient(): Firestore {
  * Tests the connectivity to Firestore by running a lightweight metadata/dummy query.
  * Returns true if successful, false or throws if unsuccessful.
  */
-export async function testFirestoreConnection(): Promise<boolean> {
+export async function testFirestoreConnection(db: Firestore): Promise<boolean> {
   try {
-    const db = getFirestoreClient();
     // A lightweight limit(1) query to a non-existent dummy collection is the safest way to test ADC and connection
     await db.collection('_diagnostic_check').limit(1).get();
     return true;
-  } catch (error) {
-    console.error('Firestore connection diagnostic failed:', error);
+  } catch {
+    console.error('Firestore connection diagnostic failed.');
     return false;
   }
 }

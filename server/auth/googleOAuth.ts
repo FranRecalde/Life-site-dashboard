@@ -1,10 +1,11 @@
 import crypto from 'crypto';
+import type { SecretStore } from '../storage/secretStore';
 
 export const GOOGLE_OAUTH_CALLBACK_PATH = '/api/auth/google/callback';
 export const GOOGLE_OAUTH_PRODUCTION_ORIGIN =
   'https://life-site-dashboard-708819606972.europe-west2.run.app';
 export const GOOGLE_OAUTH_STAGING_ORIGIN =
-  'https://staging---life-site-dashboard-uggsbwiuvq-nw.a.run.app';
+  'https://life-site-dashboard-staging-708819606972.europe-west2.run.app';
 
 const GOOGLE_OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 
@@ -27,6 +28,11 @@ export type GoogleOAuthRequestOrigin = {
   protocol: string | undefined;
 };
 
+export type GoogleOAuthRuntime = {
+  nodeEnv?: string | undefined;
+  cloudRunService?: string | undefined;
+};
+
 function parseSingleHeader(value: string | undefined): string | undefined {
   if (value === undefined) {
     return undefined;
@@ -37,25 +43,80 @@ function parseSingleHeader(value: string | undefined): string | undefined {
   return value.toLowerCase();
 }
 
-export function resolveGoogleOAuthRedirectUri(requestOrigin: GoogleOAuthRequestOrigin): string {
+function isDeployedRuntime(runtime: GoogleOAuthRuntime): boolean {
+  return runtime.nodeEnv?.trim().toLowerCase() === 'production' ||
+    !!runtime.cloudRunService?.trim();
+}
+
+function resolveLocalDevelopmentOrigin(host: string, protocol: string): string {
+  if (protocol !== 'http' && protocol !== 'https') {
+    throw new UnapprovedGoogleOAuthHostError();
+  }
+
+  let url: URL;
+  try {
+    url = new URL(`${protocol}://${host}`);
+  } catch {
+    throw new UnapprovedGoogleOAuthHostError();
+  }
+
+  const approvedLoopbackHosts = new Set(['localhost', '127.0.0.1', '[::1]']);
+  if (
+    url.host !== host ||
+    !approvedLoopbackHosts.has(url.hostname) ||
+    url.username ||
+    url.password ||
+    url.pathname !== '/' ||
+    url.search ||
+    url.hash
+  ) {
+    throw new UnapprovedGoogleOAuthHostError();
+  }
+
+  return url.origin;
+}
+
+export function resolveGoogleOAuthRedirectUri(
+  requestOrigin: GoogleOAuthRequestOrigin,
+  runtime: GoogleOAuthRuntime = {
+    nodeEnv: process.env.NODE_ENV,
+    cloudRunService: process.env.K_SERVICE,
+  },
+): string {
   const host = parseSingleHeader(requestOrigin.host);
   const forwardedHost = parseSingleHeader(requestOrigin.forwardedHost);
   const forwardedProtocol = parseSingleHeader(requestOrigin.forwardedProtocol);
   const protocol = parseSingleHeader(requestOrigin.protocol);
 
-  if (!host || (forwardedHost && forwardedHost !== host)) {
-    throw new UnapprovedGoogleOAuthHostError();
-  }
-  if ((forwardedProtocol || protocol) !== 'https') {
-    throw new UnapprovedGoogleOAuthHostError();
-  }
-
-  const approvedOrigin = APPROVED_ORIGINS_BY_HOST.get(forwardedHost || host);
-  if (!approvedOrigin) {
+  if (
+    !host ||
+    !protocol ||
+    (forwardedHost && forwardedHost !== host) ||
+    (protocol !== 'http' && protocol !== 'https')
+  ) {
     throw new UnapprovedGoogleOAuthHostError();
   }
 
-  return `${approvedOrigin}${GOOGLE_OAUTH_CALLBACK_PATH}`;
+  if (forwardedProtocol && forwardedProtocol !== 'http' && forwardedProtocol !== 'https') {
+    throw new UnapprovedGoogleOAuthHostError();
+  }
+
+  const effectiveProtocol = forwardedProtocol || protocol;
+  if (isDeployedRuntime(runtime)) {
+    if (effectiveProtocol !== 'https') {
+      throw new UnapprovedGoogleOAuthHostError();
+    }
+
+    const approvedOrigin = APPROVED_ORIGINS_BY_HOST.get(forwardedHost || host);
+    if (!approvedOrigin) {
+      throw new UnapprovedGoogleOAuthHostError();
+    }
+
+    return `${approvedOrigin}${GOOGLE_OAUTH_CALLBACK_PATH}`;
+  }
+
+  const localOrigin = resolveLocalDevelopmentOrigin(forwardedHost || host, effectiveProtocol);
+  return `${localOrigin}${GOOGLE_OAUTH_CALLBACK_PATH}`;
 }
 
 export function buildGoogleAuthorizationUrl(
@@ -88,6 +149,19 @@ export function buildGoogleTokenExchangeBody(
     client_secret: clientSecret,
     redirect_uri: redirectUri,
     grant_type: 'authorization_code',
+  }).toString();
+}
+
+export function buildGoogleRefreshTokenBody(
+  refreshToken: string,
+  clientId: string,
+  clientSecret: string,
+): string {
+  return new URLSearchParams({
+    client_id: clientId,
+    client_secret: clientSecret,
+    refresh_token: refreshToken,
+    grant_type: 'refresh_token',
   }).toString();
 }
 
@@ -150,4 +224,50 @@ export function isUsableGoogleOAuthSession<T>(
   isExpired: (session: T) => boolean,
 ): session is T {
   return session !== null && session !== undefined && !isExpired(session);
+}
+
+export interface DurableGoogleOAuthState {
+  refreshToken: string;
+  writeAuthorized: boolean;
+}
+
+export class GoogleOAuthPersistenceError extends Error {
+  readonly reason: 'oauth_refresh_token_unavailable' | 'oauth_secret_persistence_failed';
+
+  constructor(reason: 'oauth_refresh_token_unavailable' | 'oauth_secret_persistence_failed') {
+    super(reason);
+    this.name = 'GoogleOAuthPersistenceError';
+    this.reason = reason;
+  }
+}
+
+export async function persistGoogleOAuthAuthorization(
+  store: SecretStore,
+  currentState: DurableGoogleOAuthState,
+  returnedRefreshToken: unknown,
+): Promise<DurableGoogleOAuthState> {
+  const newRefreshToken = typeof returnedRefreshToken === 'string'
+    ? returnedRefreshToken.trim()
+    : '';
+  const durableRefreshToken = newRefreshToken || currentState.refreshToken;
+
+  if (!durableRefreshToken) {
+    throw new GoogleOAuthPersistenceError('oauth_refresh_token_unavailable');
+  }
+
+  try {
+    if (newRefreshToken && newRefreshToken !== currentState.refreshToken) {
+      await store.setSecretVersion('GOOGLE_REFRESH_TOKEN', newRefreshToken);
+    }
+    if (!currentState.writeAuthorized) {
+      await store.setSecretVersion('GOOGLE_WRITE_AUTHORIZED', 'true');
+    }
+  } catch {
+    throw new GoogleOAuthPersistenceError('oauth_secret_persistence_failed');
+  }
+
+  return {
+    refreshToken: durableRefreshToken,
+    writeAuthorized: true,
+  };
 }

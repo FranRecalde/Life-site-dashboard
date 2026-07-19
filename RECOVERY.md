@@ -11,35 +11,44 @@ This manual provides quick-reference troubleshooting steps for system operators 
 - Diagnostics page shows `connected: false` for Firestore.
 
 ### Recovery Steps
-1. **Verify Environment Variables**:
-   Ensure `GOOGLE_APPLICATION_CREDENTIALS` or Application Default Credentials (ADC) are active and properly configured if running in Cloud Run.
-2. **Switch to Local File Persistence (Emergency Rollback)**:
-   If Firestore is experiencing a regional cloud outage, force the application to use the local filesystem for settings and sessions:
-   - Set the environment variable: `STORAGE_PROVIDER=local`
-   - Restart the server. This will cause the server to fall back to the self-bootstrapping JSON database files inside the `/data` directory.
-3. **Verify Database Indexes**:
-   Check the Google Cloud Console to ensure no required compound Firestore indexes are missing.
+1. **Verify Firestore status and access**:
+   Confirm the explicitly configured project and database, Firestore API status,
+   service-account permissions, database health, and required indexes. Do not
+   retrieve credentials or document contents as part of a connectivity check.
+2. **Keep a failing revision out of traffic**:
+   Do not promote a revision whose readiness check cannot reach its configured
+   Firestore database. When appropriate, route traffic back to a previously
+   verified immutable revision using the release procedure's captured rollback
+   target.
+3. **Recover durable data from Firestore**:
+   When data recovery is required, restore from a verified Firestore backup and
+   validate the restored database before it receives application traffic.
+4. **Never use the Cloud Run filesystem for recovery storage**:
+   Cloud Run's writable filesystem is temporary and instance-local. Local or
+   dual storage must not be used as a staging or production recovery fallback.
 
 ---
 
 ## 2. Secret Manager Permission Error
 
 ### Symptom
-- Startup logs show error: `GoogleSecretManagerStore: Failed to access secret...`
+- Readiness reports a safe Secret Manager configuration or availability reason.
 - Tokens and Client Secrets are not resolving, preventing integrations from running.
 
 ### Recovery Steps
-1. **Grant IAM Permissions**:
-   The service account running the container (e.g., the Cloud Run service account) must have the `Secret Manager Secret Accessor` (`roles/secretmanager.secretAccessor`) role on the respective project or specific secrets.
-   ```bash
-   gcloud secrets add-iam-policy-binding LIFE_SITE_USERNAME \
-     --member="serviceAccount:YOUR_SERVICE_ACCOUNT" \
-     --role="roles/secretmanager.secretAccessor"
-   ```
-2. **Switch to Local Secrets Storage (Emergency Rollback)**:
-   If IAM configuration is locked or Cloud KMS is unreachable, you can temporarily store credentials locally:
-   - Set environment variable: `SECRET_PROVIDER=existing`
-   - Populate `/data/secrets.json` directly with the JSON formatted secrets, or pass them as standard environment variables.
+1. **Verify the environment boundary**:
+   Require `SECRET_PROVIDER=secretmanager`, the explicit Secret Manager project
+   `gen-lang-client-0802447346`, and the environment's exact prefix:
+   `life-site-prod` or `life-site-staging`. `GOOGLE_CLOUD_PROJECT` identifies
+   Firestore and must not be used to select secrets.
+2. **Verify resources and least-privilege IAM read-only**:
+   Check the eight exact environment-prefixed secret resources, enabled versions,
+   runtime identity, and secret-specific accessor/version-adder bindings without
+   reading payloads. IAM repair and secret creation require separate approval.
+3. **Keep the revision out of traffic**:
+   Do not switch a deployed service to `SECRET_PROVIDER=existing` or use
+   revision-local `data/secrets.json` as a fallback. Keep a failing candidate out
+   of traffic or use the approved release rollback process.
 
 ---
 
@@ -55,7 +64,9 @@ This manual provides quick-reference troubleshooting steps for system operators 
    - Click **Google Connected** / **Disconnect** to clear the old refresh token.
    - Click **Connect Google Account**. Ensure you accept all calendar permission checkboxes on the Google consent page.
 2. **Verify OAuth Client Settings**:
-   - Verify that your external redirect URI matches exactly: `https://<YOUR-DOMAIN>/api/auth/google/callback`.
+   - Verify that the production redirect URI is exactly: `https://life-site-dashboard-708819606972.europe-west2.run.app/api/auth/google/callback`.
+   - Verify that the separate staging-service redirect URI is exactly: `https://life-site-dashboard-staging-708819606972.europe-west2.run.app/api/auth/google/callback`.
+   - Do not register obsolete traffic-tag, predeploy, wildcard, or arbitrary `run.app` callback hosts.
    - Ensure the Google Cloud project has the **Google Calendar API** enabled in the API Console.
 
 ---
@@ -73,7 +84,8 @@ This manual provides quick-reference troubleshooting steps for system operators 
 2. **Apply in settings**:
    - Go to **Settings → Connections** in the Life Site UI.
    - Under **Todoist API Token**, enter the newly copied token and click **Save Connections**.
-   - If the system is using Google Secret Manager, the server will automatically update the `TODOIST_API_TOKEN` secret.
+   - In deployed Secret Manager mode, the server appends a version to the exact
+     environment-prefixed Todoist secret. It never creates the secret resource.
 
 ---
 

@@ -1,5 +1,5 @@
 import path from 'path';
-import { getFirestoreClient } from './firestoreClient';
+import { getFirestoreClient, testFirestoreConnection } from './firestoreClient';
 import { SettingsStore, SessionStore, HabitStore, StorageProviderType, SessionData } from './types';
 import { LocalSettingsStore } from './localSettingsStore';
 import { MemorySessionStore } from './memorySessionStore';
@@ -9,6 +9,11 @@ import { LocalHabitStore } from './localHabitStore';
 import { FirestoreHabitStore } from './firestoreHabitStore';
 import { DualHabitStore } from './dualHabitStore';
 import { UserSettings } from '../../src/types';
+import {
+  PersistentStorageConfiguration,
+  requireValidPersistentStorageConfiguration,
+  resolvePersistentStorageConfiguration,
+} from './storageConfig';
 
 // Dual Settings Store - writes to both, reads from Firestore with fallback to local
 class DualSettingsStore implements SettingsStore {
@@ -107,14 +112,17 @@ export interface Stores {
   sessions: SessionStore;
   habits: HabitStore;
   provider: StorageProviderType;
+  testFirestoreConnection: () => Promise<boolean>;
 }
 
 /**
  * Factory to construct and return the chosen storage stores configuration.
  */
-export function createStores(): Stores {
-  const providerEnv = process.env.STORAGE_PROVIDER || 'local';
-  const provider = providerEnv.toLowerCase() as StorageProviderType;
+export function createStores(
+  configuration: PersistentStorageConfiguration = resolvePersistentStorageConfiguration()
+): Stores {
+  requireValidPersistentStorageConfiguration(configuration);
+  const provider = configuration.provider;
   
   const DATA_DIR = path.join(process.cwd(), 'data');
   const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
@@ -126,28 +134,34 @@ export function createStores(): Stores {
   const localHabits = new LocalHabitStore(HABITS_FILE, HABIT_ENTRIES_FILE);
 
   if (provider === 'firestore') {
-    const db = getFirestoreClient();
+    const db = getFirestoreClient(configuration.projectId!, configuration.databaseId!);
     return {
       settings: new FirestoreSettingsStore(db),
       sessions: new FirestoreSessionStore(db),
       habits: new FirestoreHabitStore(db),
-      provider: 'firestore'
+      provider: 'firestore',
+      testFirestoreConnection: () => testFirestoreConnection(db),
     };
   } else if (provider === 'dual') {
-    const db = getFirestoreClient();
+    // Dual mode is temporary development/migration tooling. Central validation
+    // forbids it in production and Cloud Run so deployed failures cannot fall
+    // back to ephemeral files or in-memory sessions.
+    const db = getFirestoreClient(configuration.projectId!, configuration.databaseId!);
     return {
       settings: new DualSettingsStore(localSettings, new FirestoreSettingsStore(db)),
       sessions: new DualSessionStore(localSessions, new FirestoreSessionStore(db)),
       habits: new DualHabitStore(localHabits, new FirestoreHabitStore(db)),
-      provider: 'dual'
+      provider: 'dual',
+      testFirestoreConnection: () => testFirestoreConnection(db),
     };
   } else {
-    // Default to 'local'
+    // Local storage is explicit and limited to non-deployed development/tests.
     return {
       settings: localSettings,
       sessions: localSessions,
       habits: localHabits,
-      provider: 'local'
+      provider: 'local',
+      testFirestoreConnection: async () => false,
     };
   }
 }
