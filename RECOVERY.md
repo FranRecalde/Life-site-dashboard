@@ -62,7 +62,9 @@ This manual provides quick-reference troubleshooting steps for system operators 
    - Click **Google Connected** / **Disconnect** to clear the old refresh token.
    - Click **Connect Google Account**. Ensure you accept all calendar permission checkboxes on the Google consent page.
 2. **Verify OAuth Client Settings**:
-   - Verify that your external redirect URI matches exactly: `https://<YOUR-DOMAIN>/api/auth/google/callback`.
+   - Verify that the production redirect URI is exactly: `https://life-site-dashboard-708819606972.europe-west2.run.app/api/auth/google/callback`.
+   - Verify that the separate staging-service redirect URI is exactly: `https://life-site-dashboard-staging-708819606972.europe-west2.run.app/api/auth/google/callback`.
+   - Do not register obsolete traffic-tag, predeploy, wildcard, or arbitrary `run.app` callback hosts.
    - Ensure the Google Cloud project has the **Google Calendar API** enabled in the API Console.
 
 ---

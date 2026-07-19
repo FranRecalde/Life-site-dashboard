@@ -1050,6 +1050,11 @@ async function startServer() {
   // Google OAuth Flow for Google Calendar
   // -------------------------------------------------------------
 
+  const googleOAuthRuntime = {
+    nodeEnv: process.env.NODE_ENV,
+    cloudRunService: process.env.K_SERVICE,
+  };
+
   app.get('/api/auth/google/url', authMiddleware, (req: any, res) => {
     let redirectUri: string;
     try {
@@ -1058,7 +1063,7 @@ async function startServer() {
         forwardedHost: req.get('x-forwarded-host'),
         forwardedProtocol: req.get('x-forwarded-proto'),
         protocol: req.protocol,
-      });
+      }, googleOAuthRuntime);
     } catch {
       return res.status(400).json({ success: false, error: 'Unapproved OAuth request host' });
     }
@@ -1102,7 +1107,7 @@ async function startServer() {
         forwardedHost: req.get('x-forwarded-host'),
         forwardedProtocol: req.get('x-forwarded-proto'),
         protocol: req.protocol,
-      });
+      }, googleOAuthRuntime);
     } catch {
       return res.status(400).send('Unapproved OAuth request host');
     }
