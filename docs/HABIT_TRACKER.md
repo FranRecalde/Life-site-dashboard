@@ -12,22 +12,28 @@ The Habit Tracker implements a flexible storage engine that allows operators to 
 
 | Storage Mode | `STORAGE_PROVIDER` Value | Description | Use Case |
 | :--- | :--- | :--- | :--- |
-| **Local File** | `local` | Reads and writes directly to local JSON database files on the container filesystem (`/data/habits.json` and `/data/habit_entries.json`). | Local development, single-instance offline-first prototypes. |
-| **Firestore** | `firestore` | Reads and writes directly to the Google Cloud Firestore instance specified by `GOOGLE_CLOUD_PROJECT`. | Fully productionized cloud deployments with durable database persistence. |
-| **Dual Storage** | `dual` | Writes to both the local file and Firestore simultaneously, and reads from Firestore with a transparent fallback to the local file. | Seamless zero-downtime database migrations and backup integrity. |
+| **Local File** | `local` | Reads and writes local JSON files under the process `data` directory. | Explicit local development and automated tests only. |
+| **Firestore** | `firestore` | Reads and writes the exact Firestore project and database supplied by configuration. | Required provider for staging, production, and Cloud Run. |
+| **Dual Storage** | `dual` | Writes to both local files and Firestore and may fall back to local reads. | Temporary non-deployed development or migration work only; forbidden in staging, production, and Cloud Run. |
 
 ### Environment Variables
 Configure these in your production container environment or `.env` file:
 ```bash
-# Define data persistence mode
-STORAGE_PROVIDER="local" # 'local' | 'dual' | 'firestore'
+# Local development (no cloud database required)
+NODE_ENV="development"
+STORAGE_PROVIDER="local"
 
-# Define GCP project ID (Required if STORAGE_PROVIDER is 'firestore' or 'dual')
+# Staging/production replaces the two values above with:
+# NODE_ENV="production"
+# STORAGE_PROVIDER="firestore"
+# Both values below are required for firestore and dual; neither is discovered.
 GOOGLE_CLOUD_PROJECT="your-gcp-project-id"
-
-# Optional database ID for custom Firestore instances
-FIRESTORE_DATABASE_ID=""
+FIRESTORE_DATABASE_ID="your-firestore-database-id"
 ```
+
+`FIRESTORE_DATABASE_ID="(default)"` is valid only when supplied explicitly.
+Missing or unsupported `STORAGE_PROVIDER` values are startup errors. Cloud Run's
+writable filesystem is temporary and must never be treated as durable storage.
 
 ---
 

@@ -16,8 +16,14 @@ import {
   TodoistProjectTask,
   TodoistSection
 } from './src/types';
-import { createStores } from './server/storage/createStores';
-import { testFirestoreConnection } from './server/storage/firestoreClient';
+import { createStores, type Stores } from './server/storage/createStores';
+import {
+  evaluatePersistentStorageStatus,
+  PersistentStorageConfigurationError,
+  type PersistentStorageConfiguration,
+  resolvePersistentStorageConfiguration,
+  storageReadinessHttpStatus,
+} from './server/storage/storageConfig';
 import { getSecretStore, getSecretProvider, redactSecrets } from './server/storage/secretStore';
 import {
   buildGoogleAuthorizationUrl,
@@ -59,8 +65,52 @@ let resolvedAuthConfig: ResolvedAuthConfig = {
   reason: 'missing_username'
 };
 
-// STORES initialization
-const STORES = createStores();
+function startInvalidStorageConfigurationServer(
+  configuration: PersistentStorageConfiguration
+): void {
+  const app = express();
+  const port = Number(process.env.PORT || 3000);
+
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok', app: 'Life Site Dashboard', timestamp: new Date().toISOString() });
+  });
+
+  app.get('/api/readiness', async (_req, res) => {
+    const storageStatus = await evaluatePersistentStorageStatus(configuration, async () => false);
+    res.status(storageReadinessHttpStatus(storageStatus)).json({
+      status: 'unavailable',
+      details: {
+        serverRunning: true,
+        ...storageStatus,
+      },
+    });
+  });
+
+  // Configuration-invalid processes expose no normal application routes.
+  app.use((_req, res) => {
+    res.status(503).json({ status: 'unavailable', error: 'Persistent storage configuration is invalid.' });
+  });
+
+  app.listen(port, '0.0.0.0', () => {
+    console.error(`Life Site diagnostic-only server running on port ${port}.`);
+  });
+}
+
+// Validate persistent storage before any local files are created or normal routes start.
+const PERSISTENT_STORAGE_CONFIGURATION = resolvePersistentStorageConfiguration();
+let resolvedStores: Stores | null = null;
+try {
+  resolvedStores = createStores(PERSISTENT_STORAGE_CONFIGURATION);
+} catch (error) {
+  if (!(error instanceof PersistentStorageConfigurationError)) {
+    throw error;
+  }
+  console.error(`[Persistent Storage Configuration Error] ${error.message}`);
+  startInvalidStorageConfigurationServer(PERSISTENT_STORAGE_CONFIGURATION);
+}
+
+if (resolvedStores) {
+const STORES = resolvedStores;
 
 // Self-bootstrapping data directories
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -541,6 +591,10 @@ async function startServer() {
   console.log(`[Startup Info] Password Hash Configured: ${!!passwordHash}`);
   console.log(`[Startup Info] Password Hash Format Valid: ${isPasswordHashValid(passwordHash)}`);
   console.log(`[Startup Info] Session Secret Configured: ${!!sessionSecret}`);
+  console.log(`[Startup Info] Deployed Runtime: ${PERSISTENT_STORAGE_CONFIGURATION.deployedRuntime}`);
+  console.log(`[Startup Info] Storage Provider: ${STORES.provider}`);
+  console.log(`[Startup Info] Firestore Project Configured: ${PERSISTENT_STORAGE_CONFIGURATION.firestoreProjectConfigured}`);
+  console.log(`[Startup Info] Firestore Database Configured: ${PERSISTENT_STORAGE_CONFIGURATION.firestoreDatabaseConfigured}`);
 
   const authConfig = resolvedAuthConfig;
   // Validate required production configuration during startup (Requirement 1 & 2)
@@ -636,17 +690,10 @@ async function startServer() {
   app.get('/api/readiness', async (req, res) => {
     try {
       const serverRunning = true;
-
-      let firestoreReachable = false;
-      try {
-        if (STORES.provider === 'firestore' || STORES.provider === 'dual') {
-          firestoreReachable = await testFirestoreConnection();
-        } else {
-          firestoreReachable = true;
-        }
-      } catch (e) {
-        firestoreReachable = false;
-      }
+      const storageStatus = await evaluatePersistentStorageStatus(
+        PERSISTENT_STORAGE_CONFIGURATION,
+        STORES.testFirestoreConnection
+      );
 
       const secretProvider = getSecretProvider();
       const authConfig = resolvedAuthConfig;
@@ -663,14 +710,18 @@ async function startServer() {
 
       const productionConfigValid = startupValidationErrors.length === 0;
 
-      const status = serverRunning && firestoreReachable && authConfigurationReady && productionConfigValid;
+      const status =
+        serverRunning &&
+        storageStatus.persistentStorageReady &&
+        authConfigurationReady &&
+        productionConfigValid;
 
       if (!status) {
         return res.status(503).json({
           status: 'unavailable',
           details: {
             serverRunning,
-            firestoreReachable,
+            ...storageStatus,
             secretProvider,
             usernameConfigured,
             passwordHashConfigured,
@@ -688,7 +739,7 @@ async function startServer() {
         status: 'ready',
         details: {
           serverRunning,
-          firestoreReachable,
+          ...storageStatus,
           secretProvider,
           usernameConfigured,
           passwordHashConfigured,
@@ -699,8 +750,8 @@ async function startServer() {
           productionConfigValid
         }
       });
-    } catch (e: any) {
-      res.status(503).json({ status: 'unavailable', error: e.message });
+    } catch {
+      res.status(503).json({ status: 'unavailable' });
     }
   });
 
@@ -934,24 +985,20 @@ async function startServer() {
   });
 
   app.get('/api/storage/diagnostic', authMiddleware, async (req, res) => {
-    try {
-      let connected = true;
-      if (STORES.provider === 'firestore' || STORES.provider === 'dual') {
-        connected = await testFirestoreConnection();
-      }
-      res.json({
-        success: true,
-        provider: STORES.provider,
-        connected
-      });
-    } catch (e: any) {
-      res.status(500).json({
-        success: false,
-        provider: STORES.provider,
-        connected: false,
-        error: e.message
-      });
-    }
+    const storageStatus = await evaluatePersistentStorageStatus(
+      PERSISTENT_STORAGE_CONFIGURATION,
+      STORES.testFirestoreConnection
+    );
+    res.status(storageStatus.persistentStorageReady ? 200 : 503).json({
+      success: storageStatus.persistentStorageReady,
+      provider: storageStatus.storageProvider,
+      deployedRuntime: storageStatus.deployedRuntime,
+      projectConfigured: storageStatus.firestoreProjectConfigured,
+      databaseConfigured: storageStatus.firestoreDatabaseConfigured,
+      configurationValid: storageStatus.persistentStorageConfigurationValid,
+      firestoreReachable: storageStatus.firestoreReachable,
+      persistentStorageReady: storageStatus.persistentStorageReady,
+    });
   });
 
   app.post('/api/settings/connections', authMiddleware, async (req, res) => {
@@ -3560,3 +3607,4 @@ async function startServer() {
 }
 
 startServer();
+}

@@ -10,6 +10,7 @@ import { MemorySessionStore } from './memorySessionStore';
 import { UserSettings } from '../../src/types';
 import { ExistingSecretStore } from './secretStore';
 import { calculateSevenDaySummary, getPastNDays } from '../../src/services/habitEngine';
+import { resolvePersistentStorageConfiguration } from './storageConfig';
 
 // Helper to simulate pbkdf2 verification (login logic from server.ts)
 function verifyPassword(password: string, storedHash: string, isProduction = false): boolean {
@@ -37,16 +38,13 @@ test('Token Hashing produces valid and consistent SHA-256 hex string', () => {
   assert.strictEqual(hashed, 'd0b7a6ff8c0d996e04117031d958bb43552572c9e95e079727d82547bc3079d4');
 });
 
-test('Store Selection defaults to local when STORAGE_PROVIDER is unset or invalid', () => {
-  const originalProvider = process.env.STORAGE_PROVIDER;
-  delete process.env.STORAGE_PROVIDER;
-  
-  try {
-    const stores = createStores();
-    assert.strictEqual(stores.provider, 'local');
-  } finally {
-    process.env.STORAGE_PROVIDER = originalProvider;
-  }
+test('Store Selection uses local only when STORAGE_PROVIDER is explicitly local', () => {
+  const configuration = resolvePersistentStorageConfiguration({
+    NODE_ENV: 'development',
+    STORAGE_PROVIDER: 'local',
+  });
+  const stores = createStores(configuration);
+  assert.strictEqual(stores.provider, 'local');
 });
 
 test('Settings Storage: saves and loads settings successfully', async () => {
@@ -2160,7 +2158,6 @@ test('Calendar Event Editor: parsing, recurring checks, canEdit flags and human-
   assert.strictEqual(getNextDayExclusive('2026-07-16'), '2026-07-17');
   assert.strictEqual(getNextDayExclusive('2026-12-31'), '2027-01-01');
 });
-
 
 
 

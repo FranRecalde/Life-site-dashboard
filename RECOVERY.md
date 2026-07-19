@@ -11,14 +11,21 @@ This manual provides quick-reference troubleshooting steps for system operators 
 - Diagnostics page shows `connected: false` for Firestore.
 
 ### Recovery Steps
-1. **Verify Environment Variables**:
-   Ensure `GOOGLE_APPLICATION_CREDENTIALS` or Application Default Credentials (ADC) are active and properly configured if running in Cloud Run.
-2. **Switch to Local File Persistence (Emergency Rollback)**:
-   If Firestore is experiencing a regional cloud outage, force the application to use the local filesystem for settings and sessions:
-   - Set the environment variable: `STORAGE_PROVIDER=local`
-   - Restart the server. This will cause the server to fall back to the self-bootstrapping JSON database files inside the `/data` directory.
-3. **Verify Database Indexes**:
-   Check the Google Cloud Console to ensure no required compound Firestore indexes are missing.
+1. **Verify Firestore status and access**:
+   Confirm the explicitly configured project and database, Firestore API status,
+   service-account permissions, database health, and required indexes. Do not
+   retrieve credentials or document contents as part of a connectivity check.
+2. **Keep a failing revision out of traffic**:
+   Do not promote a revision whose readiness check cannot reach its configured
+   Firestore database. When appropriate, route traffic back to a previously
+   verified immutable revision using the release procedure's captured rollback
+   target.
+3. **Recover durable data from Firestore**:
+   When data recovery is required, restore from a verified Firestore backup and
+   validate the restored database before it receives application traffic.
+4. **Never use the Cloud Run filesystem for recovery storage**:
+   Cloud Run's writable filesystem is temporary and instance-local. Local or
+   dual storage must not be used as a staging or production recovery fallback.
 
 ---
 
