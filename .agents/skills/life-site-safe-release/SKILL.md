@@ -1,111 +1,112 @@
 ---
 name: life-site-safe-release
 description: >-
-  Safely verify, build, stage, promote, verify, and explicitly roll back the
-  Life Site Dashboard from GitHub main to Google Cloud Run without Google AI
-  Studio publishing. Use for release, staging deployment, production promotion,
-  production verification, or rollback work involving
-  FranRecalde/Life-site-dashboard and the life-site-dashboard Cloud Run service.
+  Safely verify, build once, deploy, verify, promote, and explicitly roll back
+  the Life Site Dashboard through separate staging and production Google Cloud
+  Run services. Use for staging releases, production releases, production
+  verification, or rollback work involving FranRecalde/Life-site-dashboard,
+  life-site-dashboard-staging, and life-site-dashboard.
 ---
 
 # Life Site Safe Release
 
-Release the Life Site Dashboard through a fail-closed, approval-gated workflow.
-Treat GitHub `main`, a zero-normal-traffic staging revision, and the revision
-currently serving production as three distinct states. Explain every transition
-in plain English.
+Release one verified Git commit as one immutable container image. Deploy that
+exact image digest to the separate staging service, verify it, and only then
+deploy the same digest to the production service through two production approval
+gates. Fail closed whenever identity, provenance, configuration, readiness, or
+traffic is missing, unsafe, or ambiguous.
 
-## Fixed release coordinates
+## Fixed identities
 
 - Repository: `FranRecalde/Life-site-dashboard`
 - Authoritative branch: `main`
 - Google Cloud project: `gen-lang-client-0802447346`
 - Cloud Run region: `europe-west2`
-- Cloud Run service: `life-site-dashboard`
-- Permanent staging traffic tag: `staging`
-- Permanent production URL:
-  `https://life-site-dashboard-708819606972.europe-west2.run.app`
+- Staging service: `life-site-dashboard-staging`
+- Production service: `life-site-dashboard`
+- Required staging Firestore database ID: `life-site-staging`
+- Google OAuth callback path: `/api/auth/google/callback`
 
-## Enforce the safety boundary
+Treat the two Cloud Run services as separate houses. Never use a traffic tag,
+tagged URL, or zero-traffic revision on `life-site-dashboard` as staging. Never
+deploy a source tree directly to production, and never rebuild for production.
 
-- Treat GitHub `main` as the sole authoritative application source.
-- Never publish from Google AI Studio.
-- Never commit, print, copy, summarize, or otherwise expose passwords, password
-  hashes, API tokens, OAuth credentials, `.env` files, Secret Manager values,
-  private notes, or runtime data. Report only safe file names and redacted
-  findings when a security check requires a report.
-- Never inspect secret values merely to complete this workflow.
-- Never modify Secret Manager, Firestore, OAuth settings, authentication
-  configuration, or environment variables unless the user explicitly requests
-  that separate change. Treat such a request as separate from the release.
-- Treat a request to prepare a staging deployment as authorization for Phases 1,
-  2, and 3 only. Never treat preparation, verification, or build inspection as
-  authorization to create a Cloud Run revision.
-- Never run a `gcloud` deployment command until the user gives the exact staging
-  approval phrase required below.
-- Never use Cloud Run's `--timeout` flag to address a local command timeout. It
-  controls application request duration, not source packaging, upload, or Cloud
-  Build submission. Give the local execution environment enough time for those
-  submission steps, then use bounded read-only polling.
-- Never retry a staging deployment automatically after an unexpected local exit
-  or timeout. Reconcile the existing operation first using read-only checks.
-- Never send normal production traffic to a new revision automatically.
-- Treat staging deployment and production promotion as separate approval gates.
-  Approval to deploy to staging never authorizes a production traffic change.
-- Never hardcode or reuse a rollback revision. Capture it from live traffic
-  immediately before each staging deployment.
-- Never deploy with unreviewed or uncommitted application changes.
-- Stop immediately when any required check is ambiguous or fails. Report the
-  failed check without bypassing, suppressing, weakening, or working around it.
-- Do not start a later phase until every required check in the current phase
-  passes.
-- Keep a release record in the task containing only these safe identifiers:
-  `DEPLOYED_COMMIT`, `PREVIOUS_PRODUCTION_REVISION`, and
-  `STAGING_REVISION_NAME`. Do not invent a missing value.
+## Infrastructure boundary
 
-## Phase 1 — Verify the source
+This skill releases application code only after the foundations already exist
+and pass read-only preflight. It must not create or modify Cloud Run services,
+Firestore databases, backup schedules, APIs, IAM bindings, service accounts,
+secrets, environment variables, traffic tags, or Google OAuth configuration.
+Database creation, protection, migration, backup, restore, IAM, secrets, and
+OAuth registration require separate, explicitly approved infrastructure work.
 
-1. Confirm that the working directory is the intended repository. Read the
-   `origin` URL without displaying embedded credentials. Accept the normal
-   GitHub HTTPS or SSH form only when its owner and repository normalize exactly
-   to `FranRecalde/Life-site-dashboard`. Stop if the remote URL contains user
-   information, credentials, or an unexpected host.
-2. Confirm that the current branch is exactly `main`.
-3. Fetch `origin` without changing application files.
-4. Resolve local `HEAD` and `origin/main`. Require the two full commit hashes to
-   be identical. Do not merge, rebase, pull, reset, or switch revisions to make
-   them match.
-5. Require `git status --porcelain=v1` to be empty. Treat staged, unstaged, and
-   untracked application files as a failure. Ignore only generated files already
-   excluded by the repository's committed ignore rules.
-6. Set `DEPLOYED_COMMIT` to the exact full hash of the verified `HEAD` and report
-   it as the commit that would be deployed.
-7. Inspect tracked file names and any changed-file names for likely secret,
-   private-note, or runtime-data paths. Use filename-only or redacted output.
-   Never print file contents from `.env` files, credential files, private notes,
-   runtime stores, or likely secret files.
-8. Run the repository's configured secret scanner when one exists. Otherwise,
-   scan tracked content with a reputable available scanner or filename-only,
-   redacted pattern checks. Do not print matching values. Treat every credible
-   finding, scanner error, or inability to inspect safely as a failed check.
-9. Inspect the filenames that `gcloud` would upload, without deploying. Require
-   `.gcloudignore` or equivalent upload exclusions to omit `.git`, `.env` files,
-   credentials, private notes, local runtime data, test artifacts containing
-   user data, and unrelated local files. Stop if the candidate source bundle is
-   ambiguous or unsafe.
-10. Search tracked application source for runtime uses of `APP_URL`, excluding
-    environment files, generated output, dependencies, documentation, and this
-    release skill. Record whether verified runtime code still consumes it. In
-    particular, preserve the OAuth repair that resolves production and staging
-    callback origins only from approved incoming Cloud Run hostnames; never
-    reintroduce `APP_URL` as an OAuth redirect fallback.
+Do not invoke this release workflow until both services exist and both configured
+Firestore connections pass preflight. Stop and identify the missing foundation;
+never repair it from this skill.
 
-Distinguish clearly in the report that `DEPLOYED_COMMIT` is committed code on
-GitHub and is not yet a Cloud Run revision.
+## Never expose sensitive data
 
-## Phase 2 — Run the build inspection
+- Never print or summarize secret values, passwords, password hashes, API tokens,
+  OAuth client secrets, refresh tokens, session cookies, authorization headers,
+  `.env` contents, private habit contents, or personal integration records.
+- Inspect only approved environment keys and safe identifiers. Report configured
+  booleans, service-account identifiers, environment-key names, Secret Manager
+  reference names, revision names, image digests, commit hashes, and traffic.
+- Never dump a complete service, revision, environment block, secret resource,
+  HTTP response, log stream, or record payload.
+- Sanitize health and readiness output to the fields required below.
 
-Run these commands separately and in this exact order:
+## Release record
+
+Keep these safe values in the task for one release only. Never reuse them from a
+prior release or invent a missing value:
+
+- `DEPLOYED_COMMIT`
+- `PLANNED_IMAGE_TAG`
+- `IMMUTABLE_IMAGE`
+- `STAGING_REVISION_NAME`
+- `PRODUCTION_CANDIDATE_REVISION`
+- `PREVIOUS_PRODUCTION_REVISION`
+- `PREVIOUS_PRODUCTION_IMAGE`
+- `STAGING_SERVICE_URL`
+- `PRODUCTION_SERVICE_URL`
+- `STAGING_FIRESTORE_ADDRESS`
+- `PRODUCTION_FIRESTORE_ADDRESS`
+- `PRODUCTION_SAFE_CONFIG_FINGERPRINT`
+
+`IMMUTABLE_IMAGE` must be a registry reference ending in `@sha256:...`, never a
+mutable tag. The commit-provenance label key is `life_site_commit` and its value
+must be the full `DEPLOYED_COMMIT`.
+
+## Phase 1 - Verify the source
+
+1. Confirm the working directory is the intended repository. Read only the
+   credential-free `origin` identity and require it to normalize exactly to
+   `FranRecalde/Life-site-dashboard` on GitHub. Stop on embedded credentials,
+   another host, owner, or repository.
+2. Report the current branch and full local `HEAD`. Require the branch to be
+   exactly `main` for a release.
+3. Fetch `origin` without merging, rebasing, pulling, resetting, or switching.
+4. Require `git status --porcelain=v1` to be empty, including staged, unstaged,
+   and untracked application files. Ignore only generated paths already covered
+   by committed ignore rules.
+5. Resolve full local `HEAD` and `origin/main`. Require them to match. This proves
+   the commit exists remotely. If the intended local commit is absent from the
+   remote, stop and ask the user to push or merge it separately; never push it.
+6. Set `DEPLOYED_COMMIT` to the verified full hash. Reconfirm the commit after
+   every approval and immediately before every build or deployment.
+7. Inspect upload filenames, committed ignore rules, and tracked filenames for
+   secrets, credentials, private notes, runtime data, or unsafe build inputs.
+   Use filename-only or redacted checks and stop on any credible finding.
+8. Run the repository's configured secret scanner when present. Never print a
+   match value.
+
+The verified Git commit is source provenance; it is not yet an image or a Cloud
+Run revision.
+
+## Phase 2 - Validate the verified commit
+
+Run separately and stop at the first failure:
 
 ```text
 npm ci
@@ -114,261 +115,251 @@ npm run build
 npm test
 ```
 
-Report pass or fail for each command. Do not claim a command passed unless its
-process exits successfully. Stop at the first failure, and do not deploy unless
-all four pass.
+Afterward, require the same `DEPLOYED_COMMIT`, exact equality with `origin/main`,
+a clean tree, and a safe build context. Do not build a cloud image yet.
 
-After all four commands pass, reconfirm that local `HEAD` still equals
-`DEPLOYED_COMMIT`, local `HEAD` still equals `origin/main`, and the Git working
-tree is still clean. Reinspect candidate upload filenames if the build created
-files that could enter the source bundle. Stop if any result changed or is
-unsafe.
+## Phase 3 - Read-only service and data preflight
 
-## Phase 3 — Record the current safe version
+Inspect only narrowly selected safe fields. Never print complete service or
+revision configuration.
 
-1. Inspect only the Cloud Run service's safe traffic fields. Avoid commands or
-   output formats that reveal environment variables, secret references, or
-   configuration unrelated to traffic.
-2. Identify the exact revision currently receiving normal production traffic.
-   Distinguish untagged production traffic from traffic-tag URLs. Require one
-   unambiguous revision receiving 100 percent of normal production traffic; stop
-   and ask the user how to proceed if traffic is split or ambiguous.
-3. Set `PREVIOUS_PRODUCTION_REVISION` to that exact revision name for this
-   release only. Do not derive it from `LATEST`, the staging tag, a prior task,
-   or a hardcoded value.
-4. Show the current production revision and the identical per-release rollback
-   target to the user before creating a revision.
-5. Retrieve the exact permanent `staging` traffic-tag URL and current staging-tag
-   revision from safe traffic fields. Do not construct either value.
-6. Perform one narrowly scoped, read-only inspection of the deployed service's
-   `APP_URL` entry. Select and parse only that entry; never dump the complete
-   environment, other values, or secret references. Report exactly one safe
-   classification without printing the value:
-   - `permanent production origin`
-   - `permanent staging origin`
-   - `stale predeploy origin`
-   - `missing`
-   - `ambiguous`
-7. Classify an `APP_URL` hostname beginning with an obsolete `predeploy-...`
-   traffic tag as `stale predeploy origin`. Do not modify it. If verified runtime
-   application code still consumes `APP_URL`, stop before deployment and require
-   a separate explicitly approved configuration repair. If no runtime use
-   remains, report the stale value as later cleanup but do not block this release
-   solely because the unused setting remains. Stop on an ambiguous classification.
-8. Reconfirm that the verified OAuth implementation accepts only the approved
-   permanent production and exact Cloud Run-provided staging hostnames. Do not
-   weaken its host validation or share cookies or sessions across hostnames.
+1. Require both exact service names to exist in the fixed project and region:
+   `life-site-dashboard-staging` and `life-site-dashboard`. Require two distinct
+   service resources and two distinct permanent service URLs. Stop if either is
+   missing or one is substituted for the other.
+2. For each service, select only these literal environment values:
+   `NODE_ENV`, `STORAGE_PROVIDER`, `GOOGLE_CLOUD_PROJECT`, and
+   `FIRESTORE_DATABASE_ID`. Report only those four approved values. Require:
+   - `NODE_ENV=production`
+   - `STORAGE_PROVIDER=firestore`
+   - nonblank `GOOGLE_CLOUD_PROJECT`
+   - nonblank `FIRESTORE_DATABASE_ID`
+3. Require staging `FIRESTORE_DATABASE_ID` to equal `life-site-staging` exactly.
+   Set `STAGING_FIRESTORE_ADDRESS` to its explicit project/database pair.
+4. Require production `FIRESTORE_DATABASE_ID` to be explicit and not equal
+   `life-site-staging`. Set `PRODUCTION_FIRESTORE_ADDRESS` to its explicit pair.
+   Require the complete staging and production project/database pairs to differ.
+5. Determine required secret-backed environment keys from the verified source.
+   For each service, confirm the required references exist. Report only the
+   environment-key name and referenced secret identifier, never versions or
+   values. Report the service-account identifier only. Stop on a literal secret,
+   missing reference, unexpected identity, or ambiguous result.
+6. Retrieve each permanent service URL from Cloud Run; never construct or guess
+   it. Set `STAGING_SERVICE_URL` and `PRODUCTION_SERVICE_URL`.
+7. Request each service's `/api/health` and `/api/readiness` using safe GETs.
+   Require health HTTP 200. Require readiness HTTP 200, `status=ready`,
+   `firestoreReachable=true`, `persistentStorageReady=true`, configuration valid,
+   and project/database configured booleans true. Stop if a required safe field
+   is absent, false, or ambiguous. Do not print other response content.
+8. Inspect the verified OAuth origin allowlist in application source. Require its
+   exact production hostname to equal `PRODUCTION_SERVICE_URL` and its exact
+   staging hostname to equal `STAGING_SERVICE_URL`. Require the corresponding
+   callback URLs to use the fixed callback path. Stop if either origin is stale,
+   tagged, ambiguous, or points to the wrong service. Require read-only evidence
+   or explicit operator confirmation that both exact callbacks are registered in
+   Google OAuth. Never open or modify OAuth settings automatically.
+9. Identify the exact production revision receiving normal traffic. Require one
+   revision at 100 percent; stop on split or ambiguous traffic. Set it as
+   `PREVIOUS_PRODUCTION_REVISION` and record its immutable image digest as
+   `PREVIOUS_PRODUCTION_IMAGE`.
+10. Record a safe production baseline containing traffic, revision, the four
+    approved environment values, service-account identifier, required secret
+    reference identifiers, and permanent URL. Hash or compare that safe set as
+    `PRODUCTION_SAFE_CONFIG_FINGERPRINT` without including secret values.
+11. Resolve an existing Artifact Registry image repository suitable for this
+    service. Do not create one. Stop if its project, location, permissions, or
+    identity are missing or ambiguous. Set `PLANNED_IMAGE_TAG` to an existing
+    repository path tagged with the full `DEPLOYED_COMMIT`.
 
 ## Mandatory staging approval gate
 
-A request such as `prepare a staging deployment` may complete Phases 1, 2, and
-3 only. After Phase 3, show all of the following:
+Before requesting approval, display:
 
-- The exact `DEPLOYED_COMMIT` verified from GitHub `main`.
-- The exact revision currently receiving normal production traffic.
-- The exact `PREVIOUS_PRODUCTION_REVISION` captured as the rollback target.
-- The exact staging deployment command planned for Phase 4:
+- full `DEPLOYED_COMMIT`;
+- `PLANNED_IMAGE_TAG`, or `IMMUTABLE_IMAGE` if already proven;
+- staging service `life-site-dashboard-staging`;
+- staging database ID `life-site-staging`;
+- the planned one-time build command;
+- the planned staging deployment command below with placeholders resolved as far
+  as possible;
+- a statement that production service, configuration, and traffic will not be
+  changed.
+
+The planned commands must follow this shape:
 
 ```text
-gcloud run deploy life-site-dashboard \
-  --source . \
+gcloud builds submit . \
+  --project gen-lang-client-0802447346 \
+  --tag PLANNED_IMAGE_TAG \
+  --async
+
+gcloud run deploy life-site-dashboard-staging \
+  --image IMMUTABLE_IMAGE \
   --project gen-lang-client-0802447346 \
   --region europe-west2 \
-  --no-traffic \
-  --tag staging \
   --update-labels life_site_commit=DEPLOYED_COMMIT \
   --async
 ```
 
-`DEPLOYED_COMMIT` is a planning placeholder in the displayed command. In the
-actual command, replace it with the exact verified full commit SHA. Use
-`--update-labels`, never `--labels`, so unrelated existing labels are preserved.
-
-Then stop and wait. Do not run any `gcloud` deployment command until the user
-explicitly says exactly:
+Do not run either command until the user says exactly:
 
 ```text
 Deploy the verified commit to staging
 ```
 
-Treat similar wording as insufficient. After receiving the exact phrase and
-immediately before deploying, repeat the exact `DEPLOYED_COMMIT`, the current
-production revision, `PREVIOUS_PRODUCTION_REVISION`, and the exact command shown
-above with the full commit substituted for `DEPLOYED_COMMIT`. Reconfirm that the
-verified commit, current production revision, APP_URL classification, and
-runtime-use result have not changed. If any value changed or is missing or
-ambiguous, stop and require the preparation phases and staging approval gate to
-be completed again.
+Similar wording is insufficient. This phrase authorizes exactly one image build
+from `DEPLOYED_COMMIT` and deployment of the resulting digest only to
+`life-site-dashboard-staging`. It authorizes no production action.
 
-This approval authorizes Phase 4 only. It does not authorize production
-promotion or any production traffic change.
+## Phase 4 - Build once and deploy only to staging
 
-## Phase 4 — Deploy to staging only
+Immediately after staging approval, repeat Phases 1-3 read-only invariants. Stop
+if anything changed.
 
-Enter this phase only after the mandatory staging approval gate has been
-satisfied. Reconfirm the clean-tree and exact-commit checks immediately before
-deployment.
+1. Submit exactly one build using `PLANNED_IMAGE_TAG`. Record the build ID and
+   start time. Never retry automatically after timeout, interruption, or failure;
+   reconcile the submitted build with bounded read-only polling.
+2. Require the build to finish successfully. Resolve `PLANNED_IMAGE_TAG` through
+   Artifact Registry to one digest and set `IMMUTABLE_IMAGE` to the exact
+   `...@sha256:...` reference. Stop if absent, mutable, multiple, or ambiguous.
+3. Reconfirm the built source provenance corresponds to `DEPLOYED_COMMIT`. Treat
+   build metadata as supporting evidence, not a substitute for source and digest
+   checks.
+4. Deploy `IMMUTABLE_IMAGE`, never the tag or source tree, to
+   `life-site-dashboard-staging` with the exact full commit-provenance label.
+   Do not pass environment, secret, IAM, traffic-tag, or production flags.
+5. Reconcile asynchronously with bounded read-only polling. Identify exactly one
+   new ready staging revision created after the recorded start. Set it as
+   `STAGING_REVISION_NAME` only when its image digest equals `IMMUTABLE_IMAGE` and
+   its `life_site_commit` label equals `DEPLOYED_COMMIT`.
+6. Requery production and require its revision, traffic, safe configuration, and
+   `PRODUCTION_SAFE_CONFIG_FINGERPRINT` to be unchanged.
 
-Before submission, record this safe reconciliation baseline in the task:
+## Phase 5 - Verify staging and stop
 
-- Deployment start time in an unambiguous UTC format.
-- `DEPLOYED_COMMIT`.
-- The revision receiving 100 percent of normal production traffic, which must
-  still equal `PREVIOUS_PRODUCTION_REVISION`.
-- The current revision targeted by the permanent `staging` tag, or an explicit
-  safe `none` value if the tag does not exist.
-- Existing recent Cloud Run revision names and creation times. Read names and
-  times only; do not inspect unrelated revision configuration.
+Require automated evidence:
 
-Allow the local command environment enough execution time for source packaging,
-upload, and Cloud Build submission. Then replace `DEPLOYED_COMMIT` below with the
-exact verified full commit SHA and run exactly this deployment, preserving all
-existing service configuration:
+- exact `STAGING_REVISION_NAME`;
+- exact `IMMUTABLE_IMAGE` digest;
+- exact full commit-provenance label;
+- staging `/api/health` HTTP 200;
+- staging `/api/readiness` HTTP 200 and `status=ready`;
+- safe readiness fields proving Firestore reachable and persistent storage ready;
+- staging project and database configured booleans true;
+- production revision, configuration, and traffic unchanged.
+
+Give the user the permanent staging-service URL and require this browser checklist
+against staging data only:
+
+- login and logout;
+- dashboard and mobile layout where relevant;
+- create, read, update, and archive a staging-only habit;
+- Google Calendar OAuth callback on the permanent staging-service hostname and
+  calendar read/write behavior appropriate to the release;
+- Todoist connectivity and task/project smoke checks where configured;
+- Obsidian connectivity and note smoke checks where configured;
+- global search and other release-specific critical paths.
+
+Never print credentials, private records, habit contents, calendar contents,
+Todoist contents, or Obsidian contents. Stop after staging verification and wait
+for the user's test report. Do not infer browser success from automated checks.
+
+## First production approval gate
+
+Continue only after staging evidence and the user's report both pass. Display:
+
+- `DEPLOYED_COMMIT`;
+- exact staging-proven `IMMUTABLE_IMAGE`;
+- `STAGING_REVISION_NAME`;
+- current `PREVIOUS_PRODUCTION_REVISION` and `PREVIOUS_PRODUCTION_IMAGE`;
+- explicit production Firestore database ID;
+- the planned no-traffic production deployment command;
+- a statement that the exact staging-tested digest will be used without rebuild.
+
+Then stop until the user says exactly:
+
+```text
+Promote the verified staging image to production
+```
+
+Similar wording is insufficient. Reconfirm all source, staging, production, and
+digest evidence after approval. Never rebuild. This phrase authorizes creation
+of one no-traffic production candidate revision using this command shape:
 
 ```text
 gcloud run deploy life-site-dashboard \
-  --source . \
+  --image IMMUTABLE_IMAGE \
   --project gen-lang-client-0802447346 \
   --region europe-west2 \
   --no-traffic \
-  --tag staging \
   --update-labels life_site_commit=DEPLOYED_COMMIT \
   --async
 ```
 
-Do not add Cloud Run's `--timeout` flag. The `--async` flag permits controlled
-status reconciliation after submission; it does not authorize a second deploy.
+Do not include environment, secret, IAM, or traffic-tag changes. Reconcile with
+bounded read-only polling and set `PRODUCTION_CANDIDATE_REVISION` only when one
+new ready revision has the exact digest and commit label. Require existing
+production traffic and `PRODUCTION_SAFE_CONFIG_FINGERPRINT` to remain unchanged.
 
-### Poll and reconcile the asynchronous deployment
+## Final production traffic gate
 
-After submission, use bounded, read-only polling of Cloud Build status, Cloud Run
-revision names, creation times, readiness conditions, the single
-`metadata.labels.life_site_commit` value, and safe service traffic fields. Do not
-print build inputs, complete revision configuration, environment variables,
-secret references, or private runtime information.
-
-If the local deployment command exits unexpectedly or reaches its local timeout,
-do not retry, submit another deployment, move the staging tag manually, or
-overwrite any revision. Enter the same read-only reconciliation process first.
-
-At each poll:
-
-1. Require the revision receiving normal production traffic to remain exactly
-   `PREVIOUS_PRODUCTION_REVISION` at 100 percent. Stop immediately if production
-   changes or becomes split or ambiguous.
-2. Compare revision names and creation times with the baseline. Identify only
-   revisions created after the recorded deployment start time and absent from
-   the baseline.
-3. For each new candidate, read only its exact name, creation time, readiness
-   condition, and `metadata.labels.life_site_commit`. Require exactly one new
-   revision whose label exists and exactly equals the full `DEPLOYED_COMMIT`.
-4. Inspect the permanent `staging` tag through safe traffic fields. While work is
-   still progressing, it may target only the recorded baseline staging revision
-   or the single correctly labelled candidate. Any other target is unexpected.
-5. Poll the matching Cloud Build operation when retrievable, using safe build ID,
-   creation time, and status only. Treat it as supporting evidence; never use a
-   build record as the sole commit-to-revision proof.
-6. Continue bounded polling while the build or revision is definitively in a
-   pending or running state. Run bounded polling cycles until a definite result,
-   explaining progress without guessing and never triggering an automatic retry.
-7. Treat a build or deployment terminal failure as failure. Also stop if no
-   correctly labelled revision exists after terminal completion, multiple
-   labelled candidates exist, any unexpected new revision or staging-tag target
-   appears, or the result remains ambiguous.
-
-Declare success only when all of the following are proven together:
-
-- Exactly one new revision created after the recorded start time carries
-  `metadata.labels.life_site_commit=DEPLOYED_COMMIT`.
-- Set that exact revision name as `STAGING_REVISION_NAME`.
-- The permanent `staging` tag points exactly to `STAGING_REVISION_NAME`.
-- `STAGING_REVISION_NAME` is ready and receives zero normal production traffic.
-- `PREVIOUS_PRODUCTION_REVISION` still receives 100 percent of normal production
-  traffic.
-
-Obtain and report the exact staging-tag URL from Cloud Run; never construct or
-guess it. Report the label-proven mapping from `DEPLOYED_COMMIT` to
-`STAGING_REVISION_NAME`, and state explicitly that production has not changed.
-Do not promote the revision.
-
-## Phase 5 — Wait for user testing
-
-Give the user the staging URL and this checklist:
-
-- Login
-- Google Calendar connection and calendar events
-- Todoist tasks and projects
-- Obsidian connection, note opening, note creation, and note editing
-- Global search
-- Logout
-- Mobile layout where relevant
-- `/api/health`
-- `/api/readiness`
-
-Then stop and wait. Do not claim testing passed merely because the deployment or
-automated health checks succeeded. Record the user's test result without
-exposing account, note, calendar, task, or runtime data.
-
-## Phase 6 — Require production approval
-
-Continue toward production only after the user explicitly says exactly:
+Display the exact candidate revision, digest, commit, current production revision,
+rollback revision, and planned traffic command. Then stop until the user says
+exactly:
 
 ```text
-Promote staging to production
+Confirm production traffic change
 ```
 
-Treat similar wording as insufficient. After receiving the phrase:
-
-1. Requery safe Cloud Run traffic fields and reconfirm that the `staging` tag
-   still points to `STAGING_REVISION_NAME`.
-2. Read only `metadata.labels.life_site_commit` for `STAGING_REVISION_NAME` and
-   require it to exist and exactly equal the full `DEPLOYED_COMMIT`. Use this
-   label, the staging-tag mapping, and zero-normal-traffic state as the primary
-   commit-to-revision proof; build metadata is supporting evidence only.
-3. Reconfirm that `PREVIOUS_PRODUCTION_REVISION` is the rollback revision
-   captured before this release and that it is still the revision receiving
-   normal production traffic.
-4. Show these three exact values clearly:
-   `STAGING_REVISION_NAME`, `DEPLOYED_COMMIT`, and
-   `PREVIOUS_PRODUCTION_REVISION`.
-5. Ask for final confirmation to execute the traffic change, then stop and wait.
-   Do not treat the earlier promotion phrase as this final confirmation.
-
-Only after the user gives that final confirmation, substitute the exact verified
-staging revision name and run:
+Only after both production phrases have been received and every invariant still
+passes, move 100 percent of normal production traffic to the exact candidate:
 
 ```text
 gcloud run services update-traffic life-site-dashboard \
   --project gen-lang-client-0802447346 \
   --region europe-west2 \
-  --to-revisions STAGING_REVISION_NAME=100
+  --to-revisions PRODUCTION_CANDIDATE_REVISION=100
 ```
 
-Never use `LATEST`, a tag name, or a guessed or hardcoded revision in
-`--to-revisions`.
+Never target `LATEST`, a tag, an image tag, a guessed revision, or the staging
+service.
 
-## Phase 7 — Verify production
+## Phase 6 - Verify production
 
-1. Confirm through safe traffic fields that 100 percent of normal production
-   traffic reaches `STAGING_REVISION_NAME`.
-2. Check `/api/health` and `/api/readiness` on the permanent production URL.
-   Report sanitized status and outcome only; do not expose response data that
-   could contain sensitive runtime information.
-3. Report the permanent production URL, `DEPLOYED_COMMIT`, and the new production
-   revision.
-4. Preserve `PREVIOUS_PRODUCTION_REVISION` as the immediate rollback target for
-   this release. Do not replace it with the newly promoted revision.
-5. If verification fails, report the failure and the captured rollback target.
-   Do not roll back without explicit user instruction.
+Require and report only safe evidence:
 
-## Phase 8 — Roll back only on instruction
+- production revision equals `PRODUCTION_CANDIDATE_REVISION`;
+- production image digest equals staging-proven `IMMUTABLE_IMAGE`;
+- commit-provenance label equals full `DEPLOYED_COMMIT`;
+- normal production traffic is exactly 100 percent on that revision;
+- `/api/health` is HTTP 200;
+- `/api/readiness` is HTTP 200 with `status=ready`;
+- persistent storage ready and Firestore reachable are true;
+- project and database configured booleans are true;
+- login, dashboard, habits, Calendar, Todoist, and Obsidian checks pass where
+  configured;
+- safe record counts before and after match when a separately approved migration
+  or data-sensitive release plan requires counts.
 
-Roll back only when the user explicitly instructs a rollback for this release.
-Require the in-task `PREVIOUS_PRODUCTION_REVISION` captured before promotion;
-stop if it is missing or ambiguous. Reconfirm and show that exact revision before
-changing traffic.
+Do not expose record contents. If any verification fails, stop, preserve safe
+evidence, report current traffic, and propose the exact rollback command. Never
+roll back automatically.
 
-After explicit rollback instruction, substitute the captured revision and run:
+## Rollback gate
+
+Rollback may target only the `PREVIOUS_PRODUCTION_REVISION` captured for this
+release. It must be a known-good revision of `life-site-dashboard`, never a
+revision or image from `life-site-dashboard-staging`. Reconfirm its recorded
+image digest, availability, and readiness before requesting approval.
+
+Require the user to type the release-specific phrase with both placeholders
+resolved exactly:
+
+```text
+Rollback production release DEPLOYED_COMMIT to PREVIOUS_PRODUCTION_REVISION
+```
+
+Only then run:
 
 ```text
 gcloud run services update-traffic life-site-dashboard \
@@ -377,22 +368,23 @@ gcloud run services update-traffic life-site-dashboard \
   --to-revisions PREVIOUS_PRODUCTION_REVISION=100
 ```
 
-Never select a rollback target from a hardcoded example, `LATEST`, or memory of a
-previous release. After rollback, confirm that 100 percent of normal production
-traffic reaches the captured revision, then check `/api/health` and
-`/api/readiness` at the permanent production URL. Report sanitized results and
-the exact revision now serving production.
+After rollback, require 100 percent production traffic on the recorded revision,
+verify `/api/health` and `/api/readiness`, and report final traffic allocation.
+If the recorded revision or image proof is missing, stop and require a separate
+rollback plan; never substitute staging or guess.
 
-## Report state plainly
+## Report state precisely
 
-At every pause or completion, state which of these is true:
+At every pause, name the full commit, immutable digest when available, service,
+revision, and traffic state. Distinguish clearly among:
 
-- The code is committed to GitHub `main` but has not been deployed.
-- A specific Cloud Run revision contains the verified commit and is reachable
-  only through the `staging` traffic-tag URL, with zero normal production
-  traffic.
-- A specific Cloud Run revision currently receives 100 percent of normal
-  production traffic at the permanent production URL.
+- commit verified remotely but no image built;
+- one immutable image built but not deployed;
+- exact digest verified on the separate staging service;
+- exact same digest present as a no-traffic production candidate;
+- exact production revision receiving 100 percent traffic;
+- production rolled back to the recorded known-good revision.
 
-Never use “deployed,” “live,” or “released” without naming the relevant commit,
-revision, and traffic state.
+Never say "staging" when referring to a production traffic tag or production
+revision. Never say "promoted" unless the exact staging-tested digest is proven
+on the production revision and the final traffic gate was satisfied.
