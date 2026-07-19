@@ -32,21 +32,23 @@ This manual provides quick-reference troubleshooting steps for system operators 
 ## 2. Secret Manager Permission Error
 
 ### Symptom
-- Startup logs show error: `GoogleSecretManagerStore: Failed to access secret...`
+- Readiness reports a safe Secret Manager configuration or availability reason.
 - Tokens and Client Secrets are not resolving, preventing integrations from running.
 
 ### Recovery Steps
-1. **Grant IAM Permissions**:
-   The service account running the container (e.g., the Cloud Run service account) must have the `Secret Manager Secret Accessor` (`roles/secretmanager.secretAccessor`) role on the respective project or specific secrets.
-   ```bash
-   gcloud secrets add-iam-policy-binding LIFE_SITE_USERNAME \
-     --member="serviceAccount:YOUR_SERVICE_ACCOUNT" \
-     --role="roles/secretmanager.secretAccessor"
-   ```
-2. **Switch to Local Secrets Storage (Emergency Rollback)**:
-   If IAM configuration is locked or Cloud KMS is unreachable, you can temporarily store credentials locally:
-   - Set environment variable: `SECRET_PROVIDER=existing`
-   - Populate `/data/secrets.json` directly with the JSON formatted secrets, or pass them as standard environment variables.
+1. **Verify the environment boundary**:
+   Require `SECRET_PROVIDER=secretmanager`, the explicit Secret Manager project
+   `gen-lang-client-0802447346`, and the environment's exact prefix:
+   `life-site-prod` or `life-site-staging`. `GOOGLE_CLOUD_PROJECT` identifies
+   Firestore and must not be used to select secrets.
+2. **Verify resources and least-privilege IAM read-only**:
+   Check the eight exact environment-prefixed secret resources, enabled versions,
+   runtime identity, and secret-specific accessor/version-adder bindings without
+   reading payloads. IAM repair and secret creation require separate approval.
+3. **Keep the revision out of traffic**:
+   Do not switch a deployed service to `SECRET_PROVIDER=existing` or use
+   revision-local `data/secrets.json` as a fallback. Keep a failing candidate out
+   of traffic or use the approved release rollback process.
 
 ---
 
@@ -82,7 +84,8 @@ This manual provides quick-reference troubleshooting steps for system operators 
 2. **Apply in settings**:
    - Go to **Settings → Connections** in the Life Site UI.
    - Under **Todoist API Token**, enter the newly copied token and click **Save Connections**.
-   - If the system is using Google Secret Manager, the server will automatically update the `TODOIST_API_TOKEN` secret.
+   - In deployed Secret Manager mode, the server appends a version to the exact
+     environment-prefixed Todoist secret. It never creates the secret resource.
 
 ---
 

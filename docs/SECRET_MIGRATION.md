@@ -1,122 +1,93 @@
-# Google Secret Manager Migration & Rollback Manual
+# Environment-aware Secret Manager operations
 
-This document outlines the operational procedures for migrating Life Site credentials from local file storage (`data/secrets.json`) to Google Secret Manager, along with IAM role configurations, verification protocols, and safe rollback instructions.
+Life Site uses Google Secret Manager directly in deployed production and staging.
+Secret storage is independent from Firestore storage: `GOOGLE_CLOUD_PROJECT`
+selects the Firestore data project, while `SECRET_MANAGER_PROJECT_ID` selects the
+project that owns secrets.
 
----
+Infrastructure creation, secret population, IAM, Cloud Run configuration, and
+deployment are separate approval-gated operations. The application reads
+existing secret resources and appends versions to approved mutable resources; it
+never creates a secret or grants IAM.
 
-## 1. IAM Role Requirements
+## Deployed configuration
 
-To allow the application running in Cloud Run to securely read and update credentials, you must grant the appropriate IAM permissions to the **Cloud Run Service Account** (or the identity used for Application Default Credentials).
+Production:
 
-### Required Roles
-
-| Role Name | IAM Role Identity | Purpose |
-| :--- | :--- | :--- |
-| **Secret Manager Secret Accessor** | `roles/secretmanager.secretAccessor` | Allows the server to read the payload of secret versions (`LIFE_SITE_USERNAME`, `TODOIST_API_TOKEN`, etc.). |
-| **Secret Manager Version Adder** | `roles/secretmanager.secretVersionAdder` | Allows the server to append new secret versions (such as when updating the `GOOGLE_REFRESH_TOKEN` upon fresh logins). |
-
-### Google Cloud CLI (gcloud) Configuration
-
-You can grant these roles using the following `gcloud` commands (replace `${PROJECT_ID}` and `${SERVICE_ACCOUNT_EMAIL}` with your actual project details):
-
-```bash
-# Grant Secret Accessor Role
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-    --member="serviceAccount:${SERVICE_ACCOUNT_EMAIL}" \
-    --role="roles/secretmanager.secretAccessor"
-
-# Grant Secret Version Adder Role
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-    --member="serviceAccount:${SERVICE_ACCOUNT_EMAIL}" \
-    --role="roles/secretmanager.secretVersionAdder"
+```env
+SECRET_PROVIDER=secretmanager
+SECRET_MANAGER_PROJECT_ID=gen-lang-client-0802447346
+SECRET_NAME_PREFIX=life-site-prod
+GOOGLE_CLOUD_PROJECT=life-dashboard-502020
+FIRESTORE_DATABASE_ID=life-site-production
 ```
 
----
+Staging:
 
-## 2. Secret Mapping & Schema
-
-The application uses logical secret IDs internally to decouple the codebase from GCP-specific resource paths. The table below outlines how these logical IDs map to the corresponding Secret Manager resources:
-
-| Logical Secret ID | Expected Secret Manager Name / Path | Usage in Application |
-| :--- | :--- | :--- |
-| `LIFE_SITE_USERNAME` | `life-site-username` | Admin login username |
-| `LIFE_SITE_PASSWORD_HASH` | `life-site-password-hash` | Salted/hashed admin password |
-| `SESSION_SECRET` | `session-secret` | Express session signature / cookie verification keys |
-| `TODOIST_API_TOKEN` | `todoist-api-token` | Synchronizing personal/professional tasks |
-| `GOOGLE_CLIENT_ID` | `google-client-id` | Google OAuth credentials for Calendar Sync |
-| `GOOGLE_CLIENT_SECRET` | `google-client-secret` | Google OAuth secret |
-| `GOOGLE_REFRESH_TOKEN` | `google-refresh-token` | Persistent token used to refresh Calendar access |
-
----
-
-## 3. Step-by-Step Migration Procedure
-
-Follow these steps to complete the transition cleanly without downtime:
-
-### Step 3.1: Provision the Secret Resources
-Ensure the secrets exist in your Google Cloud Project. You can create them empty or seed them with current values from your local `data/secrets.json`:
-
-```bash
-# Example: Creating and seeding the Todoist token
-gcloud secrets create todoist-api-token --replication-policy="automatic"
-echo -n "YOUR_TODOIST_TOKEN_VALUE" | gcloud secrets versions add todoist-api-token --data-file=-
+```env
+SECRET_PROVIDER=secretmanager
+SECRET_MANAGER_PROJECT_ID=gen-lang-client-0802447346
+SECRET_NAME_PREFIX=life-site-staging
+GOOGLE_CLOUD_PROJECT=gen-lang-client-0802447346
+FIRESTORE_DATABASE_ID=life-site-staging
 ```
 
-### Step 3.2: Verify Application Default Credentials (ADC)
-The application relies on GCP client libraries auto-detecting credentials. In production (Cloud Run), this is handled automatically. For local testing, ensure your ADC is authenticated:
+Missing, unknown, or unsafe deployed secret configuration fails closed. A
+deployed service must never use `SECRET_PROVIDER=existing` or revision-local
+`data/secrets.json` as a fallback. Local development may deliberately use
+`SECRET_PROVIDER=existing` without Google Cloud.
 
-```bash
-gcloud auth application-default login
-```
+## Explicit logical-key mapping
 
-### Step 3.3: Activate Secret Manager Provider
-Set the environment variable `SECRET_PROVIDER` to `secretmanager`. When active:
-- The server will read all configurations directly from Secret Manager at startup.
-- Transient Google access tokens (`googleAccessToken`) and expiry will remain safely in server memory.
-- Writes to local `data/secrets.json` are **entirely disabled**, preventing local disk leakage.
+The provider accepts only these logical keys:
 
----
+| Logical key | Secret ID |
+|---|---|
+| `LIFE_SITE_USERNAME` | `<prefix>-username` |
+| `LIFE_SITE_PASSWORD_HASH` | `<prefix>-password-hash` |
+| `SESSION_SECRET` | `<prefix>-session-secret` |
+| `TODOIST_API_TOKEN` | `<prefix>-todoist-token` |
+| `GOOGLE_CLIENT_ID` | `<prefix>-google-client-id` |
+| `GOOGLE_CLIENT_SECRET` | `<prefix>-google-client-secret` |
+| `GOOGLE_REFRESH_TOKEN` | `<prefix>-google-refresh-token` |
+| `GOOGLE_WRITE_AUTHORIZED` | `<prefix>-google-write-authorized` |
 
-## 4. Operational Rollback Procedure
+Prefixes may contain only lowercase letters, numbers, and hyphens. Unknown
+logical keys are rejected rather than transformed into a secret name.
 
-If any connectivity issues or permission gaps are detected, you can roll back to local file storage instantaneously with zero code modifications:
+## Runtime permissions
 
-1. **Locate the Environment Variables**: Navigate to your Cloud Run service configuration or local `.env` configuration file.
-2. **Revert the Provider Setting**: Update the `SECRET_PROVIDER` variable:
-   ```env
-   SECRET_PROVIDER=existing
-   ```
-3. **Restart the Service / Redeploy**: Apply the change. The application will immediately fall back to the `ExistingSecretStore`, reading and writing local configurations in `data/secrets.json` and environment variables.
+Each Cloud Run service uses its dedicated runtime identity. Grant read access
+only to that environment's eight exact secrets. Grant version-adding permission
+only where the application must update a mutable value, including Todoist and
+Google connection settings, the durable Google refresh token, and the Google
+write-authorization state.
 
----
+Do not grant project-wide Secret Accessor, Owner, Editor, Datastore Owner,
+Service Account Token Creator, or service-account keys. Verify the exact
+secret-resource IAM bindings through a separate approved infrastructure process.
 
-## 5. Safe Google Calendar Reconnection Steps
+## OAuth durability
 
-Transitioning OAuth credentials (Client ID and Secrets) can cause active user authentications to require renewal. To guarantee a secure and seamless reconnect experience:
+After successful Google authorization, a returned refresh token is appended as
+a new version of the environment's `GOOGLE_REFRESH_TOKEN` secret. The write-state
+marker is appended to the environment's `GOOGLE_WRITE_AUTHORIZED` secret. If
+Google omits a new refresh token, the existing durable token is preserved. If no
+old or new refresh token exists, or either required write fails, authorization
+is not reported as saved.
 
-1. **Update Google Client Credentials**: Enter the new `Google Client ID` and `Google Client Secret` in the **Connections** tab under Settings on the dashboard.
-2. **Request Consent**: Click the **Connect Google Calendar** button. This opens the secure Google OAuth consent flow, which requests offline access.
-3. **Appends as Version**: Upon successful authorization, the server retrieves a fresh `refresh_token` and saves it via `setSecretVersion('GOOGLE_REFRESH_TOKEN', refreshToken)`. This updates the existing secret resource in Secret Manager by adding a new version, rather than creating a duplicate resource, maintaining pristine historical lineage.
-4. **Transient Use**: The accompanying `access_token` and its calculated expiry are loaded directly into server memory, isolated from persistent storage.
+Access tokens and expiry remain in process memory. They are regenerated from the
+durable refresh token and do not create Secret Manager versions.
 
----
+## Safe verification and recovery
 
-## 6. Verification & Troubleshooting Procedures
+Readiness exposes only provider, configuration booleans, required-secret
+availability booleans, OAuth-writability configuration, and safe reason codes.
+It does not expose secret IDs, payloads, lengths, usernames, hashes, or tokens.
+Required login/session secrets must load before a deployed revision is ready;
+optional Todoist and Google integrations may remain disconnected.
 
-### 6.1 Status Verification
-Navigate to the Settings panel of the application. The **Connections** screen has been enhanced to show diagnostic configuration states:
-- **Status Checks**: Displays whether the `Todoist API token`, `Google Client ID`, and `Google Client Secret` are successfully configured on the server without leaking actual values to the browser.
-- **Log Verification**: On server boot, check stdout for confirmation logs:
-  ```text
-  [Secrets] Initializing secrets with provider: secretmanager
-  [Secrets] Successfully loaded secrets from secretmanager.
-  ```
-
-### 6.2 Common Errors & Remediation
-
-*   **Error: `AccessDenied / PermissionDenied`**
-    *   *Cause*: The Cloud Run service account lacks the Secret Manager Secret Accessor role.
-    *   *Fix*: Run the `gcloud projects add-iam-policy-binding` command outlined in Section 1.
-*   **Error: `ResourceNotFound`**
-    *   *Cause*: The logical secret mappings target a secret name that does not exist in the GCP project.
-    *   *Fix*: Ensure you have created all 7 secrets in the Secret Manager panel under the exact names mapped in `/server/storage/secretStore.ts` (e.g., `todoist-api-token`).
+If Secret Manager is unavailable, keep the candidate revision out of traffic or
+use the release workflow's captured known-good rollback target. Do not move
+deployed secrets to the Cloud Run filesystem, environment literals, or
+`data/secrets.json` as an emergency fallback.

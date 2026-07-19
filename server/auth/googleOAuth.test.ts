@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert';
 import {
   buildGoogleAuthorizationUrl,
+  buildGoogleRefreshTokenBody,
   buildGoogleTokenExchangeBody,
   createSignedGoogleOAuthState,
   GOOGLE_OAUTH_CALLBACK_PATH,
@@ -9,10 +10,13 @@ import {
   GOOGLE_OAUTH_STAGING_ORIGIN,
   type GoogleOAuthRuntime,
   isUsableGoogleOAuthSession,
+  GoogleOAuthPersistenceError,
+  persistGoogleOAuthAuthorization,
   resolveGoogleOAuthRedirectUri,
   UnapprovedGoogleOAuthHostError,
   validateSignedGoogleOAuthState,
 } from './googleOAuth';
+import type { SecretStore } from '../storage/secretStore';
 
 const productionHost = new URL(GOOGLE_OAUTH_PRODUCTION_ORIGIN).hostname;
 const stagingHost = new URL(GOOGLE_OAUTH_STAGING_ORIGIN).hostname;
@@ -25,6 +29,24 @@ const cloudRunRuntime: GoogleOAuthRuntime = {
   cloudRunService: 'life-site-dashboard-staging',
 };
 const localRuntime: GoogleOAuthRuntime = { nodeEnv: 'development' };
+
+class RecordingSecretStore implements SecretStore {
+  readonly writes: Array<{ logicalKey: string; payload: string }> = [];
+  failure: Error | null = null;
+
+  async getSecret(): Promise<string | null> {
+    return null;
+  }
+
+  async setSecretVersion(logicalKey: string, payload: string): Promise<void> {
+    if (this.failure) throw this.failure;
+    this.writes.push({ logicalKey, payload });
+  }
+
+  async hasSecret(): Promise<boolean> {
+    return false;
+  }
+}
 
 const requestOrigin = (
   host: string,
@@ -210,4 +232,94 @@ test('Google OAuth session validation rejects missing and expired sessions', () 
   assert.strictEqual(isUsableGoogleOAuthSession<Session>(null, isExpired), false);
   assert.strictEqual(isUsableGoogleOAuthSession({ expiresAt: 100 }, isExpired), false);
   assert.strictEqual(isUsableGoogleOAuthSession({ expiresAt: 101 }, isExpired), true);
+});
+
+test('Google OAuth authorization durably writes a new refresh token and write state', async () => {
+  const store = new RecordingSecretStore();
+  const result = await persistGoogleOAuthAuthorization(
+    store,
+    { refreshToken: 'previous-refresh-token', writeAuthorized: false },
+    'new-refresh-token',
+  );
+
+  assert.deepStrictEqual(store.writes, [
+    { logicalKey: 'GOOGLE_REFRESH_TOKEN', payload: 'new-refresh-token' },
+    { logicalKey: 'GOOGLE_WRITE_AUTHORIZED', payload: 'true' },
+  ]);
+  assert.deepStrictEqual(result, {
+    refreshToken: 'new-refresh-token',
+    writeAuthorized: true,
+  });
+});
+
+test('missing new refresh tokens preserve durable state without unnecessary versions', async () => {
+  const store = new RecordingSecretStore();
+  const result = await persistGoogleOAuthAuthorization(
+    store,
+    { refreshToken: 'existing-refresh-token', writeAuthorized: false },
+    undefined,
+  );
+
+  assert.deepStrictEqual(store.writes, [
+    { logicalKey: 'GOOGLE_WRITE_AUTHORIZED', payload: 'true' },
+  ]);
+  assert.strictEqual(result.refreshToken, 'existing-refresh-token');
+
+  const alreadyDurable = new RecordingSecretStore();
+  await persistGoogleOAuthAuthorization(
+    alreadyDurable,
+    { refreshToken: 'existing-refresh-token', writeAuthorized: true },
+    '',
+  );
+  assert.deepStrictEqual(alreadyDurable.writes, []);
+});
+
+test('OAuth authorization fails closed when no durable refresh token exists', async () => {
+  const store = new RecordingSecretStore();
+  await assert.rejects(
+    () => persistGoogleOAuthAuthorization(
+      store,
+      { refreshToken: '', writeAuthorized: false },
+      undefined,
+    ),
+    (error: unknown) => {
+      assert.ok(error instanceof GoogleOAuthPersistenceError);
+      assert.strictEqual(error.reason, 'oauth_refresh_token_unavailable');
+      return true;
+    },
+  );
+  assert.deepStrictEqual(store.writes, []);
+});
+
+test('OAuth secret-write failures expose only a safe reason', async () => {
+  const marker = 'private-oauth-test-payload-456';
+  const store = new RecordingSecretStore();
+  store.failure = new Error(`provider leaked ${marker}`);
+
+  await assert.rejects(
+    () => persistGoogleOAuthAuthorization(
+      store,
+      { refreshToken: 'old-refresh', writeAuthorized: false },
+      marker,
+    ),
+    (error: unknown) => {
+      assert.ok(error instanceof GoogleOAuthPersistenceError);
+      assert.strictEqual(error.reason, 'oauth_secret_persistence_failed');
+      assert.strictEqual(error.message.includes(marker), false);
+      return true;
+    },
+  );
+});
+
+test('access tokens can be regenerated from the durable refresh token without being persisted', () => {
+  const body = new URLSearchParams(buildGoogleRefreshTokenBody(
+    'durable-refresh-token',
+    'google-client-id',
+    'google-client-secret',
+  ));
+
+  assert.strictEqual(body.get('refresh_token'), 'durable-refresh-token');
+  assert.strictEqual(body.get('grant_type'), 'refresh_token');
+  assert.strictEqual(body.has('access_token'), false);
+  assert.strictEqual(body.has('expiry_date'), false);
 });

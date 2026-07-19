@@ -7,7 +7,7 @@
     "dev": "SECRET_PROVIDER=existing STORAGE_PROVIDER=local tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
-    "test": "node --import tsx --test server/storage/storage.test.ts server/storage/storageConfig.test.ts server/auth/googleOAuth.test.ts",
+    "test": "node --import tsx --test server/storage/storage.test.ts server/storage/storageConfig.test.ts server/storage/secretStore.test.ts server/auth/googleOAuth.test.ts",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "create-password-hash": "tsx scripts/createPasswordHash.ts"

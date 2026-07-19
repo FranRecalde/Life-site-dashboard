@@ -24,7 +24,17 @@ traffic is missing, unsafe, or ambiguous.
 - Cloud Run region: `europe-west2`
 - Staging service: `life-site-dashboard-staging`
 - Production service: `life-site-dashboard`
+- Staging runtime identity:
+  `life-site-dashboard-staging@gen-lang-client-0802447346.iam.gserviceaccount.com`
+- Production runtime identity:
+  `life-site-dashboard-prod@gen-lang-client-0802447346.iam.gserviceaccount.com`
+- Staging Firestore project: `gen-lang-client-0802447346`
 - Required staging Firestore database ID: `life-site-staging`
+- Production Firestore project: `life-dashboard-502020`
+- Required production Firestore database ID: `life-site-production`
+- Secret Manager project: `gen-lang-client-0802447346`
+- Staging secret prefix: `life-site-staging`
+- Production secret prefix: `life-site-prod`
 - Google OAuth callback path: `/api/auth/google/callback`
 
 Treat the two Cloud Run services as separate houses. Never use a traffic tag,
@@ -128,29 +138,46 @@ revision configuration.
    service resources and two distinct permanent service URLs. Stop if either is
    missing or one is substituted for the other.
 2. For each service, select only these literal environment values:
-   `NODE_ENV`, `STORAGE_PROVIDER`, `GOOGLE_CLOUD_PROJECT`, and
-   `FIRESTORE_DATABASE_ID`. Report only those four approved values. Require:
+   `NODE_ENV`, `STORAGE_PROVIDER`, `GOOGLE_CLOUD_PROJECT`,
+   `FIRESTORE_DATABASE_ID`, `SECRET_PROVIDER`, `SECRET_MANAGER_PROJECT_ID`, and
+   `SECRET_NAME_PREFIX`. Report only those seven approved values. Require:
    - `NODE_ENV=production`
    - `STORAGE_PROVIDER=firestore`
    - nonblank `GOOGLE_CLOUD_PROJECT`
    - nonblank `FIRESTORE_DATABASE_ID`
-3. Require staging `FIRESTORE_DATABASE_ID` to equal `life-site-staging` exactly.
+   - `SECRET_PROVIDER=secretmanager`
+   - `SECRET_MANAGER_PROJECT_ID=gen-lang-client-0802447346`
+   - nonblank `SECRET_NAME_PREFIX`
+3. Require staging `GOOGLE_CLOUD_PROJECT=gen-lang-client-0802447346`,
+   `FIRESTORE_DATABASE_ID=life-site-staging`, and
+   `SECRET_NAME_PREFIX=life-site-staging` exactly.
    Set `STAGING_FIRESTORE_ADDRESS` to its explicit project/database pair.
-4. Require production `FIRESTORE_DATABASE_ID` to be explicit and not equal
-   `life-site-staging`. Set `PRODUCTION_FIRESTORE_ADDRESS` to its explicit pair.
-   Require the complete staging and production project/database pairs to differ.
-5. Determine required secret-backed environment keys from the verified source.
-   For each service, confirm the required references exist. Report only the
-   environment-key name and referenced secret identifier, never versions or
-   values. Report the service-account identifier only. Stop on a literal secret,
-   missing reference, unexpected identity, or ambiguous result.
+4. Require production `GOOGLE_CLOUD_PROJECT=life-dashboard-502020`,
+   `FIRESTORE_DATABASE_ID=life-site-production`, and
+   `SECRET_NAME_PREFIX=life-site-prod` exactly. Set
+   `PRODUCTION_FIRESTORE_ADDRESS` to that explicit pair. Require the complete
+   staging and production project/database pairs and secret prefixes to differ.
+5. Require each service to use its exact fixed runtime identity. From the
+   verified source's explicit logical-key mapping, derive the eight exact
+   environment-prefixed secret identifiers. Inspect metadata only: require each
+   resource and an enabled version to exist in the fixed Secret Manager project.
+   Verify the runtime identity has only the approved secret-specific read and
+   version-adding permissions for its own family and none for the other family.
+   Stop on a literal secret environment value, Cloud Run secret binding that
+   bypasses the native provider, missing resource/version, mixed prefix,
+   unexpected identity, broader secret role, or ambiguous result. Never access a
+   payload.
 6. Retrieve each permanent service URL from Cloud Run; never construct or guess
    it. Set `STAGING_SERVICE_URL` and `PRODUCTION_SERVICE_URL`.
 7. Request each service's `/api/health` and `/api/readiness` using safe GETs.
    Require health HTTP 200. Require readiness HTTP 200, `status=ready`,
    `firestoreReachable=true`, `persistentStorageReady=true`, configuration valid,
-   and project/database configured booleans true. Stop if a required safe field
-   is absent, false, or ambiguous. Do not print other response content.
+   project/database configured booleans true, `secretProvider=secretmanager`,
+   `secretManagerProjectConfigured=true`, `secretNamePrefixConfigured=true`,
+   `secretConfigurationValid=true`, `requiredLoginSecretsAvailable=true`, and
+   `writableOAuthSecretConfigurationReady=true`. Optional Todoist or Google
+   connection availability may be false. Stop if a required safe field is
+   absent, false, or ambiguous. Do not print other response content.
 8. Inspect the verified OAuth origin allowlist in application source. Require its
    exact production hostname to equal `PRODUCTION_SERVICE_URL` and its exact
    staging hostname to equal `STAGING_SERVICE_URL`. Require the corresponding
@@ -162,9 +189,9 @@ revision configuration.
    revision at 100 percent; stop on split or ambiguous traffic. Set it as
    `PREVIOUS_PRODUCTION_REVISION` and record its immutable image digest as
    `PREVIOUS_PRODUCTION_IMAGE`.
-10. Record a safe production baseline containing traffic, revision, the four
+10. Record a safe production baseline containing traffic, revision, the seven
     approved environment values, service-account identifier, required secret
-    reference identifiers, and permanent URL. Hash or compare that safe set as
+    resource identifiers, and permanent URL. Hash or compare that safe set as
     `PRODUCTION_SAFE_CONFIG_FINGERPRINT` without including secret values.
 11. Resolve an existing Artifact Registry image repository suitable for this
     service. Do not create one. Stop if its project, location, permissions, or
@@ -246,6 +273,8 @@ Require automated evidence:
 - staging `/api/readiness` HTTP 200 and `status=ready`;
 - safe readiness fields proving Firestore reachable and persistent storage ready;
 - staging project and database configured booleans true;
+- safe secret readiness fields proving the explicit Secret Manager project,
+  staging prefix, required login secrets, and writable OAuth configuration ready;
 - production revision, configuration, and traffic unchanged.
 
 Give the user the permanent staging-service URL and require this browser checklist
@@ -336,6 +365,8 @@ Require and report only safe evidence:
 - `/api/readiness` is HTTP 200 with `status=ready`;
 - persistent storage ready and Firestore reachable are true;
 - project and database configured booleans are true;
+- Secret Manager project/prefix configuration, required login secrets, and
+  writable OAuth configuration are ready;
 - login, dashboard, habits, Calendar, Todoist, and Obsidian checks pass where
   configured;
 - safe record counts before and after match when a separately approved migration

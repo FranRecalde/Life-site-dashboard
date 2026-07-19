@@ -24,12 +24,22 @@ import {
   resolvePersistentStorageConfiguration,
   storageReadinessHttpStatus,
 } from './server/storage/storageConfig';
-import { getSecretStore, getSecretProvider, redactSecrets } from './server/storage/secretStore';
+import {
+  evaluateSafeSecretAvailability,
+  getSafeSecretConfigurationStatus,
+  getSecretStore,
+  getSecretProvider,
+  redactSecrets,
+  resolveSecretStoreConfiguration,
+  type SafeSecretAvailabilityStatus,
+} from './server/storage/secretStore';
 import {
   buildGoogleAuthorizationUrl,
+  buildGoogleRefreshTokenBody,
   buildGoogleTokenExchangeBody,
   createSignedGoogleOAuthState,
   isUsableGoogleOAuthSession,
+  persistGoogleOAuthAuthorization,
   resolveGoogleOAuthRedirectUri,
   validateSignedGoogleOAuthState,
 } from './server/auth/googleOAuth';
@@ -55,9 +65,11 @@ export type ResolvedAuthConfig =
       reason:
         | 'missing_username'
         | 'missing_password_hash'
+        | 'missing_session_secret'
         | 'default_username_forbidden'
         | 'default_password_forbidden'
-        | 'invalid_password_hash';
+        | 'invalid_password_hash'
+        | 'secret_configuration_invalid';
     };
 
 let resolvedAuthConfig: ResolvedAuthConfig = {
@@ -98,6 +110,7 @@ function startInvalidStorageConfigurationServer(
 
 // Validate persistent storage before any local files are created or normal routes start.
 const PERSISTENT_STORAGE_CONFIGURATION = resolvePersistentStorageConfiguration();
+const SECRET_STORE_CONFIGURATION = resolveSecretStoreConfiguration();
 let resolvedStores: Stores | null = null;
 try {
   resolvedStores = createStores(PERSISTENT_STORAGE_CONFIGURATION);
@@ -116,7 +129,6 @@ const STORES = resolvedStores;
 const DATA_DIR = path.join(process.cwd(), 'data');
 const VAULT_DIR = path.join(DATA_DIR, 'vault');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
-const SECRETS_FILE = path.join(DATA_DIR, 'secrets.json');
 
 // Ensure directories exist
 fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -215,37 +227,51 @@ async function saveSettings(settings: UserSettings): Promise<void> {
 // Load or initialize Secrets via SecretStore
 let cachedSecrets: Secrets = { ...defaultSecrets };
 
+let secretAvailability: SafeSecretAvailabilityStatus = {
+  usernameSecretAvailable: false,
+  passwordHashSecretAvailable: false,
+  sessionSecretAvailable: false,
+  requiredLoginSecretsAvailable: false,
+  todoistSecretAvailable: false,
+  googleClientIdSecretAvailable: false,
+  googleClientSecretAvailable: false,
+  googleRefreshTokenAvailable: false,
+  googleWriteAuthorizedStateAvailable: false,
+  writableOAuthSecretConfigurationReady: false,
+};
+
 async function initializeSecrets() {
-  const store = getSecretStore();
-  const provider = getSecretProvider();
+  const provider = getSecretProvider(SECRET_STORE_CONFIGURATION);
 
   console.log(`[Secrets] Initializing secrets with provider: ${provider}`);
+
+  if (!SECRET_STORE_CONFIGURATION.valid) {
+    resolvedAuthConfig = { ready: false, reason: 'secret_configuration_invalid' };
+    console.error(
+      `[Secrets] Configuration unavailable. Reason: ${SECRET_STORE_CONFIGURATION.reason}.`,
+    );
+    return;
+  }
+
+  const store = getSecretStore(SECRET_STORE_CONFIGURATION);
 
   const getSafeSecret = async (secretId: string): Promise<string | null> => {
     try {
       return await store.getSecret(secretId);
-    } catch (err: any) {
-      console.warn(`[Secrets] Warning: Failed to retrieve secret ${secretId} from ${provider}:`, redactSecrets(err.message || err));
+    } catch {
+      console.warn(`[Secrets] Secret retrieval failed. Reason: secret_read_failed.`);
       return null;
     }
   };
 
-  const resolveValue = async (secretId: string, envValue: string | undefined): Promise<string> => {
-    const storeVal = normalizeSecretValue(await getSafeSecret(secretId));
-    if (storeVal !== '') {
-      return storeVal;
-    }
-    return normalizeSecretValue(envValue);
-  };
-
-  const username = await resolveValue('LIFE_SITE_USERNAME', process.env.LIFE_SITE_USERNAME);
-  const passwordHash = await resolveValue('LIFE_SITE_PASSWORD_HASH', process.env.LIFE_SITE_PASSWORD_HASH);
-  const sessionSecret = await resolveValue('SESSION_SECRET', process.env.SESSION_SECRET);
-  const todoistToken = await resolveValue('TODOIST_API_TOKEN', process.env.TODOIST_API_TOKEN);
-  const googleClientId = await resolveValue('GOOGLE_CLIENT_ID', process.env.GOOGLE_CLIENT_ID);
-  const googleClientSecret = await resolveValue('GOOGLE_CLIENT_SECRET', process.env.GOOGLE_CLIENT_SECRET);
-  const googleRefreshToken = await resolveValue('GOOGLE_REFRESH_TOKEN', process.env.GOOGLE_REFRESH_TOKEN);
-  const googleWriteAuthorized = await resolveValue('GOOGLE_WRITE_AUTHORIZED', process.env.GOOGLE_WRITE_AUTHORIZED);
+  const username = normalizeSecretValue(await getSafeSecret('LIFE_SITE_USERNAME'));
+  const passwordHash = normalizeSecretValue(await getSafeSecret('LIFE_SITE_PASSWORD_HASH'));
+  const sessionSecret = normalizeSecretValue(await getSafeSecret('SESSION_SECRET'));
+  const todoistToken = normalizeSecretValue(await getSafeSecret('TODOIST_API_TOKEN'));
+  const googleClientId = normalizeSecretValue(await getSafeSecret('GOOGLE_CLIENT_ID'));
+  const googleClientSecret = normalizeSecretValue(await getSafeSecret('GOOGLE_CLIENT_SECRET'));
+  const googleRefreshToken = normalizeSecretValue(await getSafeSecret('GOOGLE_REFRESH_TOKEN'));
+  const googleWriteAuthorized = normalizeSecretValue(await getSafeSecret('GOOGLE_WRITE_AUTHORIZED'));
 
   cachedSecrets.todoistToken = todoistToken;
   cachedSecrets.googleClientId = googleClientId;
@@ -253,22 +279,36 @@ async function initializeSecrets() {
   cachedSecrets.googleRefreshToken = googleRefreshToken;
   cachedSecrets.googleWriteAuthorized = googleWriteAuthorized === 'true';
 
-  // Set process.env as well for backward compatibility / authentication
-  process.env.LIFE_SITE_USERNAME = username;
-  process.env.LIFE_SITE_PASSWORD_HASH = passwordHash;
-  process.env.SESSION_SECRET = sessionSecret;
-  process.env.TODOIST_API_TOKEN = todoistToken;
-  process.env.GOOGLE_CLIENT_ID = googleClientId;
-  process.env.GOOGLE_CLIENT_SECRET = googleClientSecret;
-  process.env.GOOGLE_REFRESH_TOKEN = googleRefreshToken;
-  process.env.GOOGLE_WRITE_AUTHORIZED = googleWriteAuthorized;
+  secretAvailability = evaluateSafeSecretAvailability(SECRET_STORE_CONFIGURATION, {
+    LIFE_SITE_USERNAME: username,
+    LIFE_SITE_PASSWORD_HASH: passwordHash,
+    SESSION_SECRET: sessionSecret,
+    TODOIST_API_TOKEN: todoistToken,
+    GOOGLE_CLIENT_ID: googleClientId,
+    GOOGLE_CLIENT_SECRET: googleClientSecret,
+    GOOGLE_REFRESH_TOKEN: googleRefreshToken,
+    GOOGLE_WRITE_AUTHORIZED: googleWriteAuthorized,
+  });
 
-  const isProduction = process.env.NODE_ENV === 'production';
+  if (SECRET_STORE_CONFIGURATION.provider === 'existing') {
+    process.env.LIFE_SITE_USERNAME = username;
+    process.env.LIFE_SITE_PASSWORD_HASH = passwordHash;
+    process.env.SESSION_SECRET = sessionSecret;
+    process.env.TODOIST_API_TOKEN = todoistToken;
+    process.env.GOOGLE_CLIENT_ID = googleClientId;
+    process.env.GOOGLE_CLIENT_SECRET = googleClientSecret;
+    process.env.GOOGLE_REFRESH_TOKEN = googleRefreshToken;
+    process.env.GOOGLE_WRITE_AUTHORIZED = googleWriteAuthorized;
+  }
+
+  const isProduction = SECRET_STORE_CONFIGURATION.deployedRuntime;
 
   if (!username) {
     resolvedAuthConfig = { ready: false, reason: 'missing_username' };
   } else if (!passwordHash) {
     resolvedAuthConfig = { ready: false, reason: 'missing_password_hash' };
+  } else if (!sessionSecret) {
+    resolvedAuthConfig = { ready: false, reason: 'missing_session_secret' };
   } else if (isProduction && username === 'admin') {
     resolvedAuthConfig = { ready: false, reason: 'default_username_forbidden' };
   } else if (isProduction && passwordHash === 'password') {
@@ -296,6 +336,10 @@ async function initializeSecrets() {
 
 function loadSecrets(): Secrets {
   return { ...cachedSecrets };
+}
+
+function getConfiguredSessionSecret(): string {
+  return resolvedAuthConfig.ready ? resolvedAuthConfig.sessionSecret : '';
 }
 
 // Global console log override to redact secrets from all logs
@@ -445,8 +489,8 @@ function registerLoginAttempt(ip: string, success: boolean) {
 }
 
 async function saveSecretsAsync(secrets: Secrets) {
-  const store = getSecretStore();
-  const provider = getSecretProvider();
+  const store = getSecretStore(SECRET_STORE_CONFIGURATION);
+  const provider = getSecretProvider(SECRET_STORE_CONFIGURATION);
 
   const oldSecrets = { ...cachedSecrets };
   cachedSecrets = { ...secrets };
@@ -490,26 +534,17 @@ async function saveSecretsAsync(secrets: Secrets) {
         await store.setSecretVersion('GOOGLE_WRITE_AUTHORIZED', secrets.googleWriteAuthorized ? 'true' : 'false');
       }
 
-      // Also save access tokens in existing/local mode to maintain full back-compat
-      try {
-        const fileData = fs.existsSync(SECRETS_FILE) ? JSON.parse(fs.readFileSync(SECRETS_FILE, 'utf-8')) : {};
-        fileData.todoistToken = secrets.todoistToken;
-        fileData.googleClientId = secrets.googleClientId;
-        fileData.googleClientSecret = secrets.googleClientSecret;
-        fileData.googleRefreshToken = secrets.googleRefreshToken;
-        fileData.googleAccessToken = secrets.googleAccessToken;
-        fileData.googleTokenExpiry = secrets.googleTokenExpiry;
-        fileData.googleWriteAuthorized = secrets.googleWriteAuthorized;
-        fs.writeFileSync(SECRETS_FILE, JSON.stringify(fileData, null, 2));
-      } catch (e) {
-        console.error('Failed to write local fallback secrets file:', e);
-      }
     }
-  } catch (err: any) {
-    console.error(`[Secrets] Error saving secrets to ${provider}:`, redactSecrets(err.message || err));
+    secretAvailability.todoistSecretAvailable = !!secrets.todoistToken;
+    secretAvailability.googleClientIdSecretAvailable = !!secrets.googleClientId;
+    secretAvailability.googleClientSecretAvailable = !!secrets.googleClientSecret;
+    secretAvailability.googleRefreshTokenAvailable = !!secrets.googleRefreshToken;
+    secretAvailability.googleWriteAuthorizedStateAvailable = true;
+  } catch {
+    console.error(`[Secrets] Secret persistence failed for provider ${provider}.`);
     // Restore the old cache in case of failure so it stays in sync
     cachedSecrets = oldSecrets;
-    throw err;
+    throw new Error('secret_persistence_failed');
   }
 }
 
@@ -580,10 +615,11 @@ const startupValidationErrors: string[] = [];
 async function startServer() {
   await initializeSecrets();
 
-  const secretProviderName = getSecretProvider();
-  const username = resolvedAuthConfig.ready ? resolvedAuthConfig.username : (process.env.LIFE_SITE_USERNAME || '');
-  const passwordHash = resolvedAuthConfig.ready ? resolvedAuthConfig.passwordHash : (process.env.LIFE_SITE_PASSWORD_HASH || '');
-  const sessionSecret = resolvedAuthConfig.ready ? resolvedAuthConfig.sessionSecret : (process.env.SESSION_SECRET || '');
+  const secretProviderName = getSecretProvider(SECRET_STORE_CONFIGURATION);
+  const safeSecretConfiguration = getSafeSecretConfigurationStatus(SECRET_STORE_CONFIGURATION);
+  const username = resolvedAuthConfig.ready ? resolvedAuthConfig.username : '';
+  const passwordHash = resolvedAuthConfig.ready ? resolvedAuthConfig.passwordHash : '';
+  const sessionSecret = resolvedAuthConfig.ready ? resolvedAuthConfig.sessionSecret : '';
 
   // Print safe configuration facts on startup
   console.log(`[Startup Info] Secret Provider: ${secretProviderName}`);
@@ -591,6 +627,9 @@ async function startServer() {
   console.log(`[Startup Info] Password Hash Configured: ${!!passwordHash}`);
   console.log(`[Startup Info] Password Hash Format Valid: ${isPasswordHashValid(passwordHash)}`);
   console.log(`[Startup Info] Session Secret Configured: ${!!sessionSecret}`);
+  console.log(`[Startup Info] Secret Manager Project Configured: ${safeSecretConfiguration.secretManagerProjectConfigured}`);
+  console.log(`[Startup Info] Secret Name Prefix Configured: ${safeSecretConfiguration.secretNamePrefixConfigured}`);
+  console.log(`[Startup Info] Secret Configuration Valid: ${safeSecretConfiguration.secretConfigurationValid}`);
   console.log(`[Startup Info] Deployed Runtime: ${PERSISTENT_STORAGE_CONFIGURATION.deployedRuntime}`);
   console.log(`[Startup Info] Storage Provider: ${STORES.provider}`);
   console.log(`[Startup Info] Firestore Project Configured: ${PERSISTENT_STORAGE_CONFIGURATION.firestoreProjectConfigured}`);
@@ -598,13 +637,18 @@ async function startServer() {
 
   const authConfig = resolvedAuthConfig;
   // Validate required production configuration during startup (Requirement 1 & 2)
-  if (process.env.NODE_ENV === 'production') {
+  if (SECRET_STORE_CONFIGURATION.deployedRuntime) {
+    if (!SECRET_STORE_CONFIGURATION.valid) {
+      startupValidationErrors.push(`secret_configuration_${SECRET_STORE_CONFIGURATION.reason}`);
+    }
     if (!authConfig.ready) {
       const unready = authConfig as any;
       if (unready.reason === 'missing_username') {
         startupValidationErrors.push('LIFE_SITE_USERNAME must be set when NODE_ENV=production.');
       } else if (unready.reason === 'missing_password_hash') {
         startupValidationErrors.push('LIFE_SITE_PASSWORD_HASH must be set when NODE_ENV=production.');
+      } else if (unready.reason === 'missing_session_secret') {
+        startupValidationErrors.push('SESSION_SECRET must be set when running in a deployed environment.');
       } else if (unready.reason === 'default_username_forbidden') {
         startupValidationErrors.push('LIFE_SITE_USERNAME must be set and cannot be the default "admin" when NODE_ENV=production.');
       } else if (unready.reason === 'default_password_forbidden') {
@@ -695,11 +739,11 @@ async function startServer() {
         STORES.testFirestoreConnection
       );
 
-      const secretProvider = getSecretProvider();
+      const safeSecretConfiguration = getSafeSecretConfigurationStatus(SECRET_STORE_CONFIGURATION);
       const authConfig = resolvedAuthConfig;
-      const usernameVal = authConfig.ready ? (authConfig as any).username : (process.env.LIFE_SITE_USERNAME || '');
-      const passwordHashVal = authConfig.ready ? (authConfig as any).passwordHash : (process.env.LIFE_SITE_PASSWORD_HASH || '');
-      const sessionSecretVal = authConfig.ready ? (authConfig as any).sessionSecret : (process.env.SESSION_SECRET || '');
+      const usernameVal = authConfig.ready ? authConfig.username : '';
+      const passwordHashVal = authConfig.ready ? authConfig.passwordHash : '';
+      const sessionSecretVal = authConfig.ready ? authConfig.sessionSecret : '';
 
       const usernameConfigured = !!usernameVal;
       const passwordHashConfigured = !!passwordHashVal;
@@ -713,6 +757,7 @@ async function startServer() {
       const status =
         serverRunning &&
         storageStatus.persistentStorageReady &&
+        safeSecretConfiguration.secretConfigurationValid &&
         authConfigurationReady &&
         productionConfigValid;
 
@@ -722,7 +767,8 @@ async function startServer() {
           details: {
             serverRunning,
             ...storageStatus,
-            secretProvider,
+            ...safeSecretConfiguration,
+            ...secretAvailability,
             usernameConfigured,
             passwordHashConfigured,
             passwordHashFormatValid,
@@ -740,7 +786,8 @@ async function startServer() {
         details: {
           serverRunning,
           ...storageStatus,
-          secretProvider,
+          ...safeSecretConfiguration,
+          ...secretAvailability,
           usernameConfigured,
           passwordHashConfigured,
           passwordHashFormatValid,
@@ -989,8 +1036,13 @@ async function startServer() {
       PERSISTENT_STORAGE_CONFIGURATION,
       STORES.testFirestoreConnection
     );
-    res.status(storageStatus.persistentStorageReady ? 200 : 503).json({
-      success: storageStatus.persistentStorageReady,
+    const safeSecretConfiguration = getSafeSecretConfigurationStatus(SECRET_STORE_CONFIGURATION);
+    const diagnosticReady =
+      storageStatus.persistentStorageReady &&
+      safeSecretConfiguration.secretConfigurationValid &&
+      secretAvailability.requiredLoginSecretsAvailable;
+    res.status(diagnosticReady ? 200 : 503).json({
+      success: diagnosticReady,
       provider: storageStatus.storageProvider,
       deployedRuntime: storageStatus.deployedRuntime,
       projectConfigured: storageStatus.firestoreProjectConfigured,
@@ -998,6 +1050,8 @@ async function startServer() {
       configurationValid: storageStatus.persistentStorageConfigurationValid,
       firestoreReachable: storageStatus.firestoreReachable,
       persistentStorageReady: storageStatus.persistentStorageReady,
+      ...safeSecretConfiguration,
+      ...secretAvailability,
     });
   });
 
@@ -1069,7 +1123,7 @@ async function startServer() {
     }
 
     const secrets = loadSecrets();
-    const clientId = secrets.googleClientId || process.env.GOOGLE_CLIENT_ID;
+    const clientId = secrets.googleClientId;
 
     if (!clientId) {
       return res.status(400).json({ success: false, error: 'Google Client ID is not configured' });
@@ -1091,7 +1145,10 @@ async function startServer() {
       return res.status(401).json({ success: false, error: 'Unauthenticated' });
     }
 
-    const sessionSecretVal = process.env.SESSION_SECRET || 'default-session-secret-fallback';
+    const sessionSecretVal = getConfiguredSessionSecret();
+    if (!sessionSecretVal) {
+      return res.status(503).json({ success: false, error: 'Login configuration is unavailable' });
+    }
     const stateValue = createSignedGoogleOAuthState(sessionToken, sessionSecretVal);
 
     const authUrl = buildGoogleAuthorizationUrl(clientId, redirectUri, scope, stateValue);
@@ -1141,7 +1198,10 @@ async function startServer() {
     }
 
     // Sign it using the existing server session secret
-    const sessionSecretVal = process.env.SESSION_SECRET || 'default-session-secret-fallback';
+    const sessionSecretVal = getConfiguredSessionSecret();
+    if (!sessionSecretVal) {
+      return res.status(503).send('Login configuration is unavailable');
+    }
     const stateValidation = validateSignedGoogleOAuthState(state, sessionToken, sessionSecretVal);
     if ('reason' in stateValidation) {
       if (stateValidation.reason === 'malformed') {
@@ -1155,8 +1215,8 @@ async function startServer() {
 
     try {
       const secrets = loadSecrets();
-      const clientId = secrets.googleClientId || process.env.GOOGLE_CLIENT_ID;
-      const clientSecret = secrets.googleClientSecret || process.env.GOOGLE_CLIENT_SECRET;
+      const clientId = secrets.googleClientId;
+      const clientSecret = secrets.googleClientSecret;
 
       if (!clientId || !clientSecret) {
         return res.status(400).send('Google credentials missing on server.');
@@ -1170,22 +1230,36 @@ async function startServer() {
 
       const tokenData = await response.json();
       if (!response.ok) {
-        console.error('Google token exchange error:', redactSecrets(JSON.stringify(tokenData)));
+        console.error('Google token exchange failed. Reason: token_exchange_rejected.');
         return res.status(400).send('OAuth Token exchange failed');
       }
 
-      secrets.googleAccessToken = tokenData.access_token;
-      if (tokenData.refresh_token) {
-        secrets.googleRefreshToken = tokenData.refresh_token;
-      }
-      secrets.googleTokenExpiry = Date.now() + (tokenData.expires_in * 1000);
-      secrets.googleWriteAuthorized = true; // Upgrade connection to full event editing
-      await saveSecrets(secrets);
+      const durableState = await persistGoogleOAuthAuthorization(
+        getSecretStore(SECRET_STORE_CONFIGURATION),
+        {
+          refreshToken: secrets.googleRefreshToken,
+          writeAuthorized: !!secrets.googleWriteAuthorized,
+        },
+        tokenData.refresh_token,
+      );
+
+      cachedSecrets = {
+        ...secrets,
+        googleAccessToken: typeof tokenData.access_token === 'string' ? tokenData.access_token : '',
+        googleRefreshToken: durableState.refreshToken,
+        googleTokenExpiry:
+          typeof tokenData.expires_in === 'number'
+            ? Date.now() + (tokenData.expires_in * 1000)
+            : 0,
+        googleWriteAuthorized: durableState.writeAuthorized,
+      };
+      secretAvailability.googleRefreshTokenAvailable = !!durableState.refreshToken;
+      secretAvailability.googleWriteAuthorizedStateAvailable = true;
 
       // Redirect user back to settings with success parameter
       res.redirect('/?google_connected=true');
-    } catch (e: any) {
-      console.error('Callback error:', redactSecrets(e.message || String(e)));
+    } catch {
+      console.error('Google OAuth callback failed. Reason: oauth_callback_failed.');
       res.status(500).send('Internal Server Error during Google Calendar authentication');
     }
   });
@@ -1193,8 +1267,8 @@ async function startServer() {
   // Automated Token Refresher Helper
   async function getGoogleAccessToken(): Promise<string | null> {
     const secrets = loadSecrets();
-    const clientId = secrets.googleClientId || process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = secrets.googleClientSecret || process.env.GOOGLE_CLIENT_SECRET;
+    const clientId = secrets.googleClientId;
+    const clientSecret = secrets.googleClientSecret;
     const refreshToken = secrets.googleRefreshToken;
 
     if (!refreshToken || !clientId || !clientSecret) {
@@ -1210,23 +1284,18 @@ async function startServer() {
       const response = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: clientId,
-          client_secret: clientSecret,
-          refresh_token: refreshToken,
-          grant_type: 'refresh_token'
-        }).toString()
+        body: buildGoogleRefreshTokenBody(refreshToken, clientId, clientSecret)
       });
 
       const tokenData = await response.json();
       if (!response.ok) {
-        console.error('Failed to refresh Google access token:', redactSecrets(JSON.stringify(tokenData)));
+        console.error('Google access-token refresh failed. Reason: token_refresh_rejected.');
         return null;
       }
 
       secrets.googleAccessToken = tokenData.access_token;
       secrets.googleTokenExpiry = Date.now() + (tokenData.expires_in * 1000);
-      await saveSecrets(secrets);
+      cachedSecrets = { ...secrets };
       return tokenData.access_token;
     } catch (e: any) {
       console.error('Network error refreshing Google access token:', redactSecrets(e.message || String(e)));
@@ -1349,7 +1418,7 @@ async function startServer() {
 
   function getTodoistToken(): string {
     const secrets = loadSecrets();
-    const rawToken = process.env.TODOIST_API_TOKEN || secrets.todoistToken || '';
+    const rawToken = secrets.todoistToken || '';
     
     const cleaned = rawToken.trim().replace(/\r?\n|\r/g, '');
     

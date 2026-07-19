@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import type { SecretStore } from '../storage/secretStore';
 
 export const GOOGLE_OAUTH_CALLBACK_PATH = '/api/auth/google/callback';
 export const GOOGLE_OAUTH_PRODUCTION_ORIGIN =
@@ -151,6 +152,19 @@ export function buildGoogleTokenExchangeBody(
   }).toString();
 }
 
+export function buildGoogleRefreshTokenBody(
+  refreshToken: string,
+  clientId: string,
+  clientSecret: string,
+): string {
+  return new URLSearchParams({
+    client_id: clientId,
+    client_secret: clientSecret,
+    refresh_token: refreshToken,
+    grant_type: 'refresh_token',
+  }).toString();
+}
+
 function signGoogleOAuthState(sessionToken: string, expiry: number, sessionSecret: string): string {
   return crypto.createHmac('sha256', sessionSecret)
     .update(`${sessionToken}:${expiry}`)
@@ -210,4 +224,50 @@ export function isUsableGoogleOAuthSession<T>(
   isExpired: (session: T) => boolean,
 ): session is T {
   return session !== null && session !== undefined && !isExpired(session);
+}
+
+export interface DurableGoogleOAuthState {
+  refreshToken: string;
+  writeAuthorized: boolean;
+}
+
+export class GoogleOAuthPersistenceError extends Error {
+  readonly reason: 'oauth_refresh_token_unavailable' | 'oauth_secret_persistence_failed';
+
+  constructor(reason: 'oauth_refresh_token_unavailable' | 'oauth_secret_persistence_failed') {
+    super(reason);
+    this.name = 'GoogleOAuthPersistenceError';
+    this.reason = reason;
+  }
+}
+
+export async function persistGoogleOAuthAuthorization(
+  store: SecretStore,
+  currentState: DurableGoogleOAuthState,
+  returnedRefreshToken: unknown,
+): Promise<DurableGoogleOAuthState> {
+  const newRefreshToken = typeof returnedRefreshToken === 'string'
+    ? returnedRefreshToken.trim()
+    : '';
+  const durableRefreshToken = newRefreshToken || currentState.refreshToken;
+
+  if (!durableRefreshToken) {
+    throw new GoogleOAuthPersistenceError('oauth_refresh_token_unavailable');
+  }
+
+  try {
+    if (newRefreshToken && newRefreshToken !== currentState.refreshToken) {
+      await store.setSecretVersion('GOOGLE_REFRESH_TOKEN', newRefreshToken);
+    }
+    if (!currentState.writeAuthorized) {
+      await store.setSecretVersion('GOOGLE_WRITE_AUTHORIZED', 'true');
+    }
+  } catch {
+    throw new GoogleOAuthPersistenceError('oauth_secret_persistence_failed');
+  }
+
+  return {
+    refreshToken: durableRefreshToken,
+    writeAuthorized: true,
+  };
 }

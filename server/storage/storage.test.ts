@@ -461,9 +461,15 @@ test('6. An incorrect password returns 401 (behavior handled in API)', () => {
   assert.strictEqual(isValid, false);
 });
 
-test('7. An unused SESSION_SECRET does not block login (verified in logic)', () => {
-  // Logic verified via code structure: POST /api/auth/login does not require envSessionSecret
-  assert.ok(true);
+test('7. Missing SESSION_SECRET keeps required login secret readiness false', async () => {
+  const { evaluateSafeSecretAvailability, resolveSecretStoreConfiguration } = await import('./secretStore');
+  const configuration = resolveSecretStoreConfiguration({ SECRET_PROVIDER: 'existing' });
+  const availability = evaluateSafeSecretAvailability(configuration, {
+    LIFE_SITE_USERNAME: 'configured-user',
+    LIFE_SITE_PASSWORD_HASH: 'configured-hash',
+  });
+  assert.strictEqual(availability.sessionSecretAvailable, false);
+  assert.strictEqual(availability.requiredLoginSecretsAvailable, false);
 });
 
 test('8. A genuinely required SESSION_SECRET is loaded correctly if the current architecture uses it', async () => {
@@ -555,22 +561,26 @@ test('Focused Auth: 1. Valid existing-provider configuration permits login', asy
 });
 
 test('Focused Auth: 2. Valid Secret Manager configuration permits login', async () => {
-  const { GoogleSecretManagerStore } = await import('./secretStore');
-  const store = new GoogleSecretManagerStore();
-
-  // Mock the Client and the Project ID detection
-  (store as any).client = {
+  const { GoogleSecretManagerStore, resolveSecretStoreConfiguration } = await import('./secretStore');
+  const configuration = resolveSecretStoreConfiguration({
+    NODE_ENV: 'production',
+    SECRET_PROVIDER: 'secretmanager',
+    SECRET_MANAGER_PROJECT_ID: 'mock-gcp-project-123',
+    SECRET_NAME_PREFIX: 'life-site-test',
+  });
+  const client = {
     accessSecretVersion: async ({ name }: { name: string }) => {
-      if (name.includes('LIFE_SITE_USERNAME')) {
+      if (name.endsWith('/life-site-test-username/versions/latest')) {
         return [{ payload: { data: Buffer.from('Francisco', 'utf-8') } }];
       }
-      if (name.includes('LIFE_SITE_PASSWORD_HASH')) {
+      if (name.endsWith('/life-site-test-password-hash/versions/latest')) {
         return [{ payload: { data: Buffer.from('pbkdf2_sha256$390000$salt$1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef', 'utf-8') } }];
       }
       return [null];
-    }
+    },
+    addSecretVersion: async () => [{}],
   };
-  (store as any).projectIdPromise = Promise.resolve('mock-gcp-project-123');
+  const store = new GoogleSecretManagerStore(configuration, client as any);
 
   const user = await store.getSecret('LIFE_SITE_USERNAME');
   const hash = await store.getSecret('LIFE_SITE_PASSWORD_HASH');
@@ -2158,7 +2168,5 @@ test('Calendar Event Editor: parsing, recurring checks, canEdit flags and human-
   assert.strictEqual(getNextDayExclusive('2026-07-16'), '2026-07-17');
   assert.strictEqual(getNextDayExclusive('2026-12-31'), '2027-01-01');
 });
-
-
 
 
