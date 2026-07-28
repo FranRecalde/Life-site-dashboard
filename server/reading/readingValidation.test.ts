@@ -187,7 +187,14 @@ test('action capture validation accepts only the restricted title-based contract
 test('idempotency keys must be stable printable values of sufficient length', () => {
   const key = '2b98ef39-314f-4f69-8a16-b51d099bc814';
   assert.strictEqual(validateIdempotencyKey(key), key);
-  for (const invalid of ['short', ` ${key}`, `${key}\n`]) {
+  for (const invalid of [
+    'short',
+    ` ${key}`,
+    `${key}\n`,
+    '123456789012345é',
+    '12345678\u00ad12345678',
+    '12345678\u200b12345678',
+  ]) {
     assert.throws(() => validateIdempotencyKey(invalid), ReadingValidationError);
   }
 });

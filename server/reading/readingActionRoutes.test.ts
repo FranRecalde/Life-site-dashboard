@@ -206,6 +206,11 @@ test('action endpoint requires JSON and rejects invalid, unknown, and protected 
         code: 'invalid_idempotency_key',
       },
       {
+        headers: actionHeaders(fixture, '12345678\u00ad12345678'),
+        body: captureBody(),
+        code: 'invalid_idempotency_key',
+      },
+      {
         headers: actionHeaders(fixture),
         body: captureBody({ bookId: 'book_1' }),
         code: 'unexpected_field',
@@ -325,7 +330,11 @@ test('action endpoint resolves exact normalized books and reports stable match e
 test('action endpoint creates, safely replays, and conflicts with a minimal response', async () => {
   const fixture = await createRouteFixture();
   try {
-    await createBook(fixture, 'The   Great Divorce', 'C. S. Lewis');
+    const book = await createBook(
+      fixture,
+      'The   Great Divorce',
+      'C. S. Lewis',
+    );
     const idempotencyKey = crypto.randomUUID();
     const body = captureBody({
       bookTitle: 'Ｔｈｅ Great Divorce',
@@ -357,6 +366,12 @@ test('action endpoint creates, safely replays, and conflicts with a minimal resp
     assert.strictEqual(JSON.stringify(created).includes(body.originalText as string), false);
     assert.strictEqual(JSON.stringify(created).includes('Literature notes'), false);
     assert.strictEqual(JSON.stringify(created).includes('literature'), false);
+
+    await fixture.service.updateBook(book.id, {
+      expectedRevision: 1,
+      title: 'A Later Renamed Title',
+      status: 'archived',
+    });
 
     const replayResponse = await fetch(
       `${fixture.baseUrl}/api/actions/reading-captures`,

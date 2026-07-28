@@ -322,11 +322,11 @@ export function validateIdempotencyKey(value: unknown): string {
     value.length < 16 ||
     value.length > 200 ||
     value !== value.trim() ||
-    /[\u0000-\u001f\u007f]/.test(value)
+    !/^[\x20-\x7e]+$/.test(value)
   ) {
     throw new ReadingValidationError(
       'invalid_idempotency_key',
-      'Idempotency-Key must be 16 to 200 printable characters.',
+      'Idempotency-Key must be 16 to 200 printable ASCII characters.',
     );
   }
   return value;
