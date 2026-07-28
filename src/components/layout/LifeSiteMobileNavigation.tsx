@@ -10,7 +10,8 @@ import {
   Brain, 
   Sparkles, 
   Settings,
-  Flame
+  Flame,
+  BookOpen
 } from 'lucide-react';
 import { EntranceHallView } from './entranceHallTypes';
 
@@ -56,6 +57,12 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Notes Inbox',
     icon: FileText,
     ariaLabel: 'Go to Notes Inbox panel',
+  },
+  {
+    id: 'reading-capture',
+    label: 'Reading Capture',
+    icon: BookOpen,
+    ariaLabel: 'Go to Reading Capture workspace',
   },
   {
     id: 'thought-catcher',

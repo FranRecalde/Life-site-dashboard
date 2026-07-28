@@ -229,3 +229,108 @@ export interface MoveTodoistTaskOptions {
   parentId?: string;
 }
 
+export type ReadingSource = 'physical' | 'kindle' | 'audiobook';
+
+export type ReadingCaptureType =
+  | 'thought'
+  | 'quote_and_thought'
+  | 'question'
+  | 'action'
+  | 'summary';
+
+export type ReadingBookStatus = 'active' | 'archived';
+
+export type ReadingCaptureStatus =
+  | 'pending'
+  | 'in_progress'
+  | 'delivered'
+  | 'needs_attention';
+
+export type ReadingCaptureCreatorType = 'life_site' | 'custom_gpt';
+
+export interface ReadingBook {
+  id: string;
+  title: string;
+  author: string;
+  destinationNotePath: string;
+  tags: string[];
+  defaultSource?: ReadingSource;
+  status: ReadingBookStatus;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReadingCaptureLocator {
+  kind: 'page' | 'location' | 'chapter' | 'timestamp';
+  value: string;
+}
+
+export interface ReadingDeliveryAttempts {
+  count: number;
+  lastAttemptAt?: string;
+  lastErrorCode?: string;
+}
+
+export interface ReadingDeliveryLease {
+  leaseId: string;
+  ownerId: string;
+  acquiredAt: string;
+  expiresAt: string;
+}
+
+export interface ReadingCapture {
+  id: string;
+  bookId: string;
+  bookRevision: number;
+  bookTitle: string;
+  bookAuthor: string;
+  bookTags: string[];
+  destinationNotePath: string;
+  originalText: string;
+  captureType: ReadingCaptureType;
+  source?: ReadingSource;
+  locator?: ReadingCaptureLocator;
+  capturedAt: string;
+  receivedAt: string;
+  creatorType: ReadingCaptureCreatorType;
+  status: ReadingCaptureStatus;
+  payloadHash: string;
+  markdownRenderVersion: 1;
+  deliveryAttempts: ReadingDeliveryAttempts;
+  deliveryLease?: ReadingDeliveryLease;
+  deliveredAt?: string;
+  updatedAt: string;
+}
+
+export interface CreateReadingBookInput {
+  title: string;
+  author: string;
+  destinationNotePath: string;
+  tags?: string[];
+  defaultSource?: ReadingSource;
+}
+
+export interface UpdateReadingBookInput {
+  expectedRevision: number;
+  title?: string;
+  author?: string;
+  destinationNotePath?: string;
+  tags?: string[];
+  defaultSource?: ReadingSource | null;
+  status?: ReadingBookStatus;
+}
+
+export interface CreateReadingCaptureInput {
+  bookId: string;
+  originalText: string;
+  captureType: ReadingCaptureType;
+  source?: ReadingSource;
+  locator?: ReadingCaptureLocator;
+}
+
+export interface ReadingCaptureListFilter {
+  bookId?: string;
+  status?: ReadingCaptureStatus;
+  limit?: number;
+}

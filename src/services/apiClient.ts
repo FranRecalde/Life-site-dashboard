@@ -1,4 +1,20 @@
-import { DashboardSnapshot, UserSettings, TodoistProjectSummary, TodoistProjectTask, Habit, HabitEntry, CreateTodoistTaskOptions, UpdateTodoistTaskOptions, MoveTodoistTaskOptions } from '../types';
+import {
+  DashboardSnapshot,
+  UserSettings,
+  TodoistProjectSummary,
+  TodoistProjectTask,
+  Habit,
+  HabitEntry,
+  CreateTodoistTaskOptions,
+  UpdateTodoistTaskOptions,
+  MoveTodoistTaskOptions,
+  CreateReadingBookInput,
+  CreateReadingCaptureInput,
+  ReadingBook,
+  ReadingCapture,
+  ReadingCaptureListFilter,
+  UpdateReadingBookInput,
+} from '../types';
 
 export interface ApiRequestOptions extends RequestInit {
   skipAuthHandling?: boolean;
@@ -274,5 +290,55 @@ export class ApiClient {
     if (to) params.set('to', to);
     const query = params.toString() ? `?${params.toString()}` : '';
     return this.request(`/api/habits/${habitId}/history${query}`);
+  }
+
+  static async getReadingBooks(includeArchived = false): Promise<ReadingBook[]> {
+    return this.request(
+      `/api/reading/books?includeArchived=${includeArchived ? 'true' : 'false'}`,
+    );
+  }
+
+  static async createReadingBook(input: CreateReadingBookInput): Promise<ReadingBook> {
+    return this.request('/api/reading/books', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  static async updateReadingBook(
+    bookId: string,
+    input: UpdateReadingBookInput,
+  ): Promise<ReadingBook> {
+    return this.request(`/api/reading/books/${encodeURIComponent(bookId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  static async getReadingCaptures(
+    filter: ReadingCaptureListFilter = {},
+  ): Promise<ReadingCapture[]> {
+    const params = new URLSearchParams();
+    if (filter.bookId) params.set('bookId', filter.bookId);
+    if (filter.status) params.set('status', filter.status);
+    if (filter.limit !== undefined) params.set('limit', String(filter.limit));
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request(`/api/reading/captures${query}`);
+  }
+
+  static async createReadingCapture(
+    input: CreateReadingCaptureInput,
+    idempotencyKey: string,
+  ): Promise<{ capture: ReadingCapture; replayed: boolean }> {
+    return this.request('/api/reading/captures', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': idempotencyKey,
+      },
+      body: JSON.stringify(input),
+    });
   }
 }

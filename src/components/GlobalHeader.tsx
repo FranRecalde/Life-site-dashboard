@@ -1,6 +1,6 @@
 import React from 'react';
 import { 
-  WifiOff, Clock, CloudSun, RefreshCw, Settings, LogOut, LayoutGrid
+  WifiOff, Clock, CloudSun, RefreshCw, Settings, LogOut, LayoutGrid, BookOpen
 } from 'lucide-react';
 import { DashboardSnapshot, ObsidianNote } from '../types';
 import { GlobalSearchControl } from './GlobalSearchControl';
@@ -22,6 +22,7 @@ export interface GlobalHeaderProps {
   setSearchResults: (val: { notes: ObsidianNote[] } | null) => void;
   setSelectedNote: (note: ObsidianNote | null) => void;
   onReturnToEntranceHall: () => void;
+  onOpenReadingCapture: () => void;
   onClearSearch?: () => void;
 }
 
@@ -42,6 +43,7 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
   setSearchResults,
   setSelectedNote,
   onReturnToEntranceHall,
+  onOpenReadingCapture,
   onClearSearch,
 }) => {
   return (
@@ -82,6 +84,14 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
                   <p className="font-bold">{dashboardData.weather.temperature}°{dashboardData.weather.units}</p>
                 </div>
               )}
+              <button
+                onClick={onOpenReadingCapture}
+                className="p-2 rounded-lg border border-[#eaedff] dark:border-[#283044] hover:bg-[#f2f3ff] dark:hover:bg-[#273545] transition-colors cursor-pointer text-[#00288e] dark:text-[#a8b8ff]"
+                title="Open Reading Capture"
+                aria-label="Open Reading Capture"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+              </button>
               <button
                 onClick={onReturnToEntranceHall}
                 className="p-2 rounded-lg border border-[#eaedff] dark:border-[#283044] hover:bg-[#f2f3ff] dark:hover:bg-[#273545] transition-colors cursor-pointer flex items-center gap-1 text-[10px] font-bold text-[#00288e] dark:text-[#a8b8ff]"
@@ -141,6 +151,16 @@ export const GlobalHeader: React.FC<GlobalHeaderProps> = ({
                 </div>
               </div>
             )}
+
+            <button
+              onClick={onOpenReadingCapture}
+              className="px-3 py-1.5 sm:py-2 rounded-lg border border-[#eaedff] dark:border-[#283044] bg-white dark:bg-[#131b2e] hover:bg-[#f2f3ff] dark:hover:bg-[#273545] text-xs font-bold text-[#00288e] dark:text-[#a8b8ff] transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[#00288e]"
+              title="Open Reading Capture"
+              aria-label="Open Reading Capture"
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>Reading Capture</span>
+            </button>
 
             <button
               onClick={onReturnToEntranceHall}

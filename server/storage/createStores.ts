@@ -1,6 +1,13 @@
 import path from 'path';
 import { getFirestoreClient, testFirestoreConnection } from './firestoreClient';
-import { SettingsStore, SessionStore, HabitStore, StorageProviderType, SessionData } from './types';
+import {
+  SettingsStore,
+  SessionStore,
+  HabitStore,
+  ReadingStore,
+  StorageProviderType,
+  SessionData,
+} from './types';
 import { LocalSettingsStore } from './localSettingsStore';
 import { MemorySessionStore } from './memorySessionStore';
 import { FirestoreSettingsStore } from './firestoreSettingsStore';
@@ -8,6 +15,9 @@ import { FirestoreSessionStore } from './firestoreSessionStore';
 import { LocalHabitStore } from './localHabitStore';
 import { FirestoreHabitStore } from './firestoreHabitStore';
 import { DualHabitStore } from './dualHabitStore';
+import { LocalReadingStore } from './localReadingStore';
+import { FirestoreReadingStore } from './firestoreReadingStore';
+import { DualReadingStore } from './dualReadingStore';
 import { UserSettings } from '../../src/types';
 import {
   PersistentStorageConfiguration,
@@ -111,6 +121,7 @@ export interface Stores {
   settings: SettingsStore;
   sessions: SessionStore;
   habits: HabitStore;
+  reading: ReadingStore;
   provider: StorageProviderType;
   testFirestoreConnection: () => Promise<boolean>;
 }
@@ -128,10 +139,12 @@ export function createStores(
   const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
   const HABITS_FILE = path.join(DATA_DIR, 'habits.json');
   const HABIT_ENTRIES_FILE = path.join(DATA_DIR, 'habit_entries.json');
+  const READING_FILE = path.join(DATA_DIR, 'reading.json');
 
   const localSettings = new LocalSettingsStore(SETTINGS_FILE);
   const localSessions = new MemorySessionStore();
   const localHabits = new LocalHabitStore(HABITS_FILE, HABIT_ENTRIES_FILE);
+  const localReading = new LocalReadingStore(READING_FILE);
 
   if (provider === 'firestore') {
     const db = getFirestoreClient(configuration.projectId!, configuration.databaseId!);
@@ -139,6 +152,7 @@ export function createStores(
       settings: new FirestoreSettingsStore(db),
       sessions: new FirestoreSessionStore(db),
       habits: new FirestoreHabitStore(db),
+      reading: new FirestoreReadingStore(db),
       provider: 'firestore',
       testFirestoreConnection: () => testFirestoreConnection(db),
     };
@@ -151,6 +165,7 @@ export function createStores(
       settings: new DualSettingsStore(localSettings, new FirestoreSettingsStore(db)),
       sessions: new DualSessionStore(localSessions, new FirestoreSessionStore(db)),
       habits: new DualHabitStore(localHabits, new FirestoreHabitStore(db)),
+      reading: new DualReadingStore(localReading, new FirestoreReadingStore(db)),
       provider: 'dual',
       testFirestoreConnection: () => testFirestoreConnection(db),
     };
@@ -160,6 +175,7 @@ export function createStores(
       settings: localSettings,
       sessions: localSessions,
       habits: localHabits,
+      reading: localReading,
       provider: 'local',
       testFirestoreConnection: async () => false,
     };
