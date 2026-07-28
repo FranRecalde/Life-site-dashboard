@@ -1,4 +1,12 @@
-import { UserSettings, Habit, HabitEntry } from '../../src/types';
+import {
+  UserSettings,
+  Habit,
+  HabitEntry,
+  ReadingBook,
+  ReadingCapture,
+  ReadingCaptureListFilter,
+  ReadingCaptureStatus,
+} from '../../src/types';
 
 export interface SessionData {
   username: string;
@@ -28,6 +36,49 @@ export interface HabitStore {
   getEntries(habitId: string, startDate: string, endDate: string): Promise<HabitEntry[]>;
   upsertEntry(habitId: string, date: string, completed: boolean): Promise<HabitEntry>;
   deleteEntry(habitId: string, date: string): Promise<void>;
+}
+
+export type ReadingBookUpdateResult =
+  | { outcome: 'updated'; book: ReadingBook }
+  | { outcome: 'not_found' }
+  | { outcome: 'revision_conflict' };
+
+export interface IdempotentCaptureCreateCommand {
+  idempotencyKeyHash: string;
+  payloadHash: string;
+  capture: ReadingCapture;
+}
+
+export type IdempotentCaptureCreateResult =
+  | { outcome: 'created' | 'replayed'; capture: ReadingCapture }
+  | { outcome: 'conflict' | 'book_not_found' | 'book_inactive' | 'book_revision_conflict' };
+
+export interface CaptureTransitionCommand {
+  captureId: string;
+  expectedStatus: ReadingCaptureStatus;
+  capture: ReadingCapture;
+}
+
+export type CaptureTransitionResult =
+  | { outcome: 'updated'; capture: ReadingCapture }
+  | { outcome: 'not_found' }
+  | { outcome: 'state_conflict' };
+
+export interface ReadingStore {
+  listBooks(options?: { includeArchived?: boolean }): Promise<ReadingBook[]>;
+  getBook(id: string): Promise<ReadingBook | null>;
+  createBook(book: ReadingBook): Promise<ReadingBook>;
+  updateBook(
+    id: string,
+    expectedRevision: number,
+    book: ReadingBook,
+  ): Promise<ReadingBookUpdateResult>;
+  listCaptures(filter?: ReadingCaptureListFilter): Promise<ReadingCapture[]>;
+  getCapture(id: string): Promise<ReadingCapture | null>;
+  createCaptureIdempotently(
+    command: IdempotentCaptureCreateCommand,
+  ): Promise<IdempotentCaptureCreateResult>;
+  transitionCapture(command: CaptureTransitionCommand): Promise<CaptureTransitionResult>;
 }
 
 export type StorageProviderType = 'local' | 'dual' | 'firestore';

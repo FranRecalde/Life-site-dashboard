@@ -75,6 +75,7 @@ export const LifeSiteShell: React.FC<LifeSiteShellProps> = ({
       case 'tasks': return 'Mission Tasks Board';
       case 'projects': return 'Project Hub Directory';
       case 'notes': return 'Notes Inbox Repository';
+      case 'reading-capture': return 'Reading Capture Workspace';
       case 'thought-catcher': return 'Thought Catcher Stream';
       case 'habits': return 'Habit Integration Hub';
       case 'settings': return 'System Settings Panel';

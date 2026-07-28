@@ -55,6 +55,7 @@ import { LifeSiteShell } from './components/layout/LifeSiteShell';
 import { EntranceHallCard } from './components/layout/EntranceHallCard';
 import { EntranceHallDashboard } from './components/layout/EntranceHallDashboard';
 import { ObsidianErrorBox } from './components/feedback/ObsidianErrorBox';
+import { ReadingCaptureWorkspace } from './components/ReadingCaptureWorkspace';
 import { 
   DashboardSnapshot, 
   UserSettings, 
@@ -128,6 +129,11 @@ export default function App() {
       setLayout('entrance-hall');
     }
   }, [layout]);
+
+  const handleOpenReadingCapture = useCallback(() => {
+    setEntranceHallView('reading-capture');
+    handleReturnToEntranceHall();
+  }, [handleReturnToEntranceHall]);
 
   // Authentication states
   const [authChecked, setAuthChecked] = useState(false);
@@ -3308,6 +3314,10 @@ export default function App() {
             </div>
           )}
 
+          {entranceHallView === 'reading-capture' && (
+            <ReadingCaptureWorkspace />
+          )}
+
           {entranceHallView === 'settings' && (
             !settingsEditState ? (
               <div className="flex flex-col items-center justify-center py-20 text-slate-400 font-mono text-xs gap-3">
@@ -3388,6 +3398,7 @@ export default function App() {
         setSearchResults={setSearchResults}
         setSelectedNote={setSelectedNote}
         onReturnToEntranceHall={handleReturnToEntranceHall}
+        onOpenReadingCapture={handleOpenReadingCapture}
         onClearSearch={clearSearch}
       />
 

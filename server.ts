@@ -49,6 +49,8 @@ import {
   calculateWeeklyTargetProgress,
   calculateCompletionRate
 } from './src/services/habitEngine';
+import { ReadingService } from './server/reading/readingService';
+import { createReadingBrowserRouter } from './server/reading/readingBrowserRoutes';
 
 const normalizeSecretValue = (value?: string | null): string =>
   typeof value === 'string' ? value.trim() : '';
@@ -124,6 +126,7 @@ try {
 
 if (resolvedStores) {
 const STORES = resolvedStores;
+const READING_SERVICE = new ReadingService(STORES.reading);
 
 // Self-bootstrapping data directories
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -722,6 +725,12 @@ async function startServer() {
       next(err);
     }
   };
+
+  app.use(
+    '/api/reading',
+    authMiddleware,
+    createReadingBrowserRouter(READING_SERVICE),
+  );
 
   // -------------------------------------------------------------
   // Public Routes
