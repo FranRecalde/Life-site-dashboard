@@ -4,6 +4,7 @@ import {
   ReadingValidationError,
   validateCreateBookInput,
   validateCreateCaptureInput,
+  validateCreateReadingActionCaptureInput,
   validateDestinationNotePath,
   validateIdempotencyKey,
 } from './readingValidation';
@@ -112,6 +113,64 @@ test('browser capture input rejects protected server and delivery fields', () =>
     assert.throws(
       () => validateCreateCaptureInput({
         bookId: 'book_123',
+        originalText: 'Words',
+        captureType: 'thought',
+        [protectedField]: 'not-allowed',
+      }),
+      (error: unknown) => (
+        error instanceof ReadingValidationError &&
+        error.code === 'unexpected_field'
+      ),
+      protectedField,
+    );
+  }
+});
+
+test('action capture validation accepts only the restricted title-based contract', () => {
+  const originalText = '  Exact spoken words.\nKeep this spacing.  ';
+  const input = validateCreateReadingActionCaptureInput({
+    bookTitle: '  The Great Divorce  ',
+    bookAuthor: ' C. S. Lewis ',
+    originalText,
+    captureType: 'thought',
+    source: 'audiobook',
+    locator: { kind: 'timestamp', value: ' 01:23:45 ' },
+  });
+
+  assert.deepStrictEqual(input, {
+    bookTitle: 'The Great Divorce',
+    bookAuthor: 'C. S. Lewis',
+    originalText,
+    captureType: 'thought',
+    source: 'audiobook',
+    locator: { kind: 'timestamp', value: '01:23:45' },
+  });
+  const maximumText = 'x'.repeat(50_000);
+  assert.strictEqual(
+    validateCreateReadingActionCaptureInput({
+      bookTitle: 'Book',
+      originalText: maximumText,
+      captureType: 'summary',
+    }).originalText,
+    maximumText,
+  );
+
+  for (const protectedField of [
+    'bookId',
+    'id',
+    'creatorType',
+    'payloadHash',
+    'destinationNotePath',
+    'bookTags',
+    'status',
+    'deliveryAttempts',
+    'deliveryLease',
+    'capturedAt',
+    'receivedAt',
+  ]) {
+    assert.throws(
+      () => validateCreateReadingActionCaptureInput({
+        bookTitle: 'Book',
         originalText: 'Words',
         captureType: 'thought',
         [protectedField]: 'not-allowed',

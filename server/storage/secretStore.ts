@@ -20,6 +20,7 @@ export const LOGICAL_SECRET_SUFFIXES = {
   GOOGLE_CLIENT_SECRET: 'google-client-secret',
   GOOGLE_REFRESH_TOKEN: 'google-refresh-token',
   GOOGLE_WRITE_AUTHORIZED: 'google-write-authorized',
+  READING_CAPTURE_API_TOKEN_HASH: 'reading-capture-api-token-hash',
 } as const;
 
 export type LogicalSecretKey = keyof typeof LOGICAL_SECRET_SUFFIXES;
@@ -33,6 +34,7 @@ const LEGACY_SECRET_MAPPING: Record<LogicalSecretKey, string> = {
   GOOGLE_CLIENT_SECRET: 'googleClientSecret',
   GOOGLE_REFRESH_TOKEN: 'googleRefreshToken',
   GOOGLE_WRITE_AUTHORIZED: 'googleWriteAuthorized',
+  READING_CAPTURE_API_TOKEN_HASH: 'readingCaptureApiTokenHash',
 };
 
 const REVERSE_LEGACY_SECRET_MAPPING = Object.fromEntries(
@@ -85,6 +87,8 @@ export interface SafeSecretAvailabilityStatus {
   googleRefreshTokenAvailable: boolean;
   googleWriteAuthorizedStateAvailable: boolean;
   writableOAuthSecretConfigurationReady: boolean;
+  readingCaptureApiTokenHashAvailable: boolean;
+  readingCaptureApiCredentialReady: boolean;
 }
 
 export type LogicalSecretValues = Partial<Record<LogicalSecretKey, string | null | undefined>>;
@@ -234,6 +238,8 @@ export function evaluateSafeSecretAvailability(
   const passwordHashSecretAvailable = available('LIFE_SITE_PASSWORD_HASH');
   const sessionSecretAvailable = available('SESSION_SECRET');
   const writeAuthorizedValue = values.GOOGLE_WRITE_AUTHORIZED?.trim();
+  const readingCaptureApiTokenHash =
+    values.READING_CAPTURE_API_TOKEN_HASH?.trim() ?? '';
 
   return {
     usernameSecretAvailable,
@@ -249,6 +255,9 @@ export function evaluateSafeSecretAvailability(
       writeAuthorizedValue === 'true' || writeAuthorizedValue === 'false',
     writableOAuthSecretConfigurationReady:
       configuration.provider === 'secretmanager' && configuration.valid,
+    readingCaptureApiTokenHashAvailable: readingCaptureApiTokenHash !== '',
+    readingCaptureApiCredentialReady:
+      /^[0-9a-f]{64}$/i.test(readingCaptureApiTokenHash),
   };
 }
 

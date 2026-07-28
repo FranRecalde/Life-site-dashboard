@@ -2,6 +2,7 @@ import {
   CreateReadingBookInput,
   CreateReadingCaptureInput,
   ReadingBookStatus,
+  ReadingCaptureLocator,
   ReadingCaptureListFilter,
   ReadingCaptureStatus,
   ReadingCaptureType,
@@ -25,6 +26,15 @@ const CAPTURE_STATUSES = new Set<ReadingCaptureStatus>([
   'needs_attention',
 ]);
 const LOCATOR_KINDS = new Set(['page', 'location', 'chapter', 'timestamp']);
+
+export interface CreateReadingActionCaptureInput {
+  bookTitle: string;
+  bookAuthor?: string;
+  originalText: string;
+  captureType: ReadingCaptureType;
+  source?: ReadingSource;
+  locator?: ReadingCaptureLocator;
+}
 
 export class ReadingValidationError extends Error {
   readonly code: string;
@@ -97,6 +107,50 @@ function optionalSource(value: unknown, field: string): ReadingSource | undefine
     );
   }
   return value as ReadingSource;
+}
+
+function validateOriginalText(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new ReadingValidationError(
+      'invalid_original_text',
+      'originalText is required.',
+    );
+  }
+  if (value.length > 50_000) {
+    throw new ReadingValidationError(
+      'invalid_original_text',
+      'originalText cannot exceed 50000 characters.',
+    );
+  }
+  return value;
+}
+
+function validateCaptureType(value: unknown): ReadingCaptureType {
+  if (
+    typeof value !== 'string' ||
+    !CAPTURE_TYPES.has(value as ReadingCaptureType)
+  ) {
+    throw new ReadingValidationError(
+      'invalid_capture_type',
+      'captureType is invalid.',
+    );
+  }
+  return value as ReadingCaptureType;
+}
+
+function validateLocator(value: unknown): ReadingCaptureLocator | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) {
+    throw new ReadingValidationError('invalid_locator', 'locator must be an object.');
+  }
+  rejectUnknownKeys(value, ['kind', 'value']);
+  if (typeof value.kind !== 'string' || !LOCATOR_KINDS.has(value.kind)) {
+    throw new ReadingValidationError('invalid_locator', 'locator kind is invalid.');
+  }
+  return {
+    kind: value.kind as ReadingCaptureLocator['kind'],
+    value: requireTrimmedString(value.value, 'locator value', 160),
+  };
 }
 
 function validateTags(value: unknown): string[] {
@@ -227,52 +281,38 @@ export function validateCreateCaptureInput(value: unknown): CreateReadingCapture
   if (!/^[a-zA-Z0-9_-]+$/.test(bookId)) {
     throw new ReadingValidationError('invalid_book_id', 'bookId is invalid.');
   }
-  if (typeof body.originalText !== 'string' || !body.originalText.trim()) {
-    throw new ReadingValidationError(
-      'invalid_original_text',
-      'originalText is required.',
-    );
-  }
-  if (body.originalText.length > 50_000) {
-    throw new ReadingValidationError(
-      'invalid_original_text',
-      'originalText cannot exceed 50000 characters.',
-    );
-  }
-  if (
-    typeof body.captureType !== 'string' ||
-    !CAPTURE_TYPES.has(body.captureType as ReadingCaptureType)
-  ) {
-    throw new ReadingValidationError(
-      'invalid_capture_type',
-      'captureType is invalid.',
-    );
-  }
-
-  let locator: CreateReadingCaptureInput['locator'];
-  if (body.locator !== undefined) {
-    if (!isRecord(body.locator)) {
-      throw new ReadingValidationError('invalid_locator', 'locator must be an object.');
-    }
-    rejectUnknownKeys(body.locator, ['kind', 'value']);
-    if (
-      typeof body.locator.kind !== 'string' ||
-      !LOCATOR_KINDS.has(body.locator.kind)
-    ) {
-      throw new ReadingValidationError('invalid_locator', 'locator kind is invalid.');
-    }
-    locator = {
-      kind: body.locator.kind as NonNullable<CreateReadingCaptureInput['locator']>['kind'],
-      value: requireTrimmedString(body.locator.value, 'locator value', 160),
-    };
-  }
 
   return {
     bookId,
-    originalText: body.originalText,
-    captureType: body.captureType as ReadingCaptureType,
+    originalText: validateOriginalText(body.originalText),
+    captureType: validateCaptureType(body.captureType),
     source: optionalSource(body.source, 'source'),
-    locator,
+    locator: validateLocator(body.locator),
+  };
+}
+
+export function validateCreateReadingActionCaptureInput(
+  value: unknown,
+): CreateReadingActionCaptureInput {
+  const body = requireRecord(value);
+  rejectUnknownKeys(body, [
+    'bookTitle',
+    'bookAuthor',
+    'originalText',
+    'captureType',
+    'source',
+    'locator',
+  ]);
+  return {
+    bookTitle: requireTrimmedString(body.bookTitle, 'bookTitle', 200),
+    bookAuthor:
+      body.bookAuthor === undefined
+        ? undefined
+        : requireTrimmedString(body.bookAuthor, 'bookAuthor', 160),
+    originalText: validateOriginalText(body.originalText),
+    captureType: validateCaptureType(body.captureType),
+    source: optionalSource(body.source, 'source'),
+    locator: validateLocator(body.locator),
   };
 }
 

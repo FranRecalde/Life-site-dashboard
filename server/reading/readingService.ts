@@ -15,6 +15,7 @@ import {
   validateCaptureListFilter,
   validateCreateBookInput,
   validateCreateCaptureInput,
+  validateCreateReadingActionCaptureInput,
   validateIdempotencyKey,
   validateUpdateBookInput,
 } from './readingValidation';
@@ -25,6 +26,7 @@ import {
 
 export type ReadingServiceErrorCode =
   | 'book_not_found'
+  | 'book_ambiguous'
   | 'book_inactive'
   | 'book_revision_conflict'
   | 'idempotency_conflict'
@@ -69,6 +71,14 @@ export function hashReadingIdempotencyIdentity(
 
 function captureIdFromIdempotencyHash(hash: string): string {
   return `reading_${hash.slice(0, 32)}`;
+}
+
+export function normalizeReadingBookIdentity(value: string): string {
+  return value
+    .normalize('NFKC')
+    .trim()
+    .replace(/\s+/gu, ' ')
+    .toLowerCase();
 }
 
 export class ReadingService {
@@ -211,6 +221,52 @@ export class ReadingService {
     throw new ReadingServiceError(
       'book_revision_conflict',
       'The book changed while the capture was being created.',
+    );
+  }
+
+  async createCaptureFromAction(
+    value: unknown,
+    rawIdempotencyKey: unknown,
+  ): Promise<{ outcome: 'created' | 'replayed'; capture: ReadingCapture }> {
+    const input = validateCreateReadingActionCaptureInput(value);
+    const idempotencyKey = validateIdempotencyKey(rawIdempotencyKey);
+    const normalizedTitle = normalizeReadingBookIdentity(input.bookTitle);
+    const normalizedAuthor = input.bookAuthor
+      ? normalizeReadingBookIdentity(input.bookAuthor)
+      : undefined;
+    const titleMatches = (await this.store.listBooks({ includeArchived: true }))
+      .filter((book) => (
+        normalizeReadingBookIdentity(book.title) === normalizedTitle &&
+        (
+          normalizedAuthor === undefined ||
+          normalizeReadingBookIdentity(book.author) === normalizedAuthor
+        )
+      ));
+    const activeMatches = titleMatches.filter((book) => book.status === 'active');
+
+    if (activeMatches.length > 1) {
+      throw new ReadingServiceError(
+        'book_ambiguous',
+        'More than one active book matches the supplied title and author.',
+      );
+    }
+    if (activeMatches.length === 0) {
+      if (titleMatches.length > 0) {
+        throw new ReadingServiceError('book_inactive', 'The matching book is archived.');
+      }
+      throw new ReadingServiceError('book_not_found', 'Book not found.');
+    }
+
+    return this.createCapture(
+      {
+        bookId: activeMatches[0].id,
+        originalText: input.originalText,
+        captureType: input.captureType,
+        source: input.source,
+        locator: input.locator,
+      },
+      idempotencyKey,
+      'custom_gpt',
     );
   }
 

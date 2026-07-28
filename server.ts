@@ -51,6 +51,10 @@ import {
 } from './src/services/habitEngine';
 import { ReadingService } from './server/reading/readingService';
 import { createReadingBrowserRouter } from './server/reading/readingBrowserRoutes';
+import {
+  createReadingActionRouter,
+  isReadingCaptureApiTokenHashValid,
+} from './server/reading/readingActionRoutes';
 
 const normalizeSecretValue = (value?: string | null): string =>
   typeof value === 'string' ? value.trim() : '';
@@ -229,6 +233,7 @@ async function saveSettings(settings: UserSettings): Promise<void> {
 
 // Load or initialize Secrets via SecretStore
 let cachedSecrets: Secrets = { ...defaultSecrets };
+let readingCaptureApiTokenHash = '';
 
 let secretAvailability: SafeSecretAvailabilityStatus = {
   usernameSecretAvailable: false,
@@ -241,6 +246,8 @@ let secretAvailability: SafeSecretAvailabilityStatus = {
   googleRefreshTokenAvailable: false,
   googleWriteAuthorizedStateAvailable: false,
   writableOAuthSecretConfigurationReady: false,
+  readingCaptureApiTokenHashAvailable: false,
+  readingCaptureApiCredentialReady: false,
 };
 
 async function initializeSecrets() {
@@ -275,6 +282,9 @@ async function initializeSecrets() {
   const googleClientSecret = normalizeSecretValue(await getSafeSecret('GOOGLE_CLIENT_SECRET'));
   const googleRefreshToken = normalizeSecretValue(await getSafeSecret('GOOGLE_REFRESH_TOKEN'));
   const googleWriteAuthorized = normalizeSecretValue(await getSafeSecret('GOOGLE_WRITE_AUTHORIZED'));
+  readingCaptureApiTokenHash = normalizeSecretValue(
+    await getSafeSecret('READING_CAPTURE_API_TOKEN_HASH'),
+  );
 
   cachedSecrets.todoistToken = todoistToken;
   cachedSecrets.googleClientId = googleClientId;
@@ -291,6 +301,7 @@ async function initializeSecrets() {
     GOOGLE_CLIENT_SECRET: googleClientSecret,
     GOOGLE_REFRESH_TOKEN: googleRefreshToken,
     GOOGLE_WRITE_AUTHORIZED: googleWriteAuthorized,
+    READING_CAPTURE_API_TOKEN_HASH: readingCaptureApiTokenHash,
   });
 
   if (SECRET_STORE_CONFIGURATION.provider === 'existing') {
@@ -302,6 +313,7 @@ async function initializeSecrets() {
     process.env.GOOGLE_CLIENT_SECRET = googleClientSecret;
     process.env.GOOGLE_REFRESH_TOKEN = googleRefreshToken;
     process.env.GOOGLE_WRITE_AUTHORIZED = googleWriteAuthorized;
+    process.env.READING_CAPTURE_API_TOKEN_HASH = readingCaptureApiTokenHash;
   }
 
   const isProduction = SECRET_STORE_CONFIGURATION.deployedRuntime;
@@ -633,6 +645,7 @@ async function startServer() {
   console.log(`[Startup Info] Secret Manager Project Configured: ${safeSecretConfiguration.secretManagerProjectConfigured}`);
   console.log(`[Startup Info] Secret Name Prefix Configured: ${safeSecretConfiguration.secretNamePrefixConfigured}`);
   console.log(`[Startup Info] Secret Configuration Valid: ${safeSecretConfiguration.secretConfigurationValid}`);
+  console.log(`[Startup Info] Reading Capture API Credential Ready: ${secretAvailability.readingCaptureApiCredentialReady}`);
   console.log(`[Startup Info] Deployed Runtime: ${PERSISTENT_STORAGE_CONFIGURATION.deployedRuntime}`);
   console.log(`[Startup Info] Storage Provider: ${STORES.provider}`);
   console.log(`[Startup Info] Firestore Project Configured: ${PERSISTENT_STORAGE_CONFIGURATION.firestoreProjectConfigured}`);
@@ -660,6 +673,11 @@ async function startServer() {
         startupValidationErrors.push('LIFE_SITE_PASSWORD_HASH must use secure PBKDF2 hash scheme (starting with pbkdf2_sha256$) and be syntactically valid when NODE_ENV=production. Plaintext password fallbacks are forbidden.');
       }
     }
+    if (!secretAvailability.readingCaptureApiCredentialReady) {
+      startupValidationErrors.push(
+        'READING_CAPTURE_API_TOKEN_HASH must be a 64-character SHA-256 hexadecimal hash when running in a deployed environment.',
+      );
+    }
 
     if (startupValidationErrors.length > 0) {
       console.error('[Startup Validation Error] Production configuration is invalid:\n' + startupValidationErrors.map(e => `- ${e}`).join('\n'));
@@ -671,6 +689,17 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
 
+  app.use(
+    '/api/actions/reading-captures',
+    createReadingActionRouter(
+      READING_SERVICE,
+      () => (
+        isReadingCaptureApiTokenHashValid(readingCaptureApiTokenHash)
+          ? readingCaptureApiTokenHash
+          : ''
+      ),
+    ),
+  );
   app.use(express.json());
 
   // Simple custom cookie parser middleware
@@ -768,6 +797,7 @@ async function startServer() {
         storageStatus.persistentStorageReady &&
         safeSecretConfiguration.secretConfigurationValid &&
         authConfigurationReady &&
+        secretAvailability.readingCaptureApiCredentialReady &&
         productionConfigValid;
 
       if (!status) {
@@ -1049,7 +1079,8 @@ async function startServer() {
     const diagnosticReady =
       storageStatus.persistentStorageReady &&
       safeSecretConfiguration.secretConfigurationValid &&
-      secretAvailability.requiredLoginSecretsAvailable;
+      secretAvailability.requiredLoginSecretsAvailable &&
+      secretAvailability.readingCaptureApiCredentialReady;
     res.status(diagnosticReady ? 200 : 503).json({
       success: diagnosticReady,
       provider: storageStatus.storageProvider,

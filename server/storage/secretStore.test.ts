@@ -64,6 +64,7 @@ test('logical secret keys map to exact, environment-specific secret IDs', () => 
     GOOGLE_CLIENT_SECRET: 'google-client-secret',
     GOOGLE_REFRESH_TOKEN: 'google-refresh-token',
     GOOGLE_WRITE_AUTHORIZED: 'google-write-authorized',
+    READING_CAPTURE_API_TOKEN_HASH: 'reading-capture-api-token-hash',
   };
 
   assert.deepStrictEqual(LOGICAL_SECRET_SUFFIXES, expectedSuffixes);
@@ -265,6 +266,7 @@ test('safe readiness requires login secrets but keeps optional integrations non-
     LIFE_SITE_PASSWORD_HASH: 'readiness-test-hash',
     SESSION_SECRET: 'readiness-test-session',
     GOOGLE_WRITE_AUTHORIZED: 'false',
+    READING_CAPTURE_API_TOKEN_HASH: 'a'.repeat(64),
   });
 
   assert.strictEqual(ready.requiredLoginSecretsAvailable, true);
@@ -273,6 +275,8 @@ test('safe readiness requires login secrets but keeps optional integrations non-
   assert.strictEqual(ready.googleRefreshTokenAvailable, false);
   assert.strictEqual(ready.googleWriteAuthorizedStateAvailable, true);
   assert.strictEqual(ready.writableOAuthSecretConfigurationReady, true);
+  assert.strictEqual(ready.readingCaptureApiTokenHashAvailable, true);
+  assert.strictEqual(ready.readingCaptureApiCredentialReady, true);
 
   const missingSession = evaluateSafeSecretAvailability(configuration, {
     LIFE_SITE_USERNAME: 'readiness-test-user',
@@ -280,7 +284,25 @@ test('safe readiness requires login secrets but keeps optional integrations non-
   });
   assert.strictEqual(missingSession.sessionSecretAvailable, false);
   assert.strictEqual(missingSession.requiredLoginSecretsAvailable, false);
+  assert.strictEqual(missingSession.readingCaptureApiTokenHashAvailable, false);
+  assert.strictEqual(missingSession.readingCaptureApiCredentialReady, false);
   assert.strictEqual(JSON.stringify(missingSession).includes('readiness-test-user'), false);
+});
+
+test('Reading Capture API readiness fails closed for malformed configured hashes', () => {
+  const configuration = resolveSecretStoreConfiguration(
+    deployedSecretManagerEnvironment('life-site-staging'),
+  );
+  const malformed = evaluateSafeSecretAvailability(configuration, {
+    READING_CAPTURE_API_TOKEN_HASH: 'not-a-sha256-hash',
+  });
+
+  assert.strictEqual(malformed.readingCaptureApiTokenHashAvailable, true);
+  assert.strictEqual(malformed.readingCaptureApiCredentialReady, false);
+  assert.strictEqual(
+    JSON.stringify(malformed).includes('not-a-sha256-hash'),
+    false,
+  );
 });
 
 test('invalid Secret Manager configuration cannot construct a provider', () => {
