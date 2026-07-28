@@ -14,6 +14,29 @@ import {
 } from './types';
 import { hashReadingIdempotencyIdentity } from '../reading/readingService';
 
+type DualWriteMethod =
+  | 'createBook'
+  | 'updateBook'
+  | 'createCaptureIdempotently'
+  | 'transitionCapture';
+
+function rejectWrite(
+  store: ReadingStore,
+  method: DualWriteMethod,
+): ReadingStore {
+  return new Proxy(store, {
+    get(target, property) {
+      if (property === method) {
+        return async () => {
+          throw new Error(`simulated ${method} provider failure`);
+        };
+      }
+      const value = Reflect.get(target, property, target);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
+
 class FakeDocumentSnapshot {
   constructor(
     readonly id: string,
@@ -630,5 +653,168 @@ test('dual ReadingStore fails closed when lease transition outcomes diverge', as
   } finally {
     fs.rmSync(firstDirectory, { recursive: true, force: true });
     fs.rmSync(secondDirectory, { recursive: true, force: true });
+  }
+});
+
+test('dual ReadingStore capture creation fails closed when either provider rejects', async () => {
+  for (const failingProvider of ['local', 'firestore'] as const) {
+    const firstDirectory = fs.mkdtempSync(
+      path.join(os.tmpdir(), `life-site-dual-capture-${failingProvider}-1-`),
+    );
+    const secondDirectory = fs.mkdtempSync(
+      path.join(os.tmpdir(), `life-site-dual-capture-${failingProvider}-2-`),
+    );
+    try {
+      const local = new LocalReadingStore(path.join(firstDirectory, 'reading.json'));
+      const firestore = new LocalReadingStore(
+        path.join(secondDirectory, 'reading.json'),
+      );
+      await Promise.all([
+        local.createBook(makeBook()),
+        firestore.createBook(makeBook()),
+      ]);
+      const dual = new DualReadingStore(
+        failingProvider === 'local'
+          ? rejectWrite(local, 'createCaptureIdempotently')
+          : local,
+        failingProvider === 'firestore'
+          ? rejectWrite(firestore, 'createCaptureIdempotently')
+          : firestore,
+      );
+
+      await assert.rejects(
+        () => dual.createCaptureIdempotently(makeCommand()),
+        /capture creation provider failure/,
+      );
+      const successfulStore = failingProvider === 'local' ? firestore : local;
+      const failedStore = failingProvider === 'local' ? local : firestore;
+      assert.strictEqual((await successfulStore.listCaptures()).length, 1);
+      assert.strictEqual((await failedStore.listCaptures()).length, 0);
+    } finally {
+      fs.rmSync(firstDirectory, { recursive: true, force: true });
+      fs.rmSync(secondDirectory, { recursive: true, force: true });
+    }
+  }
+});
+
+test('dual ReadingStore book creation and update fail closed when either provider rejects', async () => {
+  for (const operation of ['createBook', 'updateBook'] as const) {
+    for (const failingProvider of ['local', 'firestore'] as const) {
+      const firstDirectory = fs.mkdtempSync(
+        path.join(
+          os.tmpdir(),
+          `life-site-dual-book-${operation}-${failingProvider}-1-`,
+        ),
+      );
+      const secondDirectory = fs.mkdtempSync(
+        path.join(
+          os.tmpdir(),
+          `life-site-dual-book-${operation}-${failingProvider}-2-`,
+        ),
+      );
+      try {
+        const local = new LocalReadingStore(
+          path.join(firstDirectory, 'reading.json'),
+        );
+        const firestore = new LocalReadingStore(
+          path.join(secondDirectory, 'reading.json'),
+        );
+        if (operation === 'updateBook') {
+          await Promise.all([
+            local.createBook(makeBook()),
+            firestore.createBook(makeBook()),
+          ]);
+        }
+        const dual = new DualReadingStore(
+          failingProvider === 'local'
+            ? rejectWrite(local, operation)
+            : local,
+          failingProvider === 'firestore'
+            ? rejectWrite(firestore, operation)
+            : firestore,
+        );
+
+        if (operation === 'createBook') {
+          await assert.rejects(
+            () => dual.createBook(makeBook()),
+            /book creation provider failure/,
+          );
+          const successfulStore = failingProvider === 'local' ? firestore : local;
+          const failedStore = failingProvider === 'local' ? local : firestore;
+          assert.deepStrictEqual(await successfulStore.getBook('book_1'), makeBook());
+          assert.strictEqual(await failedStore.getBook('book_1'), null);
+        } else {
+          const updatedBook: ReadingBook = {
+            ...makeBook(),
+            title: 'Updated Book',
+            revision: 2,
+            updatedAt: '2026-07-28T12:01:00.000Z',
+          };
+          await assert.rejects(
+            () => dual.updateBook('book_1', 1, updatedBook),
+            /book update provider failure/,
+          );
+          const successfulStore = failingProvider === 'local' ? firestore : local;
+          const failedStore = failingProvider === 'local' ? local : firestore;
+          assert.deepStrictEqual(
+            await successfulStore.getBook('book_1'),
+            updatedBook,
+          );
+          assert.deepStrictEqual(await failedStore.getBook('book_1'), makeBook());
+        }
+      } finally {
+        fs.rmSync(firstDirectory, { recursive: true, force: true });
+        fs.rmSync(secondDirectory, { recursive: true, force: true });
+      }
+    }
+  }
+});
+
+test('dual ReadingStore lease transitions fail closed when either provider rejects', async () => {
+  for (const failingProvider of ['local', 'firestore'] as const) {
+    const firstDirectory = fs.mkdtempSync(
+      path.join(os.tmpdir(), `life-site-dual-transition-${failingProvider}-1-`),
+    );
+    const secondDirectory = fs.mkdtempSync(
+      path.join(os.tmpdir(), `life-site-dual-transition-${failingProvider}-2-`),
+    );
+    try {
+      const local = new LocalReadingStore(path.join(firstDirectory, 'reading.json'));
+      const firestore = new LocalReadingStore(
+        path.join(secondDirectory, 'reading.json'),
+      );
+      for (const store of [local, firestore]) {
+        await store.createBook(makeBook());
+        await store.createCaptureIdempotently(makeCommand());
+      }
+      const dual = new DualReadingStore(
+        failingProvider === 'local'
+          ? rejectWrite(local, 'transitionCapture')
+          : local,
+        failingProvider === 'firestore'
+          ? rejectWrite(firestore, 'transitionCapture')
+          : firestore,
+      );
+
+      await assert.rejects(
+        () => dual.transitionCapture(
+          makeLeaseTransition(makeCapture(), 'dual_failure_lease'),
+        ),
+        /capture transition provider failure/,
+      );
+      const successfulStore = failingProvider === 'local' ? firestore : local;
+      const failedStore = failingProvider === 'local' ? local : firestore;
+      assert.strictEqual(
+        (await successfulStore.getCapture(makeCapture().id))?.status,
+        'in_progress',
+      );
+      assert.strictEqual(
+        (await failedStore.getCapture(makeCapture().id))?.status,
+        'pending',
+      );
+    } finally {
+      fs.rmSync(firstDirectory, { recursive: true, force: true });
+      fs.rmSync(secondDirectory, { recursive: true, force: true });
+    }
   }
 });

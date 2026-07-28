@@ -12,6 +12,23 @@ function sameRecord(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function requireBothProviderResults<T>(
+  results: [
+    PromiseSettledResult<T>,
+    PromiseSettledResult<T>,
+  ],
+  operation: string,
+): [T, T] {
+  const [localResult, firestoreResult] = results;
+  if (
+    localResult.status === 'rejected' ||
+    firestoreResult.status === 'rejected'
+  ) {
+    throw new Error(`DualReadingStore ${operation} provider failure.`);
+  }
+  return [localResult.value, firestoreResult.value];
+}
+
 function mergeRecords<T extends { id: string }>(
   localRecords: T[],
   firestoreRecords: T[],
@@ -75,13 +92,8 @@ export class DualReadingStore implements ReadingStore {
       this.local.createBook(book),
       this.firestore.createBook(book),
     ]);
-    const successes = results.filter(
-      (result): result is PromiseFulfilledResult<ReadingBook> => result.status === 'fulfilled',
-    );
-    if (successes.length === 0) {
-      throw new Error('Both ReadingStore providers failed to create a book.');
-    }
-    if (successes.some((result) => !sameRecord(result.value, book))) {
+    const values = requireBothProviderResults(results, 'book creation');
+    if (values.some((value) => !sameRecord(value, book))) {
       throw new Error('DualReadingStore book creation divergence detected.');
     }
     return book;
@@ -96,20 +108,11 @@ export class DualReadingStore implements ReadingStore {
       this.local.updateBook(id, expectedRevision, book),
       this.firestore.updateBook(id, expectedRevision, book),
     ]);
-    const successes = results.filter(
-      (result): result is PromiseFulfilledResult<ReadingBookUpdateResult> =>
-        result.status === 'fulfilled',
-    );
-    if (successes.length === 0) {
-      throw new Error('Both ReadingStore providers failed to update a book.');
-    }
-    if (
-      successes.length === 2 &&
-      !sameRecord(successes[0].value, successes[1].value)
-    ) {
+    const values = requireBothProviderResults(results, 'book update');
+    if (!sameRecord(values[0], values[1])) {
       throw new Error('DualReadingStore book update divergence detected.');
     }
-    return successes[0].value;
+    return values[0];
   }
 
   async listCaptures(filter?: ReadingCaptureListFilter): Promise<ReadingCapture[]> {
@@ -158,23 +161,11 @@ export class DualReadingStore implements ReadingStore {
       this.local.createCaptureIdempotently(command),
       this.firestore.createCaptureIdempotently(command),
     ]);
-    const successes = results.filter(
-      (result): result is PromiseFulfilledResult<IdempotentCaptureCreateResult> =>
-        result.status === 'fulfilled',
+    const values = requireBothProviderResults(results, 'capture creation');
+    const captureOutcomes = values.every(
+      (value) => value.outcome === 'created' || value.outcome === 'replayed',
     );
-    if (successes.length === 0) {
-      throw new Error('Both ReadingStore providers failed to create a capture.');
-    }
-    if (successes.length === 1) return successes[0].value;
-
-    const values = successes.map((result) => result.value);
-    if (values.some((value) => value.outcome === 'conflict')) {
-      return { outcome: 'conflict' };
-    }
-    const nonCaptureOutcomes = values.filter(
-      (value) => value.outcome !== 'created' && value.outcome !== 'replayed',
-    );
-    if (nonCaptureOutcomes.length > 0) {
+    if (!captureOutcomes) {
       if (!sameRecord(values[0], values[1])) {
         throw new Error('DualReadingStore capture creation divergence detected.');
       }
@@ -202,16 +193,10 @@ export class DualReadingStore implements ReadingStore {
       this.local.transitionCapture(command),
       this.firestore.transitionCapture(command),
     ]);
-    const successes = results.filter(
-      (result): result is PromiseFulfilledResult<CaptureTransitionResult> =>
-        result.status === 'fulfilled',
-    );
-    if (successes.length !== 2) {
-      throw new Error('DualReadingStore capture transition provider failure.');
-    }
-    if (!sameRecord(successes[0].value, successes[1].value)) {
+    const values = requireBothProviderResults(results, 'capture transition');
+    if (!sameRecord(values[0], values[1])) {
       throw new Error('DualReadingStore capture transition divergence detected.');
     }
-    return successes[0].value;
+    return values[0];
   }
 }
