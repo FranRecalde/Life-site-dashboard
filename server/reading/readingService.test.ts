@@ -483,3 +483,135 @@ test('expired leases reject delivery and recover only with the current expired l
     fixture.cleanup();
   }
 });
+
+test('bridge claims the oldest pending capture and recovers only its own expired leases', async () => {
+  const fixture = createFixture();
+  try {
+    const book = await fixture.service.createBook({
+      title: 'Book',
+      author: 'Author',
+      destinationNotePath: 'Literature notes/Book — Author.md',
+    });
+    const first = await fixture.service.createCapture(
+      {
+        bookId: book.id,
+        originalText: 'First',
+        captureType: 'thought',
+      },
+      'bridge-claim-oldest-first-0001',
+    );
+    fixture.setNow('2026-07-28T12:01:00.000Z');
+    const second = await fixture.service.createCapture(
+      {
+        bookId: book.id,
+        originalText: 'Second',
+        captureType: 'thought',
+      },
+      'bridge-claim-oldest-first-0002',
+    );
+
+    const claimedFirst = await fixture.service.claimNextCapture(
+      'windows-bridge',
+      300_000,
+    );
+    assert.strictEqual(claimedFirst?.id, first.capture.id);
+
+    const claimedByOther = await fixture.service.claimCapture(
+      second.capture.id,
+      'other-bridge',
+      300_000,
+    );
+    fixture.setNow('2026-07-28T12:07:00.000Z');
+    assert.strictEqual(
+      await fixture.service.recoverExpiredCaptures('windows-bridge'),
+      1,
+    );
+    assert.strictEqual(
+      (await fixture.store.getCapture(first.capture.id))?.status,
+      'pending',
+    );
+    assert.strictEqual(
+      (await fixture.store.getCapture(claimedByOther.id))?.status,
+      'in_progress',
+    );
+
+    const reclaimed = await fixture.service.claimNextCapture(
+      'windows-bridge',
+      300_000,
+    );
+    assert.strictEqual(reclaimed?.id, first.capture.id);
+    assert.strictEqual(
+      (await fixture.store.getCapture(second.capture.id))?.deliveryLease?.ownerId,
+      'other-bridge',
+    );
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test('bridge confirmation and failure acknowledgements are safe to retry', async () => {
+  const fixture = createFixture();
+  try {
+    const book = await fixture.service.createBook({
+      title: 'Book',
+      author: 'Author',
+      destinationNotePath: 'Literature notes/Book — Author.md',
+    });
+    const deliveredInput = await fixture.service.createCapture(
+      {
+        bookId: book.id,
+        originalText: 'Delivered',
+        captureType: 'summary',
+      },
+      'bridge-idempotent-confirm-0001',
+    );
+    const deliveredClaim = await fixture.service.claimCapture(
+      deliveredInput.capture.id,
+      'windows-bridge',
+      300_000,
+    );
+    const delivered = await fixture.service.confirmDelivery(
+      deliveredClaim.id,
+      deliveredClaim.deliveryLease!.leaseId,
+    );
+    const confirmedAgain = await fixture.service.confirmDelivery(
+      deliveredClaim.id,
+      deliveredClaim.deliveryLease!.leaseId,
+    );
+    assert.strictEqual(confirmedAgain.id, delivered.id);
+    assert.strictEqual(confirmedAgain.status, 'delivered');
+    assert.strictEqual(confirmedAgain.deliveredAt, delivered.deliveredAt);
+
+    const failedInput = await fixture.service.createCapture(
+      {
+        bookId: book.id,
+        originalText: 'Failed',
+        captureType: 'summary',
+      },
+      'bridge-idempotent-failure-0001',
+    );
+    const failedClaim = await fixture.service.claimCapture(
+      failedInput.capture.id,
+      'windows-bridge',
+      300_000,
+    );
+    const failed = await fixture.service.reportDeliveryFailure(
+      failedClaim.id,
+      failedClaim.deliveryLease!.leaseId,
+      'DESTINATION_NOT_FOUND',
+    );
+    const failedAgain = await fixture.service.reportDeliveryFailure(
+      failedClaim.id,
+      failedClaim.deliveryLease!.leaseId,
+      'DESTINATION_NOT_FOUND',
+    );
+    assert.strictEqual(failedAgain.id, failed.id);
+    assert.strictEqual(failedAgain.status, 'needs_attention');
+    assert.strictEqual(
+      failedAgain.deliveryAttempts.lastErrorCode,
+      'DESTINATION_NOT_FOUND',
+    );
+  } finally {
+    fixture.cleanup();
+  }
+});
