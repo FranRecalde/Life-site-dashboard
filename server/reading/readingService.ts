@@ -12,9 +12,11 @@ import {
   ReadingStore,
 } from '../storage/types';
 import {
+  type CreateReadingActionCaptureInput,
   validateCaptureListFilter,
   validateCreateBookInput,
   validateCreateCaptureInput,
+  validateCreateReadingActionCaptureInput,
   validateIdempotencyKey,
   validateUpdateBookInput,
 } from './readingValidation';
@@ -25,6 +27,7 @@ import {
 
 export type ReadingServiceErrorCode =
   | 'book_not_found'
+  | 'book_ambiguous'
   | 'book_inactive'
   | 'book_revision_conflict'
   | 'idempotency_conflict'
@@ -69,6 +72,34 @@ export function hashReadingIdempotencyIdentity(
 
 function captureIdFromIdempotencyHash(hash: string): string {
   return `reading_${hash.slice(0, 32)}`;
+}
+
+export function normalizeReadingBookIdentity(value: string): string {
+  return value
+    .normalize('NFKC')
+    .trim()
+    .replace(/\s+/gu, ' ')
+    .toLowerCase();
+}
+
+export function hashReadingActionCapturePayload(
+  input: CreateReadingActionCaptureInput,
+  bookId: string,
+): string {
+  const canonicalPayload = JSON.stringify({
+    bookId,
+    bookTitle: normalizeReadingBookIdentity(input.bookTitle),
+    bookAuthor: input.bookAuthor
+      ? normalizeReadingBookIdentity(input.bookAuthor)
+      : null,
+    originalText: input.originalText,
+    captureType: input.captureType,
+    source: input.source ?? null,
+    locator: input.locator
+      ? { kind: input.locator.kind, value: input.locator.value }
+      : null,
+  });
+  return crypto.createHash('sha256').update(canonicalPayload).digest('hex');
 }
 
 export class ReadingService {
@@ -150,11 +181,97 @@ export class ReadingService {
   ): Promise<{ outcome: 'created' | 'replayed'; capture: ReadingCapture }> {
     const input = validateCreateCaptureInput(value);
     const idempotencyKey = validateIdempotencyKey(rawIdempotencyKey);
+    return this.createValidatedCapture(
+      input,
+      idempotencyKey,
+      creatorType,
+      hashReadingCapturePayload(input),
+    );
+  }
+
+  async createCaptureFromAction(
+    value: unknown,
+    rawIdempotencyKey: unknown,
+  ): Promise<{ outcome: 'created' | 'replayed'; capture: ReadingCapture }> {
+    const input = validateCreateReadingActionCaptureInput(value);
+    const idempotencyKey = validateIdempotencyKey(rawIdempotencyKey);
+    const idempotencyKeyHash = hashReadingIdempotencyIdentity(
+      'custom_gpt',
+      idempotencyKey,
+    );
+    const normalizedTitle = normalizeReadingBookIdentity(input.bookTitle);
+    const normalizedAuthor = input.bookAuthor
+      ? normalizeReadingBookIdentity(input.bookAuthor)
+      : undefined;
+    const existingCapture = await this.store.getCapture(
+      captureIdFromIdempotencyHash(idempotencyKeyHash),
+    );
+    if (existingCapture) {
+      const replayPayloadHash = hashReadingActionCapturePayload(
+        input,
+        existingCapture.bookId,
+      );
+      if (
+        existingCapture.creatorType !== 'custom_gpt' ||
+        existingCapture.payloadHash !== replayPayloadHash
+      ) {
+        throw new ReadingServiceError(
+          'idempotency_conflict',
+          'The Idempotency-Key was already used with a different payload.',
+        );
+      }
+      return { outcome: 'replayed', capture: existingCapture };
+    }
+
+    const titleMatches = (await this.store.listBooks({ includeArchived: true }))
+      .filter((book) => (
+        normalizeReadingBookIdentity(book.title) === normalizedTitle &&
+        (
+          normalizedAuthor === undefined ||
+          normalizeReadingBookIdentity(book.author) === normalizedAuthor
+        )
+      ));
+    const activeMatches = titleMatches.filter((book) => book.status === 'active');
+
+    if (activeMatches.length > 1) {
+      throw new ReadingServiceError(
+        'book_ambiguous',
+        'More than one active book matches the supplied title and author.',
+      );
+    }
+    if (activeMatches.length === 0) {
+      if (titleMatches.length > 0) {
+        throw new ReadingServiceError('book_inactive', 'The matching book is archived.');
+      }
+      throw new ReadingServiceError('book_not_found', 'Book not found.');
+    }
+
+    const matchedBook = activeMatches[0];
+    const captureInput: CreateReadingCaptureInput = {
+      bookId: matchedBook.id,
+      originalText: input.originalText,
+      captureType: input.captureType,
+      source: input.source,
+      locator: input.locator,
+    };
+    return this.createValidatedCapture(
+      captureInput,
+      idempotencyKey,
+      'custom_gpt',
+      hashReadingActionCapturePayload(input, matchedBook.id),
+    );
+  }
+
+  private async createValidatedCapture(
+    input: CreateReadingCaptureInput,
+    idempotencyKey: string,
+    creatorType: ReadingCaptureCreatorType,
+    payloadHash: string,
+  ): Promise<{ outcome: 'created' | 'replayed'; capture: ReadingCapture }> {
     const idempotencyKeyHash = hashReadingIdempotencyIdentity(
       creatorType,
       idempotencyKey,
     );
-    const payloadHash = hashReadingCapturePayload(input);
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const book = await this.store.getBook(input.bookId);

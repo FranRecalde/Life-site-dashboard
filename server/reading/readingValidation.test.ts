@@ -4,6 +4,7 @@ import {
   ReadingValidationError,
   validateCreateBookInput,
   validateCreateCaptureInput,
+  validateCreateReadingActionCaptureInput,
   validateDestinationNotePath,
   validateIdempotencyKey,
 } from './readingValidation';
@@ -125,10 +126,75 @@ test('browser capture input rejects protected server and delivery fields', () =>
   }
 });
 
+test('action capture validation accepts only the restricted title-based contract', () => {
+  const originalText = '  Exact spoken words.\nKeep this spacing.  ';
+  const input = validateCreateReadingActionCaptureInput({
+    bookTitle: '  The Great Divorce  ',
+    bookAuthor: ' C. S. Lewis ',
+    originalText,
+    captureType: 'thought',
+    source: 'audiobook',
+    locator: { kind: 'timestamp', value: ' 01:23:45 ' },
+  });
+
+  assert.deepStrictEqual(input, {
+    bookTitle: 'The Great Divorce',
+    bookAuthor: 'C. S. Lewis',
+    originalText,
+    captureType: 'thought',
+    source: 'audiobook',
+    locator: { kind: 'timestamp', value: '01:23:45' },
+  });
+  const maximumText = 'x'.repeat(50_000);
+  assert.strictEqual(
+    validateCreateReadingActionCaptureInput({
+      bookTitle: 'Book',
+      originalText: maximumText,
+      captureType: 'summary',
+    }).originalText,
+    maximumText,
+  );
+
+  for (const protectedField of [
+    'bookId',
+    'id',
+    'creatorType',
+    'payloadHash',
+    'destinationNotePath',
+    'bookTags',
+    'status',
+    'deliveryAttempts',
+    'deliveryLease',
+    'capturedAt',
+    'receivedAt',
+  ]) {
+    assert.throws(
+      () => validateCreateReadingActionCaptureInput({
+        bookTitle: 'Book',
+        originalText: 'Words',
+        captureType: 'thought',
+        [protectedField]: 'not-allowed',
+      }),
+      (error: unknown) => (
+        error instanceof ReadingValidationError &&
+        error.code === 'unexpected_field'
+      ),
+      protectedField,
+    );
+  }
+});
+
 test('idempotency keys must be stable printable values of sufficient length', () => {
   const key = '2b98ef39-314f-4f69-8a16-b51d099bc814';
   assert.strictEqual(validateIdempotencyKey(key), key);
-  for (const invalid of ['short', ` ${key}`, `${key}\n`]) {
+  for (const invalid of [
+    'short',
+    ` ${key}`,
+    `${key}\n`,
+    '123456789012345é',
+    '12345678\u00ad12345678',
+    '12345678\u200b12345678',
+  ]) {
     assert.throws(() => validateIdempotencyKey(invalid), ReadingValidationError);
   }
 });

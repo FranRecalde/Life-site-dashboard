@@ -166,6 +166,80 @@ test('book updates increment revisions while existing capture snapshots stay unc
   }
 });
 
+test('action captures resolve only normalized exact active-book matches', async () => {
+  const fixture = createFixture();
+  try {
+    const first = await fixture.service.createBook({
+      title: 'The   Great Divorce',
+      author: 'C. S. Lewis',
+      destinationNotePath: 'Literature notes/The Great Divorce â€” C. S. Lewis.md',
+    });
+    await fixture.service.createBook({
+      title: 'The Great Divorce',
+      author: 'Another Author',
+      destinationNotePath: 'Literature notes/The Great Divorce â€” Another Author.md',
+    });
+    const archived = await fixture.service.createBook({
+      title: 'Archived Book',
+      author: 'Writer',
+      destinationNotePath: 'Literature notes/Archived Book â€” Writer.md',
+    });
+    await fixture.service.updateBook(archived.id, {
+      expectedRevision: 1,
+      status: 'archived',
+    });
+
+    await assert.rejects(
+      () => fixture.service.createCaptureFromAction(
+        {
+          bookTitle: 'the great divorce',
+          originalText: 'Words',
+          captureType: 'thought',
+        },
+        '0fbb57d1-d6a5-4679-adc4-bf0fd5634d20',
+      ),
+      hasServiceError('book_ambiguous'),
+    );
+
+    const resolved = await fixture.service.createCaptureFromAction(
+      {
+        bookTitle: 'Ｔｈｅ Great   Divorce',
+        bookAuthor: 'c. s. lewis',
+        originalText: 'Exact words',
+        captureType: 'thought',
+      },
+      '7366b62c-aae0-4149-a240-91bdc6e5b2f4',
+    );
+    assert.strictEqual(resolved.capture.bookId, first.id);
+    assert.strictEqual(resolved.capture.creatorType, 'custom_gpt');
+
+    await assert.rejects(
+      () => fixture.service.createCaptureFromAction(
+        {
+          bookTitle: 'Archived Book',
+          originalText: 'Words',
+          captureType: 'thought',
+        },
+        '2aa8a9e5-0797-409d-9fae-948cd1a20c49',
+      ),
+      hasServiceError('book_inactive'),
+    );
+    await assert.rejects(
+      () => fixture.service.createCaptureFromAction(
+        {
+          bookTitle: 'Great Divorce',
+          originalText: 'Words',
+          captureType: 'thought',
+        },
+        'e2e3b2fd-9917-45dc-877f-cd47eaf2737c',
+      ),
+      hasServiceError('book_not_found'),
+    );
+  } finally {
+    fixture.cleanup();
+  }
+});
+
 test('delivery claims receive unique lease IDs and competing claims fail atomically', async () => {
   const fixture = createFixture();
   try {

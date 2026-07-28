@@ -172,7 +172,7 @@ revision configuration.
    `PRODUCTION_FIRESTORE_ADDRESS` to that explicit pair. Require the complete
    staging and production project/database pairs and secret prefixes to differ.
 5. Require each service to use its exact fixed runtime identity. From the
-   verified source's explicit logical-key mapping, derive the eight exact
+   verified source's explicit logical-key mapping, derive the nine exact
    environment-prefixed secret identifiers. Inspect metadata only: require each
    resource and an enabled version to exist in the fixed Secret Manager project.
    Verify the runtime identity has only the approved secret-specific read and
@@ -188,7 +188,9 @@ revision configuration.
    `firestoreReachable=true`, `persistentStorageReady=true`, configuration valid,
    project/database configured booleans true, `secretProvider=secretmanager`,
    `secretManagerProjectConfigured=true`, `secretNamePrefixConfigured=true`,
-   `secretConfigurationValid=true`, `requiredLoginSecretsAvailable=true`, and
+   `secretConfigurationValid=true`, `requiredLoginSecretsAvailable=true`,
+   `readingCaptureApiTokenHashAvailable=true`,
+   `readingCaptureApiCredentialReady=true`, and
    `writableOAuthSecretConfigurationReady=true`. Optional Todoist or Google
    connection availability may be false. Stop if a required safe field is
    absent, false, or ambiguous. Do not print other response content.
@@ -295,7 +297,8 @@ Require automated evidence:
 - safe readiness fields proving Firestore reachable and persistent storage ready;
 - staging project and database configured booleans true;
 - safe secret readiness fields proving the explicit Secret Manager project,
-  staging prefix, required login secrets, and writable OAuth configuration ready;
+  staging prefix, required login secrets, Reading Capture API credential hash,
+  and writable OAuth configuration ready;
 - production revision, configuration, and traffic unchanged.
 
 Give the user the permanent staging-service URL and require this browser checklist
@@ -386,8 +389,8 @@ Require and report only safe evidence:
 - `/api/readiness` is HTTP 200 with `status=ready`;
 - persistent storage ready and Firestore reachable are true;
 - project and database configured booleans are true;
-- Secret Manager project/prefix configuration, required login secrets, and
-  writable OAuth configuration are ready;
+- Secret Manager project/prefix configuration, required login secrets, Reading
+  Capture API credential hash, and writable OAuth configuration are ready;
 - login, dashboard, habits, Calendar, Todoist, and Obsidian checks pass where
   configured;
 - safe record counts before and after match when a separately approved migration
