@@ -12,18 +12,32 @@ import {
 
 function createFixture() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'life-site-reading-service-'));
-  const store = new LocalReadingStore(path.join(directory, 'reading.json'));
+  const stateFile = path.join(directory, 'reading.json');
+  const store = new LocalReadingStore(stateFile);
+  let currentTime = '2026-07-28T12:00:00.000Z';
   let id = 0;
+  let leaseId = 0;
   const service = new ReadingService(
     store,
-    () => '2026-07-28T12:00:00.000Z',
+    () => currentTime,
     () => `book_${++id}`,
+    () => `lease_${++leaseId}`,
   );
   return {
+    stateFile,
     store,
     service,
+    setNow: (value: string) => {
+      currentTime = value;
+    },
     cleanup: () => fs.rmSync(directory, { recursive: true, force: true }),
   };
+}
+
+function hasServiceError(code: ReadingServiceError['code']) {
+  return (error: unknown): boolean => (
+    error instanceof ReadingServiceError && error.code === code
+  );
 }
 
 test('capture creation snapshots book metadata, inherits source, and preserves exact words', async () => {
@@ -69,7 +83,7 @@ test('capture creation snapshots book metadata, inherits source, and preserves e
   }
 });
 
-test('same idempotency key replays one stable capture and a different payload conflicts', async () => {
+test('idempotency identity is scoped while replay and conflict behavior remain stable', async () => {
   const fixture = createFixture();
   try {
     const book = await fixture.service.createBook({
@@ -84,19 +98,22 @@ test('same idempotency key replays one stable capture and a different payload co
       captureType: 'summary' as const,
     };
     const first = await fixture.service.createCapture(input, key);
-    const second = await fixture.service.createCapture(input, key);
+    const second = await fixture.service.createCapture(input, key, 'life_site');
+    const customGpt = await fixture.service.createCapture(input, key, 'custom_gpt');
 
     assert.strictEqual(second.outcome, 'replayed');
     assert.strictEqual(second.capture.id, first.capture.id);
-    assert.strictEqual((await fixture.store.listCaptures()).length, 1);
+    assert.strictEqual(first.capture.creatorType, 'life_site');
+    assert.strictEqual(customGpt.outcome, 'created');
+    assert.strictEqual(customGpt.capture.creatorType, 'custom_gpt');
+    assert.notStrictEqual(customGpt.capture.id, first.capture.id);
+    assert.strictEqual((await fixture.store.listCaptures()).length, 2);
 
     await assert.rejects(
       () => fixture.service.createCapture({ ...input, originalText: 'Different words' }, key),
-      (error: unknown) => (
-        error instanceof ReadingServiceError &&
-        error.code === 'idempotency_conflict'
-      ),
+      hasServiceError('idempotency_conflict'),
     );
+    assert.ok(!fs.readFileSync(fixture.stateFile, 'utf8').includes(key));
   } finally {
     fixture.cleanup();
   }
@@ -149,7 +166,7 @@ test('book updates increment revisions while existing capture snapshots stay unc
   }
 });
 
-test('delivery state transitions are explicit and delivered cannot be set from pending', async () => {
+test('delivery claims receive unique lease IDs and competing claims fail atomically', async () => {
   const fixture = createFixture();
   try {
     const book = await fixture.service.createBook({
@@ -157,7 +174,7 @@ test('delivery state transitions are explicit and delivered cannot be set from p
       author: 'Author',
       destinationNotePath: 'Literature notes/Book — Author.md',
     });
-    const { capture } = await fixture.service.createCapture(
+    const first = await fixture.service.createCapture(
       {
         bookId: book.id,
         originalText: 'Words',
@@ -165,39 +182,229 @@ test('delivery state transitions are explicit and delivered cannot be set from p
       },
       'd292a1c3-e883-4961-bf87-1d0bf44eab64',
     );
+    const second = await fixture.service.createCapture(
+      {
+        bookId: book.id,
+        originalText: 'Other words',
+        captureType: 'action',
+      },
+      '3c5c957f-03ee-47eb-8d89-b46852a7877d',
+    );
 
     await assert.rejects(
-      () => fixture.service.transitionCapture(capture.id, 'delivered'),
-      (error: unknown) => (
-        error instanceof ReadingServiceError &&
-        error.code === 'invalid_capture_transition'
+      () => fixture.service.confirmDelivery(first.capture.id, 'missing-lease'),
+      hasServiceError('invalid_capture_transition'),
+    );
+
+    const claims = await Promise.allSettled([
+      fixture.service.claimCapture(first.capture.id, 'future-bridge-a', 300_000),
+      fixture.service.claimCapture(first.capture.id, 'future-bridge-b', 300_000),
+    ]);
+    const successfulClaims = claims.filter(
+      (result): result is PromiseFulfilledResult<Awaited<ReturnType<
+        typeof fixture.service.claimCapture
+      >>> => result.status === 'fulfilled',
+    );
+    assert.strictEqual(successfulClaims.length, 1);
+    assert.strictEqual(claims.filter((result) => result.status === 'rejected').length, 1);
+    assert.strictEqual(successfulClaims[0].value.deliveryAttempts.count, 1);
+    assert.ok(successfulClaims[0].value.deliveryLease?.leaseId);
+
+    const secondClaim = await fixture.service.claimCapture(
+      second.capture.id,
+      'future-bridge-a',
+      300_000,
+    );
+    assert.notStrictEqual(
+      secondClaim.deliveryLease?.leaseId,
+      successfulClaims[0].value.deliveryLease?.leaseId,
+    );
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test('only a matching unexpired lease can confirm delivery or report failure', async () => {
+  const fixture = createFixture();
+  try {
+    const book = await fixture.service.createBook({
+      title: 'Book',
+      author: 'Author',
+      destinationNotePath: 'Literature notes/Book â€” Author.md',
+    });
+    const makeCapture = (key: string, originalText: string) => (
+      fixture.service.createCapture(
+        { bookId: book.id, originalText, captureType: 'action' },
+        key,
+      )
+    );
+
+    const confirmationCapture = await makeCapture(
+      '249b1ddc-90ea-4d01-b3ce-b41ee76592e4',
+      'Confirm me',
+    );
+    const confirmationClaim = await fixture.service.claimCapture(
+      confirmationCapture.capture.id,
+      'future-bridge',
+      300_000,
+    );
+    const confirmationLeaseId = confirmationClaim.deliveryLease!.leaseId;
+
+    await assert.rejects(
+      () => fixture.service.confirmDelivery(
+        confirmationCapture.capture.id,
+        undefined as unknown as string,
       ),
+      hasServiceError('invalid_delivery_metadata'),
+    );
+    assert.deepStrictEqual(
+      await fixture.store.getCapture(confirmationCapture.capture.id),
+      confirmationClaim,
+    );
+    await assert.rejects(
+      () => fixture.service.confirmDelivery(
+        confirmationCapture.capture.id,
+        'wrong-lease',
+      ),
+      hasServiceError('capture_lease_conflict'),
+    );
+    assert.deepStrictEqual(
+      await fixture.store.getCapture(confirmationCapture.capture.id),
+      confirmationClaim,
     );
 
-    const inProgress = await fixture.service.transitionCapture(
-      capture.id,
-      'in_progress',
-      {
-        lease: {
-          ownerId: 'future-bridge',
-          acquiredAt: '2026-07-28T12:00:00.000Z',
-          expiresAt: '2026-07-28T12:05:00.000Z',
-        },
-      },
+    const delivered = await fixture.service.confirmDelivery(
+      confirmationCapture.capture.id,
+      confirmationLeaseId,
     );
-    assert.strictEqual(inProgress.deliveryAttempts.count, 1);
-    assert.ok(inProgress.deliveryLease);
+    assert.strictEqual(delivered.status, 'delivered');
+    assert.strictEqual(delivered.deliveryLease, undefined);
+    assert.strictEqual(delivered.deliveryAttempts.lastErrorCode, undefined);
+    assert.strictEqual(delivered.deliveredAt, '2026-07-28T12:00:00.000Z');
 
-    const needsAttention = await fixture.service.transitionCapture(
-      capture.id,
-      'needs_attention',
-      { errorCode: 'APPEND_FAILED' },
+    const failureCapture = await makeCapture(
+      '83f4377b-45a7-4d37-a6f6-62ff04abc7bb',
+      'Fail me',
     );
+    const failureClaim = await fixture.service.claimCapture(
+      failureCapture.capture.id,
+      'future-bridge',
+      300_000,
+    );
+    await assert.rejects(
+      () => fixture.service.reportDeliveryFailure(
+        failureCapture.capture.id,
+        undefined as unknown as string,
+        'APPEND_FAILED',
+      ),
+      hasServiceError('invalid_delivery_metadata'),
+    );
+    await assert.rejects(
+      () => fixture.service.reportDeliveryFailure(
+        failureCapture.capture.id,
+        'wrong-lease',
+        'APPEND_FAILED',
+      ),
+      hasServiceError('capture_lease_conflict'),
+    );
+    assert.deepStrictEqual(
+      await fixture.store.getCapture(failureCapture.capture.id),
+      failureClaim,
+    );
+    const needsAttention = await fixture.service.reportDeliveryFailure(
+      failureCapture.capture.id,
+      failureClaim.deliveryLease!.leaseId,
+      'APPEND_FAILED',
+    );
+    assert.strictEqual(needsAttention.status, 'needs_attention');
     assert.strictEqual(needsAttention.deliveryAttempts.lastErrorCode, 'APPEND_FAILED');
     assert.strictEqual(needsAttention.deliveryLease, undefined);
 
-    const pending = await fixture.service.transitionCapture(capture.id, 'pending');
+    const pending = await fixture.service.retryCapture(failureCapture.capture.id);
+    assert.strictEqual(pending.status, 'pending');
     assert.strictEqual(pending.deliveryAttempts.lastErrorCode, undefined);
+    assert.strictEqual(pending.deliveryLease, undefined);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test('expired leases reject delivery and recover only with the current expired lease', async () => {
+  const fixture = createFixture();
+  try {
+    const book = await fixture.service.createBook({
+      title: 'Book',
+      author: 'Author',
+      destinationNotePath: 'Literature notes/Book â€” Author.md',
+    });
+    const { capture } = await fixture.service.createCapture(
+      {
+        bookId: book.id,
+        originalText: 'Recover me',
+        captureType: 'action',
+      },
+      '16cf8dae-ee6d-4dae-883d-2f76a980c44e',
+    );
+    const firstClaim = await fixture.service.claimCapture(
+      capture.id,
+      'future-bridge',
+      300_000,
+    );
+    const firstLeaseId = firstClaim.deliveryLease!.leaseId;
+
+    fixture.setNow('2026-07-28T12:04:59.999Z');
+    await assert.rejects(
+      () => fixture.service.recoverExpiredLease(capture.id, firstLeaseId),
+      hasServiceError('capture_lease_not_expired'),
+    );
+    assert.deepStrictEqual(await fixture.store.getCapture(capture.id), firstClaim);
+
+    fixture.setNow('2026-07-28T12:05:00.000Z');
+    await assert.rejects(
+      () => fixture.service.confirmDelivery(capture.id, firstLeaseId),
+      hasServiceError('capture_lease_expired'),
+    );
+    await assert.rejects(
+      () => fixture.service.reportDeliveryFailure(
+        capture.id,
+        firstLeaseId,
+        'APPEND_FAILED',
+      ),
+      hasServiceError('capture_lease_expired'),
+    );
+    assert.deepStrictEqual(await fixture.store.getCapture(capture.id), firstClaim);
+
+    const recovered = await fixture.service.recoverExpiredLease(
+      capture.id,
+      firstLeaseId,
+    );
+    assert.strictEqual(recovered.status, 'pending');
+    assert.strictEqual(recovered.deliveryLease, undefined);
+
+    fixture.setNow('2026-07-28T12:06:00.000Z');
+    const secondClaim = await fixture.service.claimCapture(
+      capture.id,
+      'future-bridge',
+      300_000,
+    );
+    fixture.setNow('2026-07-28T12:12:00.000Z');
+    await assert.rejects(
+      () => fixture.service.confirmDelivery(capture.id, firstLeaseId),
+      hasServiceError('capture_lease_conflict'),
+    );
+    await assert.rejects(
+      () => fixture.service.reportDeliveryFailure(
+        capture.id,
+        firstLeaseId,
+        'APPEND_FAILED',
+      ),
+      hasServiceError('capture_lease_conflict'),
+    );
+    await assert.rejects(
+      () => fixture.service.recoverExpiredLease(capture.id, firstLeaseId),
+      hasServiceError('capture_lease_conflict'),
+    );
+    assert.deepStrictEqual(await fixture.store.getCapture(capture.id), secondClaim);
   } finally {
     fixture.cleanup();
   }

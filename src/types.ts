@@ -273,6 +273,7 @@ export interface ReadingDeliveryAttempts {
 }
 
 export interface ReadingDeliveryLease {
+  leaseId: string;
   ownerId: string;
   acquiredAt: string;
   expiresAt: string;

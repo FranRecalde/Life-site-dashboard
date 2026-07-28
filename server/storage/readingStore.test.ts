@@ -7,7 +7,12 @@ import { ReadingBook, ReadingCapture } from '../../src/types';
 import { DualReadingStore } from './dualReadingStore';
 import { FirestoreReadingStore } from './firestoreReadingStore';
 import { LocalReadingStore } from './localReadingStore';
-import { IdempotentCaptureCreateCommand, ReadingStore } from './types';
+import {
+  CaptureTransitionCommand,
+  IdempotentCaptureCreateCommand,
+  ReadingStore,
+} from './types';
+import { hashReadingIdempotencyIdentity } from '../reading/readingService';
 
 class FakeDocumentSnapshot {
   constructor(
@@ -164,15 +169,20 @@ const makeBook = (): ReadingBook => ({
   updatedAt: '2026-07-28T12:00:00.000Z',
 });
 
-const makeCapture = (): ReadingCapture => ({
-  id: 'reading_1234567890abcdef1234567890abcdef',
+const RAW_IDEMPOTENCY_KEY = 'raw-key-that-must-never-be-persisted';
+
+const makeCapture = (
+  id = 'reading_1234567890abcdef1234567890abcdef',
+  originalText = 'Exact words',
+): ReadingCapture => ({
+  id,
   bookId: 'book_1',
   bookRevision: 1,
   bookTitle: 'Book',
   bookAuthor: 'Author',
   bookTags: ['reading'],
   destinationNotePath: 'Literature notes/Book — Author.md',
-  originalText: 'Exact words',
+  originalText,
   captureType: 'thought',
   source: 'physical',
   capturedAt: '2026-07-28T12:00:00.000Z',
@@ -185,10 +195,13 @@ const makeCapture = (): ReadingCapture => ({
   updatedAt: '2026-07-28T12:00:00.000Z',
 });
 
-const makeCommand = (): IdempotentCaptureCreateCommand => ({
-  idempotencyKeyHash: 'b'.repeat(64),
-  payloadHash: 'a'.repeat(64),
-  capture: makeCapture(),
+const makeCommand = (
+  capture = makeCapture(),
+  rawKey = RAW_IDEMPOTENCY_KEY,
+): IdempotentCaptureCreateCommand => ({
+  idempotencyKeyHash: hashReadingIdempotencyIdentity('life_site', rawKey),
+  payloadHash: capture.payloadHash,
+  capture,
 });
 
 async function exerciseIdempotency(store: ReadingStore): Promise<void> {
@@ -219,6 +232,271 @@ async function exerciseIdempotency(store: ReadingStore): Promise<void> {
   assert.deepStrictEqual(conflict, { outcome: 'conflict' });
 }
 
+function makeLeaseTransition(
+  current: ReadingCapture,
+  leaseId: string,
+): CaptureTransitionCommand {
+  return {
+    captureId: current.id,
+    expectedStatus: 'pending',
+    leaseGuard: { kind: 'none' },
+    capture: {
+      ...current,
+      status: 'in_progress',
+      deliveryAttempts: {
+        count: current.deliveryAttempts.count + 1,
+        lastAttemptAt: '2026-07-28T12:00:00.000Z',
+      },
+      deliveryLease: {
+        leaseId,
+        ownerId: 'future-bridge',
+        acquiredAt: '2026-07-28T12:00:00.000Z',
+        expiresAt: '2026-07-28T12:05:00.000Z',
+      },
+      updatedAt: '2026-07-28T12:00:00.000Z',
+    },
+  };
+}
+
+async function assertRejectedWithoutMutation(
+  store: ReadingStore,
+  command: CaptureTransitionCommand,
+  expectedOutcome: 'lease_conflict' | 'lease_expired' | 'lease_not_expired',
+): Promise<void> {
+  const before = await store.getCapture(command.captureId);
+  const result = await store.transitionCapture(command);
+  assert.deepStrictEqual(result, { outcome: expectedOutcome });
+  assert.deepStrictEqual(await store.getCapture(command.captureId), before);
+}
+
+async function exerciseLeaseGuards(store: ReadingStore): Promise<void> {
+  await store.createBook(makeBook());
+  const capture = makeCapture();
+  assert.strictEqual(
+    (await store.createCaptureIdempotently(makeCommand(capture))).outcome,
+    'created',
+  );
+
+  const claims = await Promise.all([
+    store.transitionCapture(makeLeaseTransition(capture, 'lease_a')),
+    store.transitionCapture(makeLeaseTransition(capture, 'lease_b')),
+  ]);
+  assert.strictEqual(
+    claims.filter((result) => result.outcome === 'updated').length,
+    1,
+  );
+  assert.strictEqual(
+    claims.filter((result) => result.outcome === 'state_conflict').length,
+    1,
+  );
+
+  const claimed = (await store.getCapture(capture.id))!;
+  const currentLeaseId = claimed.deliveryLease!.leaseId;
+  const deliveredCapture: ReadingCapture = {
+    ...claimed,
+    status: 'delivered',
+    deliveryLease: undefined,
+    deliveredAt: '2026-07-28T12:04:00.000Z',
+    updatedAt: '2026-07-28T12:04:00.000Z',
+  };
+
+  await assertRejectedWithoutMutation(
+    store,
+    {
+      captureId: capture.id,
+      expectedStatus: 'in_progress',
+      leaseGuard: {
+        kind: 'current',
+        leaseId: '',
+        observedAt: '2026-07-28T12:04:00.000Z',
+      },
+      capture: deliveredCapture,
+    },
+    'lease_conflict',
+  );
+  await assertRejectedWithoutMutation(
+    store,
+    {
+      captureId: capture.id,
+      expectedStatus: 'in_progress',
+      leaseGuard: {
+        kind: 'current',
+        leaseId: 'wrong_lease',
+        observedAt: '2026-07-28T12:04:00.000Z',
+      },
+      capture: deliveredCapture,
+    },
+    'lease_conflict',
+  );
+  await assertRejectedWithoutMutation(
+    store,
+    {
+      captureId: capture.id,
+      expectedStatus: 'in_progress',
+      leaseGuard: {
+        kind: 'expired',
+        leaseId: currentLeaseId,
+        observedAt: '2026-07-28T12:04:59.999Z',
+      },
+      capture: { ...claimed, status: 'pending', deliveryLease: undefined },
+    },
+    'lease_not_expired',
+  );
+  await assertRejectedWithoutMutation(
+    store,
+    {
+      captureId: capture.id,
+      expectedStatus: 'in_progress',
+      leaseGuard: {
+        kind: 'current',
+        leaseId: currentLeaseId,
+        observedAt: '2026-07-28T12:05:00.000Z',
+      },
+      capture: deliveredCapture,
+    },
+    'lease_expired',
+  );
+  await assertRejectedWithoutMutation(
+    store,
+    {
+      captureId: capture.id,
+      expectedStatus: 'in_progress',
+      leaseGuard: {
+        kind: 'current',
+        leaseId: currentLeaseId,
+        observedAt: '2026-07-28T12:05:00.000Z',
+      },
+      capture: {
+        ...claimed,
+        status: 'needs_attention',
+        deliveryLease: undefined,
+        deliveryAttempts: {
+          ...claimed.deliveryAttempts,
+          lastErrorCode: 'APPEND_FAILED',
+        },
+      },
+    },
+    'lease_expired',
+  );
+
+  const recoveredCapture: ReadingCapture = {
+    ...claimed,
+    status: 'pending',
+    deliveryLease: undefined,
+    updatedAt: '2026-07-28T12:05:00.000Z',
+  };
+  const recovery = await store.transitionCapture({
+    captureId: capture.id,
+    expectedStatus: 'in_progress',
+    leaseGuard: {
+      kind: 'expired',
+      leaseId: currentLeaseId,
+      observedAt: '2026-07-28T12:05:00.000Z',
+    },
+    capture: recoveredCapture,
+  });
+  assert.strictEqual(recovery.outcome, 'updated');
+
+  const secondClaimCommand = makeLeaseTransition(recoveredCapture, 'lease_new');
+  secondClaimCommand.capture.deliveryLease!.expiresAt =
+    '2026-07-28T12:15:00.000Z';
+  const secondClaim = await store.transitionCapture(secondClaimCommand);
+  assert.strictEqual(secondClaim.outcome, 'updated');
+  await assertRejectedWithoutMutation(
+    store,
+    {
+      captureId: capture.id,
+      expectedStatus: 'in_progress',
+      leaseGuard: {
+        kind: 'expired',
+        leaseId: currentLeaseId,
+        observedAt: '2026-07-28T12:20:00.000Z',
+      },
+      capture: recoveredCapture,
+    },
+    'lease_conflict',
+  );
+
+  const current = (await store.getCapture(capture.id))!;
+  const delivered = await store.transitionCapture({
+    captureId: capture.id,
+    expectedStatus: 'in_progress',
+    leaseGuard: {
+      kind: 'current',
+      leaseId: 'lease_new',
+      observedAt: '2026-07-28T12:10:00.000Z',
+    },
+    capture: {
+      ...current,
+      status: 'delivered',
+      deliveryLease: undefined,
+      deliveredAt: '2026-07-28T12:10:00.000Z',
+    },
+  });
+  assert.strictEqual(delivered.outcome, 'updated');
+
+  const failureCapture = makeCapture(
+    'reading_fedcba0987654321fedcba0987654321',
+    'Failure path',
+  );
+  assert.strictEqual(
+    (
+      await store.createCaptureIdempotently(
+        makeCommand(failureCapture, 'failure-path-key'),
+      )
+    ).outcome,
+    'created',
+  );
+  const failureClaim = makeLeaseTransition(failureCapture, 'lease_failure');
+  assert.strictEqual(
+    (await store.transitionCapture(failureClaim)).outcome,
+    'updated',
+  );
+  const needsAttention: ReadingCapture = {
+    ...failureClaim.capture,
+    status: 'needs_attention',
+    deliveryLease: undefined,
+    deliveryAttempts: {
+      ...failureClaim.capture.deliveryAttempts,
+      lastErrorCode: 'APPEND_FAILED',
+    },
+  };
+  assert.strictEqual(
+    (
+      await store.transitionCapture({
+        captureId: failureCapture.id,
+        expectedStatus: 'in_progress',
+        leaseGuard: {
+          kind: 'current',
+          leaseId: 'lease_failure',
+          observedAt: '2026-07-28T12:04:00.000Z',
+        },
+        capture: needsAttention,
+      })
+    ).outcome,
+    'updated',
+  );
+  const retried = await store.transitionCapture({
+    captureId: failureCapture.id,
+    expectedStatus: 'needs_attention',
+    leaseGuard: { kind: 'none' },
+    capture: {
+      ...needsAttention,
+      status: 'pending',
+      deliveryLease: undefined,
+      deliveryAttempts: {
+        ...needsAttention.deliveryAttempts,
+        lastErrorCode: undefined,
+      },
+    },
+  });
+  assert.strictEqual(retried.outcome, 'updated');
+  if (retried.outcome === 'updated') {
+    assert.strictEqual(retried.capture.deliveryLease, undefined);
+    assert.strictEqual(retried.capture.deliveryAttempts.lastErrorCode, undefined);
+  }
+}
+
 test('local ReadingStore persists and enforces concurrent idempotency', async () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'life-site-local-reading-'));
   const stateFile = path.join(directory, 'reading.json');
@@ -228,6 +506,7 @@ test('local ReadingStore persists and enforces concurrent idempotency', async ()
     const reloaded = new LocalReadingStore(stateFile);
     assert.strictEqual((await reloaded.listBooks()).length, 1);
     assert.strictEqual((await reloaded.listCaptures()).length, 1);
+    assert.ok(!fs.readFileSync(stateFile, 'utf8').includes(RAW_IDEMPOTENCY_KEY));
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
   }
@@ -239,9 +518,13 @@ test('Firestore ReadingStore transaction matches local idempotency behavior', as
   await exerciseIdempotency(store);
   assert.strictEqual(database.entries('reading_captures').length, 1);
   assert.strictEqual(database.entries('reading_idempotency').length, 1);
+  assert.ok(
+    !JSON.stringify(database.entries('reading_idempotency'))
+      .includes(RAW_IDEMPOTENCY_KEY),
+  );
 });
 
-test('ReadingStore revisions and state transitions use atomic expected values', async () => {
+test('ReadingStore revisions use atomic expected values', async () => {
   const database = new FakeFirestore();
   const store = new FirestoreReadingStore(database as any);
   const book = makeBook();
@@ -253,21 +536,21 @@ test('ReadingStore revisions and state transitions use atomic expected values', 
   );
   assert.deepStrictEqual(revisionConflict, { outcome: 'revision_conflict' });
 
-  const created = await store.createCaptureIdempotently(makeCommand());
-  assert.strictEqual(created.outcome, 'created');
-  const capture = makeCapture();
-  const transition = await store.transitionCapture({
-    captureId: capture.id,
-    expectedStatus: 'pending',
-    capture: { ...capture, status: 'in_progress' },
-  });
-  assert.strictEqual(transition.outcome, 'updated');
-  const staleTransition = await store.transitionCapture({
-    captureId: capture.id,
-    expectedStatus: 'pending',
-    capture: { ...capture, status: 'needs_attention' },
-  });
-  assert.deepStrictEqual(staleTransition, { outcome: 'state_conflict' });
+});
+
+test('local ReadingStore enforces lease guards atomically', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'life-site-local-leases-'));
+  try {
+    await exerciseLeaseGuards(
+      new LocalReadingStore(path.join(directory, 'reading.json')),
+    );
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('Firestore ReadingStore enforces lease guards atomically', async () => {
+  await exerciseLeaseGuards(new FirestoreReadingStore(new FakeFirestore() as any));
 });
 
 test('dual ReadingStore writes identical records to local and Firestore stores', async () => {
@@ -284,6 +567,65 @@ test('dual ReadingStore writes identical records to local and Firestore stores',
     assert.deepStrictEqual(
       await local.listCaptures(),
       await firestoreEquivalent.listCaptures(),
+    );
+
+    const capture = (await dual.listCaptures())[0];
+    const claim = makeLeaseTransition(capture, 'dual_lease');
+    assert.strictEqual((await dual.transitionCapture(claim)).outcome, 'updated');
+    const confirmation: CaptureTransitionCommand = {
+      captureId: capture.id,
+      expectedStatus: 'in_progress',
+      leaseGuard: {
+        kind: 'current',
+        leaseId: 'dual_lease',
+        observedAt: '2026-07-28T12:04:00.000Z',
+      },
+      capture: {
+        ...claim.capture,
+        status: 'delivered',
+        deliveryLease: undefined,
+        deliveredAt: '2026-07-28T12:04:00.000Z',
+      },
+    };
+    assert.strictEqual(
+      (await dual.transitionCapture(confirmation)).outcome,
+      'updated',
+    );
+    assert.deepStrictEqual(
+      await local.getCapture(capture.id),
+      await firestoreEquivalent.getCapture(capture.id),
+    );
+  } finally {
+    fs.rmSync(firstDirectory, { recursive: true, force: true });
+    fs.rmSync(secondDirectory, { recursive: true, force: true });
+  }
+});
+
+test('dual ReadingStore fails closed when lease transition outcomes diverge', async () => {
+  const firstDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'life-site-dual-diverge-1-'));
+  const secondDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'life-site-dual-diverge-2-'));
+  try {
+    const local = new LocalReadingStore(path.join(firstDirectory, 'reading.json'));
+    const firestoreEquivalent = new LocalReadingStore(
+      path.join(secondDirectory, 'reading.json'),
+    );
+    for (const store of [local, firestoreEquivalent]) {
+      await store.createBook(makeBook());
+      await store.createCaptureIdempotently(makeCommand());
+    }
+
+    const capture = makeCapture();
+    await firestoreEquivalent.transitionCapture(
+      makeLeaseTransition(capture, 'provider_specific_lease'),
+    );
+    const dual = new DualReadingStore(local, firestoreEquivalent);
+    await assert.rejects(
+      () => dual.transitionCapture(makeLeaseTransition(capture, 'dual_lease')),
+      /capture transition divergence detected/,
+    );
+    assert.notDeepStrictEqual(
+      await local.getCapture(capture.id),
+      await firestoreEquivalent.getCapture(capture.id),
     );
   } finally {
     fs.rmSync(firstDirectory, { recursive: true, force: true });

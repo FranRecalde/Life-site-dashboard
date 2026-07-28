@@ -4,6 +4,7 @@ import { ReadingBook, ReadingCapture, ReadingCaptureListFilter } from '../../src
 import {
   CaptureTransitionCommand,
   CaptureTransitionResult,
+  getCaptureLeaseGuardFailure,
   IdempotentCaptureCreateCommand,
   IdempotentCaptureCreateResult,
   ReadingBookUpdateResult,
@@ -215,9 +216,15 @@ export class LocalReadingStore implements ReadingStore {
         (capture) => capture.id === command.captureId,
       );
       if (index === -1) return { outcome: 'not_found' };
-      if (state.captures[index].status !== command.expectedStatus) {
+      const current = state.captures[index];
+      if (current.status !== command.expectedStatus) {
         return { outcome: 'state_conflict' };
       }
+      const leaseGuardFailure = getCaptureLeaseGuardFailure(
+        current,
+        command.leaseGuard,
+      );
+      if (leaseGuardFailure) return { outcome: leaseGuardFailure };
       state.captures[index] = command.capture;
       this.writeState(state);
       return { outcome: 'updated', capture: command.capture };

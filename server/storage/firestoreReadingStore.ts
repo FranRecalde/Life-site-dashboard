@@ -3,6 +3,7 @@ import { ReadingBook, ReadingCapture, ReadingCaptureListFilter } from '../../src
 import {
   CaptureTransitionCommand,
   CaptureTransitionResult,
+  getCaptureLeaseGuardFailure,
   IdempotentCaptureCreateCommand,
   IdempotentCaptureCreateResult,
   ReadingBookUpdateResult,
@@ -180,6 +181,11 @@ export class FirestoreReadingStore implements ReadingStore {
       if (current.status !== command.expectedStatus) {
         return { outcome: 'state_conflict' };
       }
+      const leaseGuardFailure = getCaptureLeaseGuardFailure(
+        current,
+        command.leaseGuard,
+      );
+      if (leaseGuardFailure) return { outcome: leaseGuardFailure };
       transaction.set(reference, cleanFirestoreRecord(command.capture));
       return { outcome: 'updated', capture: command.capture };
     });

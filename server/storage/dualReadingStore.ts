@@ -206,13 +206,10 @@ export class DualReadingStore implements ReadingStore {
       (result): result is PromiseFulfilledResult<CaptureTransitionResult> =>
         result.status === 'fulfilled',
     );
-    if (successes.length === 0) {
-      throw new Error('Both ReadingStore providers failed to transition a capture.');
+    if (successes.length !== 2) {
+      throw new Error('DualReadingStore capture transition provider failure.');
     }
-    if (
-      successes.length === 2 &&
-      !sameRecord(successes[0].value, successes[1].value)
-    ) {
+    if (!sameRecord(successes[0].value, successes[1].value)) {
       throw new Error('DualReadingStore capture transition divergence detected.');
     }
     return successes[0].value;

@@ -5,10 +5,12 @@ import {
   ReadingCapture,
   ReadingCaptureCreatorType,
   ReadingCaptureListFilter,
-  ReadingCaptureStatus,
-  ReadingDeliveryLease,
 } from '../../src/types';
-import { ReadingStore } from '../storage/types';
+import {
+  CaptureLeaseGuard,
+  CaptureTransitionResult,
+  ReadingStore,
+} from '../storage/types';
 import {
   validateCaptureListFilter,
   validateCreateBookInput,
@@ -28,6 +30,9 @@ export type ReadingServiceErrorCode =
   | 'idempotency_conflict'
   | 'capture_not_found'
   | 'capture_state_conflict'
+  | 'capture_lease_conflict'
+  | 'capture_lease_expired'
+  | 'capture_lease_not_expired'
   | 'invalid_capture_transition'
   | 'invalid_delivery_metadata';
 
@@ -40,18 +45,6 @@ export class ReadingServiceError extends Error {
     this.name = 'ReadingServiceError';
   }
 }
-
-export interface CaptureTransitionDetails {
-  lease?: ReadingDeliveryLease;
-  errorCode?: string;
-}
-
-const ALLOWED_TRANSITIONS: Record<ReadingCaptureStatus, ReadingCaptureStatus[]> = {
-  pending: ['in_progress'],
-  in_progress: ['pending', 'delivered', 'needs_attention'],
-  needs_attention: ['pending'],
-  delivered: [],
-};
 
 export function hashReadingCapturePayload(input: CreateReadingCaptureInput): string {
   const canonicalPayload = JSON.stringify({
@@ -66,8 +59,12 @@ export function hashReadingCapturePayload(input: CreateReadingCaptureInput): str
   return crypto.createHash('sha256').update(canonicalPayload).digest('hex');
 }
 
-export function hashReadingIdempotencyKey(key: string): string {
-  return crypto.createHash('sha256').update(key).digest('hex');
+export function hashReadingIdempotencyIdentity(
+  scope: ReadingCaptureCreatorType,
+  key: string,
+): string {
+  const canonicalIdentity = JSON.stringify([scope, key]);
+  return crypto.createHash('sha256').update(canonicalIdentity).digest('hex');
 }
 
 function captureIdFromIdempotencyHash(hash: string): string {
@@ -79,6 +76,7 @@ export class ReadingService {
     private readonly store: ReadingStore,
     private readonly now: () => string = () => new Date().toISOString(),
     private readonly createId: () => string = () => crypto.randomUUID(),
+    private readonly createLeaseId: () => string = () => crypto.randomUUID(),
   ) {}
 
   async listBooks(includeArchived = false): Promise<ReadingBook[]> {
@@ -152,7 +150,10 @@ export class ReadingService {
   ): Promise<{ outcome: 'created' | 'replayed'; capture: ReadingCapture }> {
     const input = validateCreateCaptureInput(value);
     const idempotencyKey = validateIdempotencyKey(rawIdempotencyKey);
-    const idempotencyKeyHash = hashReadingIdempotencyKey(idempotencyKey);
+    const idempotencyKeyHash = hashReadingIdempotencyIdentity(
+      creatorType,
+      idempotencyKey,
+    );
     const payloadHash = hashReadingCapturePayload(input);
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -213,76 +214,230 @@ export class ReadingService {
     );
   }
 
-  async transitionCapture(
+  async claimCapture(
     captureId: string,
-    nextStatus: ReadingCaptureStatus,
-    details: CaptureTransitionDetails = {},
+    ownerId: string,
+    leaseDurationMs: number,
   ): Promise<ReadingCapture> {
-    const current = await this.store.getCapture(captureId);
-    if (!current) {
-      throw new ReadingServiceError('capture_not_found', 'Capture not found.');
-    }
-    if (!ALLOWED_TRANSITIONS[current.status].includes(nextStatus)) {
-      throw new ReadingServiceError(
-        'invalid_capture_transition',
-        `Cannot transition a capture from ${current.status} to ${nextStatus}.`,
-      );
-    }
-    if (nextStatus === 'in_progress' && !details.lease) {
+    if (
+      typeof ownerId !== 'string' ||
+      ownerId.trim().length === 0 ||
+      !Number.isSafeInteger(leaseDurationMs) ||
+      leaseDurationMs <= 0
+    ) {
       throw new ReadingServiceError(
         'invalid_delivery_metadata',
-        'A delivery lease is required.',
+        'A delivery owner and positive lease duration are required.',
       );
     }
-    if (
-      nextStatus === 'needs_attention' &&
-      (!details.errorCode || !/^[A-Z0-9_]{1,64}$/.test(details.errorCode))
-    ) {
+
+    const current = await this.getCaptureForTransition(captureId, 'pending');
+    const timestamp = this.now();
+    const observedAtMs = Date.parse(timestamp);
+    if (!Number.isFinite(observedAtMs)) {
+      throw new ReadingServiceError(
+        'invalid_delivery_metadata',
+        'The delivery timestamp is invalid.',
+      );
+    }
+    const leaseId = this.createLeaseId();
+    if (typeof leaseId !== 'string' || leaseId.length === 0) {
+      throw new ReadingServiceError(
+        'invalid_delivery_metadata',
+        'A delivery lease ID could not be generated.',
+      );
+    }
+    const capture: ReadingCapture = {
+      ...current,
+      status: 'in_progress',
+      deliveryAttempts: {
+        count: current.deliveryAttempts.count + 1,
+        lastAttemptAt: timestamp,
+      },
+      deliveryLease: {
+        leaseId,
+        ownerId: ownerId.trim(),
+        acquiredAt: timestamp,
+        expiresAt: new Date(observedAtMs + leaseDurationMs).toISOString(),
+      },
+      updatedAt: timestamp,
+    };
+    return this.executeTransition(current, capture, { kind: 'none' });
+  }
+
+  async confirmDelivery(
+    captureId: string,
+    leaseId: string,
+  ): Promise<ReadingCapture> {
+    this.validateLeaseId(leaseId);
+    const current = await this.getCaptureForTransition(captureId, 'in_progress');
+    const observedAt = this.now();
+    const capture: ReadingCapture = {
+      ...current,
+      status: 'delivered',
+      deliveryAttempts: {
+        ...current.deliveryAttempts,
+        lastErrorCode: undefined,
+      },
+      deliveryLease: undefined,
+      deliveredAt: observedAt,
+      updatedAt: observedAt,
+    };
+    return this.executeTransition(current, capture, {
+      kind: 'current',
+      leaseId,
+      observedAt,
+    });
+  }
+
+  async reportDeliveryFailure(
+    captureId: string,
+    leaseId: string,
+    errorCode: string,
+  ): Promise<ReadingCapture> {
+    this.validateLeaseId(leaseId);
+    if (!errorCode || !/^[A-Z0-9_]{1,64}$/.test(errorCode)) {
       throw new ReadingServiceError(
         'invalid_delivery_metadata',
         'A sanitized delivery error code is required.',
       );
     }
-
-    const timestamp = this.now();
+    const current = await this.getCaptureForTransition(captureId, 'in_progress');
+    const observedAt = this.now();
     const capture: ReadingCapture = {
       ...current,
-      status: nextStatus,
+      status: 'needs_attention',
       deliveryAttempts: {
-        count:
-          nextStatus === 'in_progress'
-            ? current.deliveryAttempts.count + 1
-            : current.deliveryAttempts.count,
-        lastAttemptAt:
-          nextStatus === 'in_progress'
-            ? timestamp
-            : current.deliveryAttempts.lastAttemptAt,
-        lastErrorCode:
-          nextStatus === 'needs_attention'
-            ? details.errorCode
-            : nextStatus === 'pending' || nextStatus === 'delivered'
-              ? undefined
-              : current.deliveryAttempts.lastErrorCode,
+        ...current.deliveryAttempts,
+        lastErrorCode: errorCode,
       },
-      deliveryLease: nextStatus === 'in_progress' ? details.lease : undefined,
-      deliveredAt: nextStatus === 'delivered' ? timestamp : current.deliveredAt,
-      updatedAt: timestamp,
+      deliveryLease: undefined,
+      updatedAt: observedAt,
     };
-    const result = await this.store.transitionCapture({
-      captureId,
-      expectedStatus: current.status,
-      capture,
+    return this.executeTransition(current, capture, {
+      kind: 'current',
+      leaseId,
+      observedAt,
     });
-    if (result.outcome === 'not_found') {
+  }
+
+  async recoverExpiredLease(
+    captureId: string,
+    leaseId: string,
+  ): Promise<ReadingCapture> {
+    this.validateLeaseId(leaseId);
+    const current = await this.getCaptureForTransition(captureId, 'in_progress');
+    const observedAt = this.now();
+    const capture: ReadingCapture = {
+      ...current,
+      status: 'pending',
+      deliveryAttempts: {
+        ...current.deliveryAttempts,
+        lastErrorCode: undefined,
+      },
+      deliveryLease: undefined,
+      updatedAt: observedAt,
+    };
+    return this.executeTransition(current, capture, {
+      kind: 'expired',
+      leaseId,
+      observedAt,
+    });
+  }
+
+  async retryCapture(captureId: string): Promise<ReadingCapture> {
+    const current = await this.getCaptureForTransition(
+      captureId,
+      'needs_attention',
+    );
+    const observedAt = this.now();
+    const capture: ReadingCapture = {
+      ...current,
+      status: 'pending',
+      deliveryAttempts: {
+        ...current.deliveryAttempts,
+        lastErrorCode: undefined,
+      },
+      deliveryLease: undefined,
+      updatedAt: observedAt,
+    };
+    return this.executeTransition(current, capture, { kind: 'none' });
+  }
+
+  private async getCaptureForTransition(
+    captureId: string,
+    expectedStatus: ReadingCapture['status'],
+  ): Promise<ReadingCapture> {
+    const current = await this.store.getCapture(captureId);
+    if (!current) {
       throw new ReadingServiceError('capture_not_found', 'Capture not found.');
     }
-    if (result.outcome === 'state_conflict') {
+    if (current.status !== expectedStatus) {
       throw new ReadingServiceError(
-        'capture_state_conflict',
-        'The capture state changed before the transition completed.',
+        'invalid_capture_transition',
+        `Expected a ${expectedStatus} capture, but found ${current.status}.`,
       );
     }
-    return result.capture;
+    return current;
+  }
+
+  private validateLeaseId(leaseId: string): void {
+    if (typeof leaseId !== 'string' || leaseId.length === 0) {
+      throw new ReadingServiceError(
+        'invalid_delivery_metadata',
+        'A delivery lease ID is required.',
+      );
+    }
+  }
+
+  private async executeTransition(
+    current: ReadingCapture,
+    capture: ReadingCapture,
+    leaseGuard: CaptureLeaseGuard,
+  ): Promise<ReadingCapture> {
+    const result = await this.store.transitionCapture({
+      captureId: current.id,
+      expectedStatus: current.status,
+      leaseGuard,
+      capture,
+    });
+    if (result.outcome === 'updated') return result.capture;
+    this.throwForTransitionFailure(result);
+  }
+
+  private throwForTransitionFailure(
+    result: Exclude<CaptureTransitionResult, { outcome: 'updated' }>,
+  ): never;
+  private throwForTransitionFailure(result: CaptureTransitionResult): void;
+  private throwForTransitionFailure(result: CaptureTransitionResult): void {
+    if (result.outcome === 'updated') return;
+    const failures: Record<
+      Exclude<CaptureTransitionResult['outcome'], 'updated'>,
+      { code: ReadingServiceErrorCode; message: string }
+    > = {
+      not_found: {
+        code: 'capture_not_found',
+        message: 'Capture not found.',
+      },
+      state_conflict: {
+        code: 'capture_state_conflict',
+        message: 'The capture state changed before the transition completed.',
+      },
+      lease_conflict: {
+        code: 'capture_lease_conflict',
+        message: 'The delivery lease no longer matches the current capture.',
+      },
+      lease_expired: {
+        code: 'capture_lease_expired',
+        message: 'The delivery lease has expired.',
+      },
+      lease_not_expired: {
+        code: 'capture_lease_not_expired',
+        message: 'The delivery lease has not expired.',
+      },
+    };
+    const failure = failures[result.outcome];
+    throw new ReadingServiceError(failure.code, failure.message);
   }
 
   formatCapture(capture: ReadingCapture): string {

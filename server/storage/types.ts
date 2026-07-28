@@ -56,13 +56,50 @@ export type IdempotentCaptureCreateResult =
 export interface CaptureTransitionCommand {
   captureId: string;
   expectedStatus: ReadingCaptureStatus;
+  leaseGuard: CaptureLeaseGuard;
   capture: ReadingCapture;
 }
+
+export type CaptureLeaseGuard =
+  | { kind: 'none' }
+  | { kind: 'current'; leaseId: string; observedAt: string }
+  | { kind: 'expired'; leaseId: string; observedAt: string };
+
+export type CaptureLeaseGuardFailure =
+  | 'lease_conflict'
+  | 'lease_expired'
+  | 'lease_not_expired';
 
 export type CaptureTransitionResult =
   | { outcome: 'updated'; capture: ReadingCapture }
   | { outcome: 'not_found' }
-  | { outcome: 'state_conflict' };
+  | { outcome: 'state_conflict' }
+  | { outcome: CaptureLeaseGuardFailure };
+
+export function getCaptureLeaseGuardFailure(
+  capture: ReadingCapture,
+  guard: CaptureLeaseGuard,
+): CaptureLeaseGuardFailure | null {
+  if (guard.kind === 'none') {
+    return capture.deliveryLease ? 'lease_conflict' : null;
+  }
+
+  const lease = capture.deliveryLease;
+  if (!lease || lease.leaseId !== guard.leaseId) {
+    return 'lease_conflict';
+  }
+
+  const expiresAt = Date.parse(lease.expiresAt);
+  const observedAt = Date.parse(guard.observedAt);
+  if (!Number.isFinite(expiresAt) || !Number.isFinite(observedAt)) {
+    return 'lease_conflict';
+  }
+
+  if (guard.kind === 'current') {
+    return expiresAt <= observedAt ? 'lease_expired' : null;
+  }
+  return expiresAt > observedAt ? 'lease_not_expired' : null;
+}
 
 export interface ReadingStore {
   listBooks(options?: { includeArchived?: boolean }): Promise<ReadingBook[]>;
