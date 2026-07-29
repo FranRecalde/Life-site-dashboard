@@ -615,3 +615,92 @@ test('bridge confirmation and failure acknowledgements are safe to retry', async
     fixture.cleanup();
   }
 });
+
+test('bridge claims the true oldest pending capture from a backlog larger than 200', async () => {
+  const fixture = createFixture();
+  try {
+    const book = await fixture.service.createBook({
+      title: 'Backlog Book',
+      author: 'Author',
+      destinationNotePath: 'Literature notes/Backlog Book — Author.md',
+    });
+    let oldestCaptureId = '';
+    for (let index = 0; index < 205; index += 1) {
+      fixture.setNow(
+        new Date(Date.parse('2026-07-28T12:00:00.000Z') + index * 1_000)
+          .toISOString(),
+      );
+      const created = await fixture.service.createCapture(
+        {
+          bookId: book.id,
+          originalText: `Backlog capture ${index}`,
+          captureType: 'thought',
+        },
+        `bridge-backlog-capture-${String(index).padStart(4, '0')}`,
+      );
+      if (index === 0) oldestCaptureId = created.capture.id;
+    }
+
+    assert.strictEqual(
+      (await fixture.store.listCapturesForDelivery('pending')).length,
+      205,
+    );
+    const claimed = await fixture.service.claimNextCapture(
+      'windows-bridge',
+      300_000,
+    );
+    assert.strictEqual(claimed?.id, oldestCaptureId);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test('bridge recovers every eligible expired lease from a backlog larger than 200', async () => {
+  const fixture = createFixture();
+  try {
+    const book = await fixture.service.createBook({
+      title: 'Lease Backlog Book',
+      author: 'Author',
+      destinationNotePath: 'Literature notes/Lease Backlog Book — Author.md',
+    });
+    for (let index = 0; index < 205; index += 1) {
+      fixture.setNow(
+        new Date(Date.parse('2026-07-28T12:00:00.000Z') + index * 1_000)
+          .toISOString(),
+      );
+      const created = await fixture.service.createCapture(
+        {
+          bookId: book.id,
+          originalText: `Expired lease capture ${index}`,
+          captureType: 'summary',
+        },
+        `bridge-expired-lease-${String(index).padStart(4, '0')}`,
+      );
+      await fixture.service.claimCapture(
+        created.capture.id,
+        'windows-bridge',
+        300_000,
+      );
+    }
+
+    fixture.setNow('2026-07-28T12:20:00.000Z');
+    assert.strictEqual(
+      (await fixture.store.listCapturesForDelivery('in_progress')).length,
+      205,
+    );
+    assert.strictEqual(
+      await fixture.service.recoverExpiredCaptures('windows-bridge'),
+      205,
+    );
+    assert.strictEqual(
+      (await fixture.store.listCapturesForDelivery('pending')).length,
+      205,
+    );
+    assert.strictEqual(
+      (await fixture.store.listCapturesForDelivery('in_progress')).length,
+      0,
+    );
+  } finally {
+    fixture.cleanup();
+  }
+});

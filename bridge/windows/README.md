@@ -14,7 +14,8 @@ The worker:
 - appends and flushes once, then confirms delivery;
 - reports only fixed, sanitized failure codes;
 - supports same-owner expired-lease recovery and a caller-provided
-  single-instance lock.
+  OS-owned single-instance lock that is released after normal completion or an
+  unexpected process crash.
 
 Windows Credential Manager integration, Task Scheduler configuration, vault
 selection, credential creation, service startup, staging configuration, and

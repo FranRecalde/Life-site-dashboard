@@ -132,6 +132,21 @@ export class DualReadingStore implements ReadingStore {
       .slice(0, filter?.limit ?? 100);
   }
 
+  async listCapturesForDelivery(
+    status: 'pending' | 'in_progress',
+  ): Promise<ReadingCapture[]> {
+    const results = await Promise.allSettled([
+      this.local.listCapturesForDelivery(status),
+      this.firestore.listCapturesForDelivery(status),
+    ]);
+    const values = requireBothProviderResults(
+      results,
+      'delivery capture listing',
+    );
+    return mergeRecords(values[0], values[1], 'delivery capture')
+      .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
+  }
+
   async getCapture(id: string): Promise<ReadingCapture | null> {
     const [localResult, firestoreResult] = await Promise.allSettled([
       this.local.getCapture(id),

@@ -381,11 +381,8 @@ export class ReadingService {
     this.validateLeaseDuration(leaseDurationMs);
     await this.recoverExpiredCaptures(normalizedOwnerId);
 
-    const pending = await this.store.listCaptures({
-      status: 'pending',
-      limit: 200,
-    });
-    for (const capture of pending.reverse()) {
+    const pending = await this.store.listCapturesForDelivery('pending');
+    for (const capture of pending) {
       try {
         return await this.claimCapture(
           capture.id,
@@ -419,10 +416,7 @@ export class ReadingService {
       );
     }
 
-    const inProgress = await this.store.listCaptures({
-      status: 'in_progress',
-      limit: 200,
-    });
+    const inProgress = await this.store.listCapturesForDelivery('in_progress');
     let recovered = 0;
     for (const capture of inProgress) {
       const lease = capture.deliveryLease;

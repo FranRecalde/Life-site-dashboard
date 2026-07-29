@@ -1,4 +1,6 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
+import net from 'node:net';
 import path from 'node:path';
 
 const CAPTURE_ID_PATTERN = /^reading_[0-9a-f]{32}$/;
@@ -482,19 +484,45 @@ async function waitForDelay(
 }
 
 export async function withSingleInstanceLock<T>(
-  lockFile: string,
+  lockIdentity: string,
   operation: () => Promise<T>,
 ): Promise<T> {
-  let handle: fs.FileHandle;
-  try {
-    handle = await fs.open(lockFile, 'wx');
-  } catch {
-    throw new BridgeProtocolError('INVALID_CONFIGURATION');
-  }
+  const resolvedIdentity = path.resolve(lockIdentity);
+  const identityHash = crypto
+    .createHash('sha256')
+    .update(
+      process.platform === 'win32'
+        ? resolvedIdentity.toLowerCase()
+        : resolvedIdentity,
+      'utf8',
+    )
+    .digest('hex');
+  const endpoint = process.platform === 'win32'
+    ? `\\\\.\\pipe\\life-site-reading-bridge-${identityHash}`
+    : {
+        host: '127.0.0.1',
+        port: 49_152 + Number.parseInt(identityHash.slice(0, 4), 16) % 16_384,
+        exclusive: true,
+      };
+  const lockServer = net.createServer((socket) => socket.destroy());
+
+  await new Promise<void>((resolve, reject) => {
+    const onError = () => {
+      reject(new BridgeProtocolError('INVALID_CONFIGURATION'));
+    };
+    lockServer.once('error', onError);
+    lockServer.listen(endpoint, () => {
+      lockServer.off('error', onError);
+      lockServer.on('error', () => undefined);
+      resolve();
+    });
+  });
+
   try {
     return await operation();
   } finally {
-    await handle.close();
-    await fs.unlink(lockFile).catch(() => undefined);
+    await new Promise<void>((resolve) => {
+      lockServer.close(() => resolve());
+    });
   }
 }

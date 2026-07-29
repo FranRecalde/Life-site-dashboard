@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   appendCaptureToExistingNote,
   BridgeClaim,
@@ -312,7 +315,7 @@ test('HTTP client stops at its bounded response limit', async () => {
   );
 });
 
-test('single-instance lock prevents overlap and is removed afterward', async () => {
+test('single-instance lock prevents overlap and releases after normal completion', async () => {
   const directory = await fs.mkdtemp(
     path.join(os.tmpdir(), 'life-site-reading-bridge-lock-'),
   );
@@ -327,8 +330,74 @@ test('single-instance lock prevents overlap and is removed afterward', async () 
         ),
       );
     });
+    await withSingleInstanceLock(lockFile, async () => undefined);
     await assert.rejects(() => fs.stat(lockFile));
   } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('single-instance lock is released by the OS after an unexpected process crash', async () => {
+  const directory = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'life-site-reading-bridge-crash-lock-'),
+  );
+  const lockIdentity = path.join(directory, 'bridge.lock');
+  const moduleUrl = pathToFileURL(
+    path.join(process.cwd(), 'bridge', 'windows', 'readingObsidianBridge.ts'),
+  ).href;
+  const childScript = [
+    `import { withSingleInstanceLock } from ${JSON.stringify(moduleUrl)};`,
+    `await withSingleInstanceLock(${JSON.stringify(lockIdentity)}, async () => {`,
+    `  process.stdout.write('LOCKED\\n');`,
+    `  await new Promise(() => undefined);`,
+    `});`,
+  ].join('\n');
+  const child = spawn(
+    process.execPath,
+    ['--import', 'tsx', '--input-type=module', '--eval', childScript],
+    { stdio: ['ignore', 'pipe', 'pipe'] },
+  );
+  const childClosed = once(child, 'close');
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      let output = '';
+      let errors = '';
+      const timer = setTimeout(() => {
+        reject(new Error(`Timed out waiting for lock holder. ${errors}`));
+      }, 10_000);
+      child.stdout.on('data', (chunk: Buffer) => {
+        output += chunk.toString('utf8');
+        if (output.includes('LOCKED')) {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+      child.stderr.on('data', (chunk: Buffer) => {
+        errors += chunk.toString('utf8');
+      });
+      child.once('exit', (code) => {
+        clearTimeout(timer);
+        reject(new Error(`Lock holder exited early with ${code}. ${errors}`));
+      });
+    });
+
+    await assert.rejects(
+      () => withSingleInstanceLock(lockIdentity, async () => undefined),
+      (error: unknown) => (
+        error instanceof BridgeProtocolError &&
+        error.code === 'INVALID_CONFIGURATION'
+      ),
+    );
+
+    child.kill('SIGKILL');
+    await childClosed;
+    await withSingleInstanceLock(lockIdentity, async () => undefined);
+  } finally {
+    if (child.exitCode === null) {
+      child.kill('SIGKILL');
+      await childClosed.catch(() => undefined);
+    }
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
