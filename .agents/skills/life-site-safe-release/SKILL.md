@@ -183,31 +183,41 @@ revision configuration.
    verified source's explicit logical-key mapping, derive the ten exact
    environment-prefixed secret identifiers. Inspect metadata only and never
    access a payload.
-   - Before staging deployment, require every staging-prefixed secret resource
-     and an enabled version to exist in the fixed Secret Manager project,
-     including exact secret
-     `life-site-staging-reading-capture-api-token-hash`. Require the staging
-     runtime identity to have `roles/secretmanager.secretAccessor` on that exact
-     secret resource. It must not have a write, administrative, version-adding,
-     project-wide, production-family, or cross-environment grant for this
-     Reading Capture hash secret.
-   - Also require exact staging secret
-     `life-site-staging-reading-bridge-api-token-hash`, an enabled version, and
-     `roles/secretmanager.secretAccessor` for the staging runtime identity on
-     that exact secret resource. Apply the same no-write, no-administration,
-     no-version-adding, no-project-wide, no-production-family, and
-     no-cross-environment restrictions.
-   - Continue to require the existing approved secret-specific read and
-     version-adding permissions for the other staging secrets according to their
-     existing application write requirements, with no access to the production
-     family.
-   - Before staging acceptance, inspect the production family under the existing
-     rules except for the exact production Reading Capture and Reading Bridge
-     hash secrets `life-site-prod-reading-capture-api-token-hash` and
-     `life-site-prod-reading-bridge-api-token-hash`. Do not require those
-     secrets, enabled versions, or production accessor bindings yet. These are
-     the only pre-staging production-secret exceptions; do not infer that any
-     other production foundation may be absent.
+   - Before staging deployment, require all ten exact staging-prefixed secret
+     resources, an enabled version of each, and exact secret-resource
+     `roles/secretmanager.secretAccessor` for the staging runtime identity.
+   - Require exact secret-resource
+     `roles/secretmanager.secretVersionAdder` on only these five mutable staging
+     secrets: `life-site-staging-todoist-token`,
+     `life-site-staging-google-client-id`,
+     `life-site-staging-google-client-secret`,
+     `life-site-staging-google-refresh-token`, and
+     `life-site-staging-google-write-authorized`.
+   - Forbid every write, administrative, or version-adding permission on these
+     five read-only staging secrets: `life-site-staging-username`,
+     `life-site-staging-password-hash`, `life-site-staging-session-secret`,
+     `life-site-staging-reading-capture-api-token-hash`, and
+     `life-site-staging-reading-bridge-api-token-hash`.
+   - Stop on a project-wide, production-family, cross-environment, broader,
+     inherited, conditional, unexpected-identity, or ambiguous staging grant.
+   - Before staging acceptance, inspect the eight non-deferred production-family
+     secrets. Require each resource, an enabled version, and exact
+     secret-resource `roles/secretmanager.secretAccessor` for the production
+     runtime identity. For the three read-only login secrets, continue to reject
+     every write, administrative, or version-adding permission. For the five
+     mutable Todoist and Google secrets, record whether exact secret-resource
+     `roles/secretmanager.secretVersionAdder` is present, but do not make its
+     absence a staging blocker. Any existing production permission must still
+     have the expected identity and scope; stop on an inherited, conditional,
+     broader, project-wide, staging-family, or cross-environment grant. Defer
+     complete production write-permission enforcement to the Production
+     credential preflight.
+   - The exact production Reading Capture and Reading Bridge hash secrets
+     `life-site-prod-reading-capture-api-token-hash` and
+     `life-site-prod-reading-bridge-api-token-hash` remain the only pre-staging
+     production-secret exceptions. Do not require those resources, enabled
+     versions, or production accessor bindings yet; do not infer that any other
+     production foundation may be absent.
    Stop on a literal secret environment value, Cloud Run secret binding that
    bypasses the native provider, missing resource/version required at the
    current gate, mixed prefix, unexpected identity, broader secret role,
@@ -250,7 +260,9 @@ revision configuration.
    `PREVIOUS_PRODUCTION_IMAGE`.
 10. Record a safe production baseline containing traffic, revision, the seven
     approved environment values, service-account identifier, required secret
-    resource identifiers, and permanent URL. Hash or compare that safe set as
+    resource identifiers, the eight non-deferred production secrets'
+    metadata-only resource IAM policies (role names, members, and condition
+    presence), and permanent URL. Hash or compare that safe set as
     `PRODUCTION_SAFE_CONFIG_FINGERPRINT` without including secret values.
 11. Resolve an existing Artifact Registry image repository suitable for this
     service. Do not create one. Stop if its project, location, permissions, or
@@ -369,26 +381,34 @@ for the user's test report. Do not infer browser success from automated checks.
 ## Production credential preflight
 
 Run this read-only gate only after all automated staging evidence and the user's
-staging test report pass, and before displaying or accepting the first production
+staging test report pass, and before displaying or accepting either production
 approval phrase.
 
-1. Reconfirm the exact production runtime identity. Derive the exact production
-   Reading Capture and Reading Bridge hash secrets from the verified source
-   mapping and require them to be
-   `life-site-prod-reading-capture-api-token-hash` and
-   `life-site-prod-reading-bridge-api-token-hash` in Secret Manager project
-   `gen-lang-client-0802447346`.
-2. Inspect metadata only. Require both exact secret resources and enabled
-   versions to exist. Never access or display their payloads.
+1. Reconfirm the exact production runtime identity. From the verified source
+   mapping, derive all ten exact `life-site-prod` secret identifiers in Secret
+   Manager project `gen-lang-client-0802447346`.
+2. Inspect metadata only. Require all ten exact secret resources and an enabled
+   version of each to exist. Never access or display their payloads.
 3. Require
    `life-site-dashboard-prod@gen-lang-client-0802447346.iam.gserviceaccount.com`
-   to have `roles/secretmanager.secretAccessor` on both exact secret resources.
-   Stop on a write, administrative, version-adding, project-wide,
-   staging-family, cross-environment, broader, inherited, or ambiguous grant for
-   either Reading Capture or Reading Bridge hash secret.
-4. Reconfirm there is no literal Reading Capture or Reading Bridge token or hash
-   environment value and no Cloud Run secret binding that bypasses the native
-   provider.
+   to have exact secret-resource `roles/secretmanager.secretAccessor` on all ten
+   production secrets.
+   - Require exact secret-resource
+     `roles/secretmanager.secretVersionAdder` on only these five mutable
+     production secrets: `life-site-prod-todoist-token`,
+     `life-site-prod-google-client-id`,
+     `life-site-prod-google-client-secret`,
+     `life-site-prod-google-refresh-token`, and
+     `life-site-prod-google-write-authorized`.
+   - Forbid every write, administrative, or version-adding permission on these
+     five read-only production secrets: `life-site-prod-username`,
+     `life-site-prod-password-hash`, `life-site-prod-session-secret`,
+     `life-site-prod-reading-capture-api-token-hash`, and
+     `life-site-prod-reading-bridge-api-token-hash`.
+   - Stop on a project-wide, staging-family, cross-environment, broader,
+     inherited, conditional, unexpected-identity, or ambiguous grant.
+4. Reconfirm there is no literal value or Cloud Run secret binding for any of
+   the ten logical secret environment keys that bypasses the native provider.
 5. Request the current production revision's `/api/health` and
    `/api/readiness`. Require all existing production health and readiness fields
    from Phase 3. The current revision may omit both
@@ -406,9 +426,10 @@ approval phrase.
    candidate.
 
 Repeat this production credential preflight after the first production approval
-and immediately before deploying the no-traffic production candidate. Stop if
-any result changed or became ambiguous. This gate authorizes no secret, IAM,
-environment, service, revision, or traffic mutation.
+and immediately before deploying the no-traffic production candidate. Repeat it
+again immediately before displaying or accepting the final production traffic
+approval phrase. Stop if any result changed or became ambiguous. This gate
+authorizes no secret, IAM, environment, service, revision, or traffic mutation.
 
 ## First production approval gate
 
