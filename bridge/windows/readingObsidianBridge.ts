@@ -50,7 +50,13 @@ export type BridgeCycleResult =
     };
 
 export class BridgeProtocolError extends Error {
-  constructor(readonly code: 'INVALID_CONFIGURATION' | 'INVALID_RESPONSE' | 'REQUEST_FAILED') {
+  constructor(
+    readonly code:
+      | 'INVALID_CONFIGURATION'
+      | 'INVALID_RESPONSE'
+      | 'REQUEST_FAILED'
+      | 'UNEXPECTED_CAPTURE',
+  ) {
     super(code);
     this.name = 'BridgeProtocolError';
   }
@@ -396,9 +402,23 @@ export class ReadingObsidianBridge {
     this.ownerId = validateOwnerId(ownerId);
   }
 
-  async runOnce(): Promise<BridgeCycleResult> {
+  async runOnce(options: {
+    expectedCaptureId?: string;
+  } = {}): Promise<BridgeCycleResult> {
+    if (
+      options.expectedCaptureId !== undefined &&
+      !CAPTURE_ID_PATTERN.test(options.expectedCaptureId)
+    ) {
+      throw new BridgeProtocolError('INVALID_CONFIGURATION');
+    }
     const claim = await this.client.claim(this.ownerId);
     if (!claim) return { outcome: 'idle' };
+    if (
+      options.expectedCaptureId !== undefined &&
+      claim.captureId !== options.expectedCaptureId
+    ) {
+      throw new BridgeProtocolError('UNEXPECTED_CAPTURE');
+    }
 
     let appendOutcome: 'appended' | 'already_present';
     try {

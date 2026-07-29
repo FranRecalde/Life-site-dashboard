@@ -412,3 +412,25 @@ test('worker exposes explicit expired-lease recovery without starting a loop', a
   assert.strictEqual(await bridge.recoverExpired(), 1);
   assert.deepStrictEqual(client.recoveries, ['windows-bridge']);
 });
+
+test('one-shot rehearsal refuses an unexpected capture before accessing the vault', async () => {
+  const client = new FakeBridgeClient();
+  client.claims.push(makeClaim());
+  const bridge = new ReadingObsidianBridge(
+    client,
+    'path-that-must-not-be-accessed',
+    'windows-bridge-staging-rehearsal',
+  );
+
+  await assert.rejects(
+    () => bridge.runOnce({
+      expectedCaptureId: `reading_${'b'.repeat(32)}`,
+    }),
+    (error: unknown) => (
+      error instanceof BridgeProtocolError &&
+      error.code === 'UNEXPECTED_CAPTURE'
+    ),
+  );
+  assert.deepStrictEqual(client.confirmations, []);
+  assert.deepStrictEqual(client.failures, []);
+});
