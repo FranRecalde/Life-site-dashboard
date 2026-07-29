@@ -2,11 +2,97 @@ import React from 'react';
 import { Search, X } from 'lucide-react';
 import { ObsidianNote } from '../types';
 
+export type GlobalSearchOutcome =
+  | { kind: 'complete' }
+  | { kind: 'mobile-handoff'; uri: string };
+
+export type GlobalSearchHandler = (
+  value: string,
+  options?: { openMobileSearch?: boolean }
+) => Promise<GlobalSearchOutcome>;
+
+interface MobileHandoffEventSource {
+  addEventListener(type: string, listener: EventListener): void;
+  removeEventListener(type: string, listener: EventListener): void;
+}
+
+export interface MobileHandoffMonitorOptions {
+  pageTarget: MobileHandoffEventSource;
+  visibilityTarget: MobileHandoffEventSource;
+  isPageHidden: () => boolean;
+  schedule: (callback: () => void, delayMs: number) => unknown;
+  cancelScheduled: (handle: unknown) => void;
+  onFallback: () => void;
+  delayMs?: number;
+}
+
+export const MOBILE_HANDOFF_FALLBACK_DELAY_MS = 1500;
+
+export function startMobileHandoffFallbackMonitor({
+  pageTarget,
+  visibilityTarget,
+  isPageHidden,
+  schedule,
+  cancelScheduled,
+  onFallback,
+  delayMs = MOBILE_HANDOFF_FALLBACK_DELAY_MS,
+}: MobileHandoffMonitorOptions): () => void {
+  let active = true;
+  let scheduledHandle: unknown;
+
+  const cleanup = () => {
+    if (!active) return;
+    active = false;
+    pageTarget.removeEventListener('pagehide', handlePageHide);
+    visibilityTarget.removeEventListener('visibilitychange', handleVisibilityChange);
+    if (scheduledHandle !== undefined) {
+      cancelScheduled(scheduledHandle);
+    }
+  };
+
+  const handlePageHide: EventListener = () => {
+    cleanup();
+  };
+  const handleVisibilityChange: EventListener = () => {
+    if (isPageHidden()) {
+      cleanup();
+    }
+  };
+
+  pageTarget.addEventListener('pagehide', handlePageHide);
+  visibilityTarget.addEventListener('visibilitychange', handleVisibilityChange);
+  scheduledHandle = schedule(() => {
+    if (!active) return;
+    if (isPageHidden()) {
+      cleanup();
+      return;
+    }
+    cleanup();
+    onFallback();
+  }, delayMs);
+
+  return cleanup;
+}
+
+export async function copyGlobalSearchQuery(
+  query: string,
+  clipboard: { writeText(value: string): Promise<void> } | undefined
+): Promise<void> {
+  const cleanQuery = query.trim();
+  if (!cleanQuery) {
+    throw new Error('There is no search query to copy.');
+  }
+  if (!clipboard?.writeText) {
+    throw new Error('Clipboard access is unavailable in this browser.');
+  }
+  await clipboard.writeText(cleanQuery);
+}
+
 export interface GlobalSearchControlProps {
   searchInputRef: React.RefObject<HTMLInputElement | null>;
   searchQuery: string;
   setSearchQuery: (val: string) => void;
-  handleSearch: (val: string) => void;
+  handleSearch: GlobalSearchHandler;
   searchResults: { notes: ObsidianNote[] } | null;
   setSearchResults: (val: { notes: ObsidianNote[] } | null) => void;
   setSelectedNote: (note: ObsidianNote | null) => void;
@@ -27,6 +113,95 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
   isEntranceHall = false,
   onClearSearch,
 }) => {
+  const [searchMessage, setSearchMessage] = React.useState<string | null>(null);
+  const [mobileCopyFallback, setMobileCopyFallback] = React.useState<{
+    query: string;
+    status: 'ready' | 'copied' | 'failed';
+  } | null>(null);
+  const searchRequestRef = React.useRef(0);
+  const mobileHandoffCleanupRef = React.useRef<(() => void) | null>(null);
+
+  const stopMobileHandoffMonitor = () => {
+    mobileHandoffCleanupRef.current?.();
+    mobileHandoffCleanupRef.current = null;
+  };
+
+  const clearMobileHandoffState = () => {
+    stopMobileHandoffMonitor();
+    setMobileCopyFallback(null);
+  };
+
+  React.useEffect(() => () => {
+    mobileHandoffCleanupRef.current?.();
+    mobileHandoffCleanupRef.current = null;
+  }, []);
+
+  const runSearch = async (value: string, openMobileSearch = false) => {
+    const requestId = ++searchRequestRef.current;
+    clearMobileHandoffState();
+    setSearchMessage(null);
+    try {
+      const outcome = await handleSearch(value, { openMobileSearch });
+      if (searchRequestRef.current !== requestId || outcome.kind !== 'mobile-handoff') {
+        return;
+      }
+
+      const cleanQuery = value.trim();
+      const offerCopyFallback = () => {
+        if (searchRequestRef.current !== requestId) return;
+        mobileHandoffCleanupRef.current = null;
+        setMobileCopyFallback({ query: cleanQuery, status: 'ready' });
+        setSearchMessage('Obsidian did not open. Copy the query and paste it into Obsidian search.');
+      };
+
+      mobileHandoffCleanupRef.current = startMobileHandoffFallbackMonitor({
+        pageTarget: window,
+        visibilityTarget: document,
+        isPageHidden: () => document.visibilityState === 'hidden',
+        schedule: (callback, delayMs) => window.setTimeout(callback, delayMs),
+        cancelScheduled: handle => window.clearTimeout(handle as number),
+        onFallback: offerCopyFallback,
+      });
+
+      try {
+        window.location.href = outcome.uri;
+      } catch {
+        stopMobileHandoffMonitor();
+        offerCopyFallback();
+      }
+    } catch (error) {
+      if (searchRequestRef.current === requestId) {
+        setSearchMessage(
+          error instanceof Error
+            ? error.message
+            : 'Obsidian note search failed. Check the desktop connection and try again.'
+        );
+      }
+    }
+  };
+
+  const clearLocalSearchState = () => {
+    searchRequestRef.current += 1;
+    clearMobileHandoffState();
+    setSearchMessage(null);
+  };
+
+  const handleCopyMobileQuery = async () => {
+    if (!mobileCopyFallback) return;
+    const requestId = searchRequestRef.current;
+    const fallbackQuery = mobileCopyFallback.query;
+    try {
+      await copyGlobalSearchQuery(fallbackQuery, navigator.clipboard);
+      if (searchRequestRef.current !== requestId) return;
+      setMobileCopyFallback({ query: fallbackQuery, status: 'copied' });
+      setSearchMessage('Query copied. Paste it into Obsidian search.');
+    } catch {
+      if (searchRequestRef.current !== requestId) return;
+      setMobileCopyFallback({ query: fallbackQuery, status: 'failed' });
+      setSearchMessage('Clipboard access failed. Select and copy the query below.');
+    }
+  };
+
   return (
     <div className={`relative ${className}`}>
       <Search className={`w-4 h-4 absolute left-3 top-3 ${isEntranceHall ? 'text-[#c5a86a]' : 'text-[#757684]'}`} />
@@ -34,7 +209,15 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
         type="text"
         ref={searchInputRef}
         value={searchQuery}
-        onChange={(e) => handleSearch(e.target.value)}
+        onChange={(e) => {
+          void runSearch(e.target.value);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.nativeEvent.isComposing && searchQuery.trim()) {
+            e.preventDefault();
+            void runSearch(searchQuery, true);
+          }
+        }}
         className={`w-full pl-9 pr-8 py-2 text-base md:text-sm border rounded-lg focus:outline-none focus:ring-1 ${
           isEntranceHall
             ? 'border-[#c5a86a]/30 focus:border-[#e4cb93] focus:ring-[#e4cb93] bg-[#0c1322] text-white placeholder-slate-500'
@@ -45,6 +228,7 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
       {searchQuery && (
         <button
           onClick={() => {
+            clearLocalSearchState();
             if (onClearSearch) {
               onClearSearch();
             } else {
@@ -63,7 +247,7 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
       )}
 
       {/* Global Search Results Overlay */}
-      {searchResults && searchQuery && (
+      {(searchResults || searchMessage) && searchQuery && (
         <div className={`absolute top-11 left-0 right-0 border rounded-lg shadow-xl z-50 p-4 max-h-96 overflow-y-auto ${
           isEntranceHall
             ? 'bg-[#0d1527] border-[#c5a86a]/30 text-white shadow-black/80'
@@ -77,6 +261,7 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
             }`}>Search Results</p>
             <button
               onClick={() => {
+                clearLocalSearchState();
                 if (onClearSearch) {
                   onClearSearch();
                 } else {
@@ -91,9 +276,33 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
             </button>
           </div>
           
-          {searchResults.notes.length === 0 ? (
+          {searchMessage ? (
+            <div className="text-center py-4" role="status">
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                {searchMessage}
+              </p>
+              {mobileCopyFallback && (
+                <div className="mt-3 flex flex-col items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleCopyMobileQuery();
+                    }}
+                    className="rounded-md border border-amber-500/50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-50 dark:text-amber-200 dark:hover:bg-amber-950/30"
+                  >
+                    {mobileCopyFallback.status === 'copied' ? 'Query copied' : 'Copy query'}
+                  </button>
+                  {mobileCopyFallback.status === 'failed' && (
+                    <code className="max-w-full select-all break-words rounded bg-black/5 px-2 py-1 text-xs text-[#131b2e] dark:bg-white/10 dark:text-white">
+                      {mobileCopyFallback.query}
+                    </code>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : searchResults && searchResults.notes.length === 0 ? (
             <p className="text-xs text-[#757684] text-center py-4">No matching Obsidian notes found.</p>
-          ) : (
+          ) : searchResults ? (
             <div className="space-y-2">
               <p className={`text-[10px] font-extrabold uppercase tracking-widest font-display ${
                 isEntranceHall ? 'text-[#c5a86a]' : 'text-[#00288e] dark:text-[#a8b8ff]'
@@ -121,7 +330,7 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
         </div>
       )}
     </div>
