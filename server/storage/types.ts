@@ -111,6 +111,9 @@ export interface ReadingStore {
     book: ReadingBook,
   ): Promise<ReadingBookUpdateResult>;
   listCaptures(filter?: ReadingCaptureListFilter): Promise<ReadingCapture[]>;
+  listCapturesForDelivery(
+    status: 'pending' | 'in_progress',
+  ): Promise<ReadingCapture[]>;
   getCapture(id: string): Promise<ReadingCapture | null>;
   createCaptureIdempotently(
     command: IdempotentCaptureCreateCommand,

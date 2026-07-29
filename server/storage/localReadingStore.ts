@@ -150,6 +150,16 @@ export class LocalReadingStore implements ReadingStore {
     });
   }
 
+  async listCapturesForDelivery(
+    status: 'pending' | 'in_progress',
+  ): Promise<ReadingCapture[]> {
+    return this.withLock(() => (
+      this.readState().captures
+        .filter((capture) => capture.status === status)
+        .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt))
+    ));
+  }
+
   async getCapture(id: string): Promise<ReadingCapture | null> {
     return this.withLock(() => (
       this.readState().captures.find((capture) => capture.id === id) ?? null

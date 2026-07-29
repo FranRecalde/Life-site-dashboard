@@ -336,17 +336,8 @@ export class ReadingService {
     ownerId: string,
     leaseDurationMs: number,
   ): Promise<ReadingCapture> {
-    if (
-      typeof ownerId !== 'string' ||
-      ownerId.trim().length === 0 ||
-      !Number.isSafeInteger(leaseDurationMs) ||
-      leaseDurationMs <= 0
-    ) {
-      throw new ReadingServiceError(
-        'invalid_delivery_metadata',
-        'A delivery owner and positive lease duration are required.',
-      );
-    }
+    const normalizedOwnerId = this.validateDeliveryOwner(ownerId);
+    this.validateLeaseDuration(leaseDurationMs);
 
     const current = await this.getCaptureForTransition(captureId, 'pending');
     const timestamp = this.now();
@@ -373,7 +364,7 @@ export class ReadingService {
       },
       deliveryLease: {
         leaseId,
-        ownerId: ownerId.trim(),
+        ownerId: normalizedOwnerId,
         acquiredAt: timestamp,
         expiresAt: new Date(observedAtMs + leaseDurationMs).toISOString(),
       },
@@ -382,12 +373,89 @@ export class ReadingService {
     return this.executeTransition(current, capture, { kind: 'none' });
   }
 
+  async claimNextCapture(
+    ownerId: string,
+    leaseDurationMs: number,
+  ): Promise<ReadingCapture | null> {
+    const normalizedOwnerId = this.validateDeliveryOwner(ownerId);
+    this.validateLeaseDuration(leaseDurationMs);
+    await this.recoverExpiredCaptures(normalizedOwnerId);
+
+    const pending = await this.store.listCapturesForDelivery('pending');
+    for (const capture of pending) {
+      try {
+        return await this.claimCapture(
+          capture.id,
+          normalizedOwnerId,
+          leaseDurationMs,
+        );
+      } catch (error) {
+        if (
+          error instanceof ReadingServiceError &&
+          (
+            error.code === 'invalid_capture_transition' ||
+            error.code === 'capture_state_conflict' ||
+            error.code === 'capture_lease_conflict'
+          )
+        ) {
+          continue;
+        }
+        throw error;
+      }
+    }
+    return null;
+  }
+
+  async recoverExpiredCaptures(ownerId: string): Promise<number> {
+    const normalizedOwnerId = this.validateDeliveryOwner(ownerId);
+    const observedAtMs = Date.parse(this.now());
+    if (!Number.isFinite(observedAtMs)) {
+      throw new ReadingServiceError(
+        'invalid_delivery_metadata',
+        'The delivery timestamp is invalid.',
+      );
+    }
+
+    const inProgress = await this.store.listCapturesForDelivery('in_progress');
+    let recovered = 0;
+    for (const capture of inProgress) {
+      const lease = capture.deliveryLease;
+      if (
+        !lease ||
+        lease.ownerId !== normalizedOwnerId ||
+        Date.parse(lease.expiresAt) > observedAtMs
+      ) {
+        continue;
+      }
+      try {
+        await this.recoverExpiredLease(capture.id, lease.leaseId);
+        recovered += 1;
+      } catch (error) {
+        if (
+          error instanceof ReadingServiceError &&
+          (
+            error.code === 'invalid_capture_transition' ||
+            error.code === 'capture_state_conflict' ||
+            error.code === 'capture_lease_conflict' ||
+            error.code === 'capture_lease_not_expired'
+          )
+        ) {
+          continue;
+        }
+        throw error;
+      }
+    }
+    return recovered;
+  }
+
   async confirmDelivery(
     captureId: string,
     leaseId: string,
   ): Promise<ReadingCapture> {
     this.validateLeaseId(leaseId);
-    const current = await this.getCaptureForTransition(captureId, 'in_progress');
+    const current = await this.getCapture(captureId);
+    if (current.status === 'delivered') return current;
+    this.requireCaptureStatus(current, 'in_progress');
     const observedAt = this.now();
     const capture: ReadingCapture = {
       ...current,
@@ -419,7 +487,14 @@ export class ReadingService {
         'A sanitized delivery error code is required.',
       );
     }
-    const current = await this.getCaptureForTransition(captureId, 'in_progress');
+    const current = await this.getCapture(captureId);
+    if (
+      current.status === 'needs_attention' &&
+      current.deliveryAttempts.lastErrorCode === errorCode
+    ) {
+      return current;
+    }
+    this.requireCaptureStatus(current, 'in_progress');
     const observedAt = this.now();
     const capture: ReadingCapture = {
       ...current,
@@ -485,17 +560,55 @@ export class ReadingService {
     captureId: string,
     expectedStatus: ReadingCapture['status'],
   ): Promise<ReadingCapture> {
+    const current = await this.getCapture(captureId);
+    this.requireCaptureStatus(current, expectedStatus);
+    return current;
+  }
+
+  private async getCapture(captureId: string): Promise<ReadingCapture> {
     const current = await this.store.getCapture(captureId);
     if (!current) {
       throw new ReadingServiceError('capture_not_found', 'Capture not found.');
     }
-    if (current.status !== expectedStatus) {
+    return current;
+  }
+
+  private requireCaptureStatus(
+    capture: ReadingCapture,
+    expectedStatus: ReadingCapture['status'],
+  ): void {
+    if (capture.status !== expectedStatus) {
       throw new ReadingServiceError(
         'invalid_capture_transition',
-        `Expected a ${expectedStatus} capture, but found ${current.status}.`,
+        `Expected a ${expectedStatus} capture, but found ${capture.status}.`,
       );
     }
-    return current;
+  }
+
+  private validateDeliveryOwner(ownerId: string): string {
+    if (
+      typeof ownerId !== 'string' ||
+      !/^[A-Za-z0-9._:-]{1,128}$/.test(ownerId.trim())
+    ) {
+      throw new ReadingServiceError(
+        'invalid_delivery_metadata',
+        'A valid delivery owner is required.',
+      );
+    }
+    return ownerId.trim();
+  }
+
+  private validateLeaseDuration(leaseDurationMs: number): void {
+    if (
+      !Number.isSafeInteger(leaseDurationMs) ||
+      leaseDurationMs <= 0 ||
+      leaseDurationMs > 900_000
+    ) {
+      throw new ReadingServiceError(
+        'invalid_delivery_metadata',
+        'A positive delivery lease duration of at most 15 minutes is required.',
+      );
+    }
   }
 
   private validateLeaseId(leaseId: string): void {

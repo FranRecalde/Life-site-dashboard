@@ -96,6 +96,18 @@ export class FirestoreReadingStore implements ReadingStore {
     return captures.slice(0, filter?.limit ?? 100);
   }
 
+  async listCapturesForDelivery(
+    status: 'pending' | 'in_progress',
+  ): Promise<ReadingCapture[]> {
+    const snapshot = await this.db.collection(this.capturesCollection).get();
+    const captures: ReadingCapture[] = [];
+    snapshot.forEach((document) => {
+      const capture = document.data() as ReadingCapture;
+      if (capture.status === status) captures.push(capture);
+    });
+    return captures.sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
+  }
+
   async getCapture(id: string): Promise<ReadingCapture | null> {
     const snapshot = await this.db.collection(this.capturesCollection).doc(id).get();
     return snapshot.exists ? snapshot.data() as ReadingCapture : null;
