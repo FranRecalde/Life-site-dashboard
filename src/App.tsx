@@ -2627,7 +2627,7 @@ export default function App() {
     setSearchQuery(val);
     if (!val.trim()) {
       clearSearch();
-      return;
+      return { kind: 'complete' as const };
     }
     const currentSearchGen = ++searchGenerationRef.current;
     const currentAuthGen = authGenerationRef.current;
@@ -2660,8 +2660,7 @@ export default function App() {
       if (result.kind === 'mobile-handoff') {
         setSearchResults(null);
         if (options?.openMobileSearch) {
-          window.location.href = result.uri;
-          return;
+          return result;
         }
         throw new Error('Press Enter to search for this query in the Obsidian app.');
       }
@@ -2702,6 +2701,7 @@ export default function App() {
         setIsSearching(false);
       }
     }
+    return { kind: 'complete' as const };
   };
 
   // -------------------------------------------------------------

@@ -3,6 +3,13 @@ import { afterEach, test } from 'node:test';
 import { ObsidianClient } from './obsidianClient';
 
 const originalFetch = globalThis.fetch;
+const encodeRepeatedly = (value: string, depth: number) => {
+  let encoded = value;
+  for (let layer = 0; layer < depth; layer += 1) {
+    encoded = encodeURIComponent(encoded);
+  }
+  return encoded;
+};
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
@@ -64,6 +71,10 @@ test('desktop global search returns matching notes from permitted folders', asyn
 
 test('desktop global search never reads matches outside permitted folder boundaries', async () => {
   const fileReads: string[] = [];
+  const deeplyEncodedTraversal = encodeRepeatedly('..', 32);
+  const deeplyEncodedAllowedPath = encodeRepeatedly('Personal/Deeply encoded allowed.md', 32);
+  const deeplyEncodedAbsolutePath = encodeRepeatedly('/Private/Absolute.md', 32);
+  const deeplyEncodedDrivePath = encodeRepeatedly('C:\\Private\\Drive.md', 32);
   globalThis.fetch = async (input) => {
     const url = String(input);
     if (url.includes('/search/simple/')) {
@@ -74,6 +85,10 @@ test('desktop global search never reads matches outside permitted folder boundar
         { filename: 'Professional/Outside.md', matches: [] },
         { filename: 'Personal/../Private/Traversal.md', matches: [] },
         { filename: 'Personal/%252e%252e/Private/Encoded traversal.md', matches: [] },
+        { filename: `Personal/${deeplyEncodedTraversal}/Private/Deep traversal.md`, matches: [] },
+        { filename: deeplyEncodedAllowedPath, matches: [] },
+        { filename: deeplyEncodedAbsolutePath, matches: [] },
+        { filename: deeplyEncodedDrivePath, matches: [] },
         { filename: 'Private/Unsafe configured folder.md', matches: [] },
         { filename: 'Personal/not-markdown.txt', matches: [] }
       ]), {
@@ -96,7 +111,8 @@ test('desktop global search never reads matches outside permitted folder boundar
     'allowed',
     [
       { path: 'Personal', context: 'personal' },
-      { path: '%2e%2e/Private', context: 'favorite' }
+      { path: '%2e%2e/Private', context: 'favorite' },
+      { path: `${deeplyEncodedTraversal}/Private`, context: 'favorite' }
     ],
     'desktop'
   );
@@ -105,9 +121,10 @@ test('desktop global search never reads matches outside permitted folder boundar
   if (result.kind !== 'notes') return;
   assert.deepEqual(result.notes.map(note => note.path), [
     'Personal/Allowed.md',
-    'Personal/Subfolder/Also allowed.md'
+    'Personal/Subfolder/Also allowed.md',
+    'Personal/Deeply encoded allowed.md'
   ]);
-  assert.equal(fileReads.length, 2);
+  assert.equal(fileReads.length, 3);
   assert.ok(fileReads.every(url => url.includes('/vault/Personal/')));
 });
 

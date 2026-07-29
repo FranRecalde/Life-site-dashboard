@@ -436,11 +436,33 @@ export class ObsidianClient {
 
   private static normalizeSearchPath(rawPath: string): string | null {
     let decodedPath = rawPath;
-    for (let index = 0; index < 3; index += 1) {
+    const seenPaths = new Set<string>();
+    let stable = false;
+
+    // Each successful URI decode must shorten the input. Using the original
+    // length as the guard therefore covers every representable encoding layer
+    // without allowing malformed input to loop indefinitely.
+    for (let remaining = rawPath.length + 1; remaining > 0; remaining -= 1) {
+      if (seenPaths.has(decodedPath)) {
+        return null;
+      }
+      seenPaths.add(decodedPath);
+
       const decoded = this.safeDecode(decodedPath);
-      if (decoded === decodedPath) break;
+      if (decoded === decodedPath) {
+        stable = true;
+        break;
+      }
+      if (decoded.length >= decodedPath.length) {
+        return null;
+      }
       decodedPath = decoded;
     }
+
+    if (!stable) {
+      return null;
+    }
+
     decodedPath = decodedPath.replace(/\\/g, '/');
 
     if (decodedPath.startsWith('/') || /^[a-z]:\//i.test(decodedPath)) {
