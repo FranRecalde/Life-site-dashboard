@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "SECRET_PROVIDER=existing STORAGE_PROVIDER=local tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build:reading-bridge": "esbuild ./bridge/windows/runReadingObsidianBridge.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/reading-obsidian-bridge.cjs",
     "start": "node dist/server.cjs",
-    "test": "node --import tsx --test server/storage/storage.test.ts server/storage/storageConfig.test.ts server/storage/secretStore.test.ts server/storage/readingStore.test.ts server/auth/googleOAuth.test.ts server/reading/readingValidation.test.ts server/reading/readingService.test.ts server/reading/readingBrowserRoutes.test.ts server/reading/readingActionRoutes.test.ts server/reading/readingBridgeRoutes.test.ts bridge/windows/readingObsidianBridge.test.ts",
+    "test": "node --import tsx --test server/storage/storage.test.ts server/storage/storageConfig.test.ts server/storage/secretStore.test.ts server/storage/readingStore.test.ts server/auth/googleOAuth.test.ts server/reading/readingValidation.test.ts server/reading/readingService.test.ts server/reading/readingBrowserRoutes.test.ts server/reading/readingActionRoutes.test.ts server/reading/readingBridgeRoutes.test.ts bridge/windows/readingObsidianBridge.test.ts bridge/windows/windowsCredential.test.ts bridge/windows/runReadingObsidianBridge.test.ts",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "create-password-hash": "tsx scripts/createPasswordHash.ts"

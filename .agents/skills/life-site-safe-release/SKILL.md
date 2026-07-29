@@ -39,6 +39,10 @@ traffic is missing, unsafe, or ambiguous.
   `life-site-staging-reading-capture-api-token-hash`
 - Production Reading Capture hash secret:
   `life-site-prod-reading-capture-api-token-hash`
+- Staging Reading Bridge hash secret:
+  `life-site-staging-reading-bridge-api-token-hash`
+- Production Reading Bridge hash secret:
+  `life-site-prod-reading-bridge-api-token-hash`
 - Google OAuth callback path: `/api/auth/google/callback`
 
 Treat the two Cloud Run services as separate houses. Never use a traffic tag,
@@ -176,7 +180,7 @@ revision configuration.
    `PRODUCTION_FIRESTORE_ADDRESS` to that explicit pair. Require the complete
    staging and production project/database pairs and secret prefixes to differ.
 5. Require each service to use its exact fixed runtime identity. From the
-   verified source's explicit logical-key mapping, derive the nine exact
+   verified source's explicit logical-key mapping, derive the ten exact
    environment-prefixed secret identifiers. Inspect metadata only and never
    access a payload.
    - Before staging deployment, require every staging-prefixed secret resource
@@ -187,16 +191,23 @@ revision configuration.
      secret resource. It must not have a write, administrative, version-adding,
      project-wide, production-family, or cross-environment grant for this
      Reading Capture hash secret.
+   - Also require exact staging secret
+     `life-site-staging-reading-bridge-api-token-hash`, an enabled version, and
+     `roles/secretmanager.secretAccessor` for the staging runtime identity on
+     that exact secret resource. Apply the same no-write, no-administration,
+     no-version-adding, no-project-wide, no-production-family, and
+     no-cross-environment restrictions.
    - Continue to require the existing approved secret-specific read and
      version-adding permissions for the other staging secrets according to their
      existing application write requirements, with no access to the production
      family.
    - Before staging acceptance, inspect the production family under the existing
-     rules except for the exact production Reading Capture hash secret
-     `life-site-prod-reading-capture-api-token-hash`. Do not require that secret,
-     an enabled version, or its production accessor binding yet. This is the only
-     pre-staging production-secret exception; do not infer that any other
-     production foundation may be absent.
+     rules except for the exact production Reading Capture and Reading Bridge
+     hash secrets `life-site-prod-reading-capture-api-token-hash` and
+     `life-site-prod-reading-bridge-api-token-hash`. Do not require those
+     secrets, enabled versions, or production accessor bindings yet. These are
+     the only pre-staging production-secret exceptions; do not infer that any
+     other production foundation may be absent.
    Stop on a literal secret environment value, Cloud Run secret binding that
    bypasses the native provider, missing resource/version required at the
    current gate, mixed prefix, unexpected identity, broader secret role,
@@ -216,9 +227,14 @@ revision configuration.
      `readingCaptureApiCredentialReady` because it may predate Reading Capture.
      If either field is present, require both to be present and exactly `true`;
      stop on a partial, false, malformed, or ambiguous value.
+     Independently allow the current revision to omit both
+     `readingBridgeApiTokenHashAvailable` and
+     `readingBridgeApiCredentialReady` because it may predate the bridge. If
+     either bridge field is present, require both to be present and exactly
+     `true`; stop on a partial, false, malformed, or ambiguous value.
    - Before staging acceptance, apply the same paired-field rule to the currently
-     deployed production revision. Do not treat omitted Reading Capture fields
-     as evidence that the deferred production secret or IAM binding exists.
+     deployed production revision. Do not treat omitted credential-readiness
+     fields as evidence that deferred production secrets or IAM bindings exist.
    Stop if any other required safe field is absent, false, or ambiguous. Do not
    print other response content.
 8. Inspect the verified OAuth origin allowlist in application source. Require its
@@ -329,6 +345,9 @@ Require automated evidence:
 - `readingCaptureApiTokenHashAvailable` and
   `readingCaptureApiCredentialReady` are both present and exactly `true`; an
   omitted, false, malformed, partial, or ambiguous value is a staging failure;
+- `readingBridgeApiTokenHashAvailable` and
+  `readingBridgeApiCredentialReady` are both present and exactly `true`; an
+  omitted, false, malformed, partial, or ambiguous value is a staging failure;
 - production revision, configuration, and traffic unchanged.
 
 Give the user the permanent staging-service URL and require this browser checklist
@@ -354,19 +373,22 @@ staging test report pass, and before displaying or accepting the first productio
 approval phrase.
 
 1. Reconfirm the exact production runtime identity. Derive the exact production
-   Reading Capture hash secret from the verified source mapping and require it to
-   be `life-site-prod-reading-capture-api-token-hash` in Secret Manager project
+   Reading Capture and Reading Bridge hash secrets from the verified source
+   mapping and require them to be
+   `life-site-prod-reading-capture-api-token-hash` and
+   `life-site-prod-reading-bridge-api-token-hash` in Secret Manager project
    `gen-lang-client-0802447346`.
-2. Inspect metadata only. Require that exact secret resource and an enabled
-   version to exist. Never access or display its payload.
+2. Inspect metadata only. Require both exact secret resources and enabled
+   versions to exist. Never access or display their payloads.
 3. Require
    `life-site-dashboard-prod@gen-lang-client-0802447346.iam.gserviceaccount.com`
-   to have `roles/secretmanager.secretAccessor` on that exact secret resource.
+   to have `roles/secretmanager.secretAccessor` on both exact secret resources.
    Stop on a write, administrative, version-adding, project-wide,
    staging-family, cross-environment, broader, inherited, or ambiguous grant for
-   this Reading Capture hash secret.
-4. Reconfirm there is no literal Reading Capture token or hash environment value
-   and no Cloud Run secret binding that bypasses the native provider.
+   either Reading Capture or Reading Bridge hash secret.
+4. Reconfirm there is no literal Reading Capture or Reading Bridge token or hash
+   environment value and no Cloud Run secret binding that bypasses the native
+   provider.
 5. Request the current production revision's `/api/health` and
    `/api/readiness`. Require all existing production health and readiness fields
    from Phase 3. The current revision may omit both
@@ -375,6 +397,13 @@ approval phrase.
    either field is present, require both to be present and exactly `true`; stop
    on a partial, false, malformed, or ambiguous value. Omission is permitted only
    until production traffic is promoted to the verified candidate.
+   Independently allow the current revision to omit both
+   `readingBridgeApiTokenHashAvailable` and
+   `readingBridgeApiCredentialReady` because it may predate the bridge. If
+   either bridge field is present, require both to be present and exactly
+   `true`; stop on a partial, false, malformed, or ambiguous value. Omission is
+   permitted only until production traffic is promoted to the verified
+   candidate.
 
 Repeat this production credential preflight after the first production approval
 and immediately before deploying the no-traffic production candidate. Stop if
@@ -454,9 +483,14 @@ Require and report only safe evidence:
 - persistent storage ready and Firestore reachable are true;
 - project and database configured booleans are true;
 - Secret Manager project/prefix configuration, required login secrets, Reading
-  Capture API credential hash, and writable OAuth configuration are ready;
+  Capture and Reading Bridge API credential hashes, and writable OAuth
+  configuration are ready;
 - `readingCaptureApiTokenHashAvailable` and
   `readingCaptureApiCredentialReady` are both present and exactly `true`; an
+  omitted, false, malformed, partial, or ambiguous value is a production
+  failure;
+- `readingBridgeApiTokenHashAvailable` and
+  `readingBridgeApiCredentialReady` are both present and exactly `true`; an
   omitted, false, malformed, partial, or ambiguous value is a production
   failure;
 - login, dashboard, habits, Calendar, Todoist, and Obsidian checks pass where
