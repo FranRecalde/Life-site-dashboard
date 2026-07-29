@@ -12,7 +12,6 @@ Add-Type -TypeDefinition @'
 using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.ComTypes;
 
 public static class LifeSiteCredentialReader
 {
@@ -23,7 +22,7 @@ public static class LifeSiteCredentialReader
         public UInt32 Type;
         public IntPtr TargetName;
         public IntPtr Comment;
-        public FILETIME LastWritten;
+        public System.Runtime.InteropServices.ComTypes.FILETIME LastWritten;
         public UInt32 CredentialBlobSize;
         public IntPtr CredentialBlob;
         public UInt32 Persist;

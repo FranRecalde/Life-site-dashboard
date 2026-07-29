@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import {
   CredentialCommand,
   readWindowsGenericCredential,
@@ -45,6 +46,45 @@ test('credential reader uses a hidden bounded PowerShell process without token a
       .includes(token),
     false,
   );
+});
+
+test('embedded credential reader source compiles without accessing Credential Manager', {
+  skip: process.platform !== 'win32',
+}, async () => {
+  let observed: CredentialCommand | null = null;
+  await readWindowsGenericCredential(credentialTarget, {
+    platform: 'win32',
+    env: process.env,
+    runner: async (command) => {
+      observed = command;
+      return Buffer.from(token, 'utf8');
+    },
+  });
+
+  assert.ok(observed);
+  const script = observed.args.at(-1);
+  assert.ok(script);
+  const sourceMatch = script.match(
+    /Add-Type -TypeDefinition @'\r?\n(?<source>[\s\S]*?)\r?\n'@/,
+  );
+  assert.ok(sourceMatch?.groups?.source);
+  const compileScript = `$ErrorActionPreference = 'Stop'
+Add-Type -TypeDefinition @'
+${sourceMatch.groups.source}
+'@`;
+  const result = spawnSync(
+    observed.executable,
+    ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', compileScript],
+    {
+      env: observed.env,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 10_000,
+    },
+  );
+
+  assert.strictEqual(result.error, undefined);
+  assert.strictEqual(result.status, 0);
 });
 
 test('credential reader rejects unsafe targets before starting PowerShell', async () => {
