@@ -2623,7 +2623,7 @@ export default function App() {
   };
 
   // Global search trigger (Phase 14)
-  const handleSearch = async (val: string) => {
+  const handleSearch = async (val: string, options?: { openMobileSearch?: boolean }) => {
     setSearchQuery(val);
     if (!val.trim()) {
       clearSearch();
@@ -2633,16 +2633,66 @@ export default function App() {
     const currentAuthGen = authGenerationRef.current;
     setIsSearching(true);
     try {
-      const res = await ApiClient.search(val, activeTab);
+      const activeMode = getActiveObsidianMode();
+      const configuredFolders = activeTab === 'personal'
+        ? [{ path: settings?.obsidian?.personalFolder || '', context: 'personal' as const }]
+        : activeTab === 'professional'
+          ? [{ path: settings?.obsidian?.professionalFolder || '', context: 'professional' as const }]
+          : [
+              { path: settings?.obsidian?.personalFolder || '', context: 'personal' as const },
+              { path: settings?.obsidian?.professionalFolder || '', context: 'professional' as const },
+              { path: settings?.obsidian?.favoritesFolder || '', context: 'favorite' as const }
+            ];
+
+      if (activeMode === 'desktop' && (!obsidianUrl || !obsidianApiKey)) {
+        throw new Error('Connect Obsidian Local REST in Settings to search notes on this desktop.');
+      }
+
+      const result = await ObsidianClient.searchGlobalNotes(
+        obsidianUrl,
+        obsidianApiKey,
+        settings?.obsidian?.vaultName || "Francisco's Vault",
+        val,
+        configuredFolders.filter(folder => folder.path.trim()),
+        activeMode
+      );
+
+      if (result.kind === 'mobile-handoff') {
+        setSearchResults(null);
+        if (options?.openMobileSearch) {
+          window.location.href = result.uri;
+          return;
+        }
+        throw new Error('Press Enter to search for this query in the Obsidian app.');
+      }
+
       if (
         authStatusRef.current &&
         authGenerationRef.current === currentAuthGen &&
         searchGenerationRef.current === currentSearchGen
       ) {
-        setSearchResults(res);
+        setSearchResults({ notes: result.notes });
       }
-    } catch (e) {
-      // ignore
+    } catch (e: any) {
+      if (
+        authStatusRef.current &&
+        authGenerationRef.current === currentAuthGen &&
+        searchGenerationRef.current === currentSearchGen
+      ) {
+        setSearchResults(null);
+        if (e instanceof ObsidianApiError) {
+          if (e.status === 401 || e.status === 403) {
+            throw new Error('Obsidian rejected the saved connection. Update the Local REST API key in Settings.');
+          }
+          if (e.status === undefined) {
+            throw new Error('Cannot reach Obsidian Local REST. Open Obsidian and confirm the plugin and trusted connection are available.');
+          }
+          throw new Error('Obsidian could not complete the note search. Check the configured folders and try again.');
+        }
+        throw e instanceof Error
+          ? e
+          : new Error('Obsidian note search failed. Check the desktop connection and try again.');
+      }
     } finally {
       if (
         authStatusRef.current &&

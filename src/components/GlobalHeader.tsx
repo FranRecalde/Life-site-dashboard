@@ -3,7 +3,7 @@ import {
   WifiOff, Clock, CloudSun, RefreshCw, Settings, LogOut, LayoutGrid, BookOpen
 } from 'lucide-react';
 import { DashboardSnapshot, ObsidianNote } from '../types';
-import { GlobalSearchControl } from './GlobalSearchControl';
+import { GlobalSearchControl, type GlobalSearchHandler } from './GlobalSearchControl';
 
 export interface GlobalHeaderProps {
   isOffline: boolean;
@@ -17,7 +17,7 @@ export interface GlobalHeaderProps {
   searchInputRef: React.RefObject<HTMLInputElement | null>;
   searchQuery: string;
   setSearchQuery: (val: string) => void;
-  handleSearch: (val: string) => void;
+  handleSearch: GlobalSearchHandler;
   searchResults: { notes: ObsidianNote[] } | null;
   setSearchResults: (val: { notes: ObsidianNote[] } | null) => void;
   setSelectedNote: (note: ObsidianNote | null) => void;

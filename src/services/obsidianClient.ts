@@ -1,3 +1,5 @@
+import type { ObsidianNote } from '../types';
+
 export interface ObsidianNoteDetail {
   path: string;
   title: string;
@@ -5,6 +7,15 @@ export interface ObsidianNoteDetail {
   modifiedAt: string;
   preview: string;
 }
+
+export interface ObsidianSearchFolder {
+  path: string;
+  context: 'personal' | 'professional' | 'favorite';
+}
+
+export type ObsidianGlobalSearchResult =
+  | { kind: 'notes'; notes: ObsidianNote[] }
+  | { kind: 'mobile-handoff'; uri: string };
 
 export class ObsidianApiError extends Error {
   status?: number;
@@ -65,8 +76,11 @@ export class ObsidianClient {
       });
 
       if (process.env.NODE_ENV !== 'production') {
+        const safeLogUrl = cleanPath.startsWith('search/simple/')
+          ? `${cleanBase}/search/simple/?query=[redacted]`
+          : url;
         console.log(`HTTP Method: ${method}`);
-        console.log(`Final Request URL: ${url}`);
+        console.log(`Final Request URL: ${safeLogUrl}`);
         console.log(`Response Status: ${res.status}`);
       }
 
@@ -418,6 +432,135 @@ export class ObsidianClient {
     params.append('vault', vaultName);
     params.append('query', query);
     return `obsidian://search?${params.toString()}`;
+  }
+
+  private static normalizeSearchPath(rawPath: string): string | null {
+    let decodedPath = rawPath;
+    for (let index = 0; index < 3; index += 1) {
+      const decoded = this.safeDecode(decodedPath);
+      if (decoded === decodedPath) break;
+      decodedPath = decoded;
+    }
+    decodedPath = decodedPath.replace(/\\/g, '/');
+
+    if (decodedPath.startsWith('/') || /^[a-z]:\//i.test(decodedPath)) {
+      return null;
+    }
+
+    const segments = decodedPath.split('/').map(segment => segment.trim());
+    if (segments.some(segment => segment === '.' || segment === '..')) {
+      return null;
+    }
+
+    try {
+      return this.normalizeVaultPath(decodedPath);
+    } catch {
+      return null;
+    }
+  }
+
+  static async searchGlobalNotes(
+    baseUrl: string,
+    apiKey: string,
+    vaultName: string,
+    query: string,
+    permittedFolders: ObsidianSearchFolder[],
+    mode: 'desktop' | 'mobile'
+  ): Promise<ObsidianGlobalSearchResult> {
+    const cleanQuery = query.trim();
+    if (!cleanQuery) {
+      return { kind: 'notes', notes: [] };
+    }
+
+    if (mode === 'mobile') {
+      return {
+        kind: 'mobile-handoff',
+        uri: this.buildObsidianSearchUri(vaultName, cleanQuery)
+      };
+    }
+
+    const normalizedFolders = permittedFolders
+      .flatMap(folder => {
+        const path = this.normalizeSearchPath(folder.path);
+        return path ? [{ path, context: folder.context }] : [];
+      })
+      .filter((folder, index, folders) => (
+        folders.findIndex(candidate => candidate.path.toLowerCase() === folder.path.toLowerCase()) === index
+      ))
+      .sort((a, b) => b.path.length - a.path.length);
+
+    if (normalizedFolders.length === 0) {
+      return { kind: 'notes', notes: [] };
+    }
+
+    const params = new URLSearchParams();
+    params.append('query', cleanQuery);
+    params.append('contextLength', '160');
+    const searchPath = `search/simple/?${params.toString()}`;
+    const response = await this.request(baseUrl, apiKey, searchPath, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+    if (!Array.isArray(data)) {
+      throw new ObsidianApiError(
+        'Obsidian search returned an unexpected response.',
+        response.status,
+        'POST'
+      );
+    }
+
+    const seenPaths = new Set<string>();
+    const allowedMatches = data.flatMap((result: any) => {
+      if (!result || typeof result.filename !== 'string') {
+        return [];
+      }
+
+      const notePath = this.normalizeSearchPath(result.filename);
+      if (!notePath) {
+        return [];
+      }
+
+      if (!notePath.toLowerCase().endsWith('.md')) {
+        return [];
+      }
+
+      const lowerPath = notePath.toLowerCase();
+      const folder = normalizedFolders.find(candidate => (
+        lowerPath.startsWith(`${candidate.path.toLowerCase()}/`)
+      ));
+      if (!folder || seenPaths.has(lowerPath)) {
+        return [];
+      }
+      seenPaths.add(lowerPath);
+
+      const matchContext = Array.isArray(result.matches)
+        ? result.matches.find((match: any) => typeof match?.context === 'string')?.context
+        : undefined;
+
+      return [{ notePath, folder, matchContext }];
+    });
+
+    const notes = await Promise.all(allowedMatches.map(async ({ notePath, folder, matchContext }) => {
+      const file = await this.readFile(baseUrl, apiKey, notePath);
+      return {
+        id: notePath,
+        title: this.getTitleFromPath(notePath),
+        path: notePath,
+        folder: folder.path,
+        modifiedAt: file.lastModified,
+        preview: matchContext
+          ? this.cleanPreviewText(matchContext)
+          : this.cleanPreviewText(file.content),
+        context: folder.context,
+        obsidianUri: this.buildObsidianUri(vaultName, notePath)
+      } satisfies ObsidianNote;
+    }));
+
+    return { kind: 'notes', notes };
   }
 
   static cleanFileName(title: string): string {

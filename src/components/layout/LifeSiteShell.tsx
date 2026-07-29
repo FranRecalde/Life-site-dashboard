@@ -5,7 +5,7 @@ import { EntranceHallView } from './entranceHallTypes';
 import { 
   Sparkles, Compass, Clock, ArrowRightLeft, WifiOff, RefreshCw, Settings, LogOut, CloudSun 
 } from 'lucide-react';
-import { GlobalSearchControl } from '../GlobalSearchControl';
+import { GlobalSearchControl, type GlobalSearchHandler } from '../GlobalSearchControl';
 import { ObsidianNote } from '../../types';
 
 interface LifeSiteShellProps {
@@ -27,7 +27,7 @@ interface LifeSiteShellProps {
   searchInputRef: React.RefObject<HTMLInputElement | null>;
   searchQuery: string;
   setSearchQuery: (val: string) => void;
-  handleSearch: (val: string) => void;
+  handleSearch: GlobalSearchHandler;
   searchResults: { notes: ObsidianNote[] } | null;
   setSearchResults: (val: { notes: ObsidianNote[] } | null) => void;
   setSelectedNote: (note: ObsidianNote | null) => void;

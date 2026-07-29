@@ -2,11 +2,16 @@ import React from 'react';
 import { Search, X } from 'lucide-react';
 import { ObsidianNote } from '../types';
 
+export type GlobalSearchHandler = (
+  value: string,
+  options?: { openMobileSearch?: boolean }
+) => Promise<void>;
+
 export interface GlobalSearchControlProps {
   searchInputRef: React.RefObject<HTMLInputElement | null>;
   searchQuery: string;
   setSearchQuery: (val: string) => void;
-  handleSearch: (val: string) => void;
+  handleSearch: GlobalSearchHandler;
   searchResults: { notes: ObsidianNote[] } | null;
   setSearchResults: (val: { notes: ObsidianNote[] } | null) => void;
   setSelectedNote: (note: ObsidianNote | null) => void;
@@ -27,6 +32,30 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
   isEntranceHall = false,
   onClearSearch,
 }) => {
+  const [searchMessage, setSearchMessage] = React.useState<string | null>(null);
+  const searchRequestRef = React.useRef(0);
+
+  const runSearch = async (value: string, openMobileSearch = false) => {
+    const requestId = ++searchRequestRef.current;
+    setSearchMessage(null);
+    try {
+      await handleSearch(value, { openMobileSearch });
+    } catch (error) {
+      if (searchRequestRef.current === requestId) {
+        setSearchMessage(
+          error instanceof Error
+            ? error.message
+            : 'Obsidian note search failed. Check the desktop connection and try again.'
+        );
+      }
+    }
+  };
+
+  const clearLocalSearchState = () => {
+    searchRequestRef.current += 1;
+    setSearchMessage(null);
+  };
+
   return (
     <div className={`relative ${className}`}>
       <Search className={`w-4 h-4 absolute left-3 top-3 ${isEntranceHall ? 'text-[#c5a86a]' : 'text-[#757684]'}`} />
@@ -34,7 +63,15 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
         type="text"
         ref={searchInputRef}
         value={searchQuery}
-        onChange={(e) => handleSearch(e.target.value)}
+        onChange={(e) => {
+          void runSearch(e.target.value);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.nativeEvent.isComposing && searchQuery.trim()) {
+            e.preventDefault();
+            void runSearch(searchQuery, true);
+          }
+        }}
         className={`w-full pl-9 pr-8 py-2 text-base md:text-sm border rounded-lg focus:outline-none focus:ring-1 ${
           isEntranceHall
             ? 'border-[#c5a86a]/30 focus:border-[#e4cb93] focus:ring-[#e4cb93] bg-[#0c1322] text-white placeholder-slate-500'
@@ -45,6 +82,7 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
       {searchQuery && (
         <button
           onClick={() => {
+            clearLocalSearchState();
             if (onClearSearch) {
               onClearSearch();
             } else {
@@ -63,7 +101,7 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
       )}
 
       {/* Global Search Results Overlay */}
-      {searchResults && searchQuery && (
+      {(searchResults || searchMessage) && searchQuery && (
         <div className={`absolute top-11 left-0 right-0 border rounded-lg shadow-xl z-50 p-4 max-h-96 overflow-y-auto ${
           isEntranceHall
             ? 'bg-[#0d1527] border-[#c5a86a]/30 text-white shadow-black/80'
@@ -77,6 +115,7 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
             }`}>Search Results</p>
             <button
               onClick={() => {
+                clearLocalSearchState();
                 if (onClearSearch) {
                   onClearSearch();
                 } else {
@@ -91,9 +130,13 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
             </button>
           </div>
           
-          {searchResults.notes.length === 0 ? (
+          {searchMessage ? (
+            <p className="text-xs text-amber-700 dark:text-amber-300 text-center py-4" role="status">
+              {searchMessage}
+            </p>
+          ) : searchResults && searchResults.notes.length === 0 ? (
             <p className="text-xs text-[#757684] text-center py-4">No matching Obsidian notes found.</p>
-          ) : (
+          ) : searchResults ? (
             <div className="space-y-2">
               <p className={`text-[10px] font-extrabold uppercase tracking-widest font-display ${
                 isEntranceHall ? 'text-[#c5a86a]' : 'text-[#00288e] dark:text-[#a8b8ff]'
@@ -121,7 +164,7 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
                 </div>
               ))}
             </div>
-          )}
+          ) : null}
         </div>
       )}
     </div>
