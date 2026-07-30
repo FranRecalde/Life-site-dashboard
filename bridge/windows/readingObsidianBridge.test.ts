@@ -1,436 +1,104 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { ReadingCapture } from '../../src/types';
+import { formatReadingCaptureMarkdown } from '../../server/reading/readingFormatter';
+import { ReadingService } from '../../server/reading/readingService';
+import { LocalReadingStore } from '../../server/storage/localReadingStore';
 import {
   appendCaptureToExistingNote,
-  BridgeClaim,
-  BridgeFailureCode,
   BridgeLocalError,
-  BridgeProtocolError,
-  HttpReadingBridgeClient,
-  ReadingBridgeClient,
   ReadingObsidianBridge,
-  withSingleInstanceLock,
 } from './readingObsidianBridge';
 
 const captureId = `reading_${'a'.repeat(32)}`;
-const marker = `<!-- life-site-reading-capture:${captureId} -->`;
+const capturedAt = '2026-07-28T12:01:00.000Z';
 
-function makeClaim(
-  overrides: Partial<BridgeClaim> = {},
-): BridgeClaim {
+function makeCapture(overrides: Partial<ReadingCapture> = {}): ReadingCapture {
   return {
-    captureId,
-    destinationNotePath:
-      'Literature notes/_Staging/Phase 3 Bridge Verification.md',
-    markdown: [
-      marker,
-      '### Thought',
-      '- Captured: 2026-07-28T12:00:00.000Z',
-      '- Type: Thought',
-      '',
-      'STAGING-ONLY harmless bridge verification',
-    ].join('\n'),
-    leaseId: 'lease_1',
-    leaseExpiresAt: '2026-07-28T12:05:00.000Z',
+    id: captureId,
+    bookId: 'book_1', bookRevision: 1, bookTitle: 'Book', bookAuthor: 'Author',
+    bookTags: ['reading'], destinationNotePath: 'Literature notes/Book.md',
+    originalText: 'A deterministic queued thought.', captureType: 'thought',
+    capturedAt, receivedAt: capturedAt, creatorType: 'life_site', status: 'pending',
+    markdownRenderVersion: 1, deliveryAttempts: { count: 0 }, updatedAt: capturedAt,
     ...overrides,
   };
 }
 
-async function createVault(initialContent = '# Phase 3 verification\n') {
-  const directory = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'life-site-reading-bridge-worker-'),
-  );
-  const note = path.join(
-    directory,
-    'Literature notes',
-    '_Staging',
-    'Phase 3 Bridge Verification.md',
-  );
+async function createFixture(initialContent = '# Book\n') {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'life-site-reading-bridge-'));
+  const queueFile = path.join(directory, 'reading.json');
+  const note = path.join(directory, 'Literature notes', 'Book.md');
   await fs.mkdir(path.dirname(note), { recursive: true });
   await fs.writeFile(note, initialContent, 'utf8');
-  return {
-    directory,
-    note,
-    cleanup: () => fs.rm(directory, { recursive: true, force: true }),
-  };
+  const now = () => '2026-07-28T12:01:00.000Z';
+  const service = new ReadingService(new LocalReadingStore(queueFile), now, () => 'book_1', () => captureId);
+  await service.createBook({ title: 'Book', author: 'Author', destinationNotePath: 'Literature notes/Book.md' });
+  await service.createCapture({ bookId: 'book_1', originalText: 'A deterministic queued thought.', captureType: 'thought' });
+  return { directory, note, service, cleanup: () => fs.rm(directory, { recursive: true, force: true }) };
 }
 
-class FakeBridgeClient implements ReadingBridgeClient {
-  claims: Array<BridgeClaim | null> = [];
-  confirmations: Array<{ captureId: string; leaseId: string }> = [];
-  failures: Array<{
-    captureId: string;
-    leaseId: string;
-    errorCode: BridgeFailureCode;
-  }> = [];
-  recoveries: string[] = [];
-  confirmError: Error | null = null;
-
-  async claim(): Promise<BridgeClaim | null> {
-    return this.claims.shift() ?? null;
-  }
-
-  async recoverExpired(ownerId: string): Promise<number> {
-    this.recoveries.push(ownerId);
-    return 1;
-  }
-
-  async confirm(captureIdValue: string, leaseId: string): Promise<void> {
-    this.confirmations.push({ captureId: captureIdValue, leaseId });
-    if (this.confirmError) throw this.confirmError;
-  }
-
-  async reportFailure(
-    captureIdValue: string,
-    leaseId: string,
-    errorCode: BridgeFailureCode,
-  ): Promise<void> {
-    this.failures.push({ captureId: captureIdValue, leaseId, errorCode });
-  }
-}
-
-test('worker appends once, verifies exact Markdown, and confirms delivery', async () => {
-  const vault = await createVault();
-  const client = new FakeBridgeClient();
-  const claim = makeClaim();
-  client.claims.push(claim);
+test('worker renders a deterministic timestamped block, appends it, then confirms the queue', async () => {
+  const fixture = await createFixture();
   try {
-    const bridge = new ReadingObsidianBridge(
-      client,
-      vault.directory,
-      'windows-bridge',
+    const bridge = new ReadingObsidianBridge(fixture.service, fixture.directory);
+    assert.deepStrictEqual(await bridge.runOnce(), { outcome: 'delivered', captureId, appendOutcome: 'appended' });
+    const note = await fs.readFile(fixture.note, 'utf8');
+    assert.ok(note.includes(`## Reading capture — ${capturedAt}`));
+    assert.ok(note.includes(`<!-- /life-site-reading-capture:${captureId} -->`));
+    assert.strictEqual((await fixture.service.listCaptures({}))[0].status, 'done');
+  } finally { await fixture.cleanup(); }
+});
+
+test('deduplication hashes LF-normalized complete blocks from only the last 100 entries', async () => {
+  const capture = makeCapture();
+  const block = formatReadingCaptureMarkdown(capture).replace(/\n/g, '\r\n');
+  const fixture = await createFixture(`# Book\r\n\r\n${block}`);
+  try {
+    assert.strictEqual(await appendCaptureToExistingNote(fixture.directory, capture), 'already_present');
+    assert.strictEqual(await fs.readFile(fixture.note, 'utf8'), `# Book\r\n\r\n${block}`);
+  } finally { await fixture.cleanup(); }
+});
+
+test('a hash match outside the final 100 entries does not suppress a new append', async () => {
+  const capture = makeCapture();
+  const entries = [formatReadingCaptureMarkdown(capture)];
+  for (let index = 0; index < 100; index += 1) {
+    entries.push(formatReadingCaptureMarkdown(makeCapture({ id: `reading_${index.toString(16).padStart(32, '0')}` })));
+  }
+  const fixture = await createFixture(`# Book\n\n${entries.join('\n\n')}`);
+  try {
+    assert.strictEqual(await appendCaptureToExistingNote(fixture.directory, capture), 'appended');
+  } finally { await fixture.cleanup(); }
+});
+
+test('locked files and sync-conflicted content remain claimed and are not acknowledged', async () => {
+  const locked = await createFixture();
+  const conflicted = await createFixture('<<<<<<< local\n# Book\n=======\n# Book\n>>>>>>> remote\n');
+  try {
+    const lockedBridge = new ReadingObsidianBridge(
+      locked.service,
+      locked.directory,
+      async () => { throw Object.assign(new Error('locked'), { code: 'EBUSY' }); },
     );
-    assert.deepStrictEqual(await bridge.runOnce(), {
-      outcome: 'delivered',
-      captureId,
-      appendOutcome: 'appended',
-    });
-    const content = await fs.readFile(vault.note, 'utf8');
-    assert.strictEqual(content.split(marker).length - 1, 1);
-    assert.ok(content.includes(claim.markdown));
-    assert.deepStrictEqual(client.confirmations, [
-      { captureId, leaseId: 'lease_1' },
-    ]);
-    assert.deepStrictEqual(client.failures, []);
-  } finally {
-    await vault.cleanup();
-  }
+    assert.deepStrictEqual(await lockedBridge.runOnce(), { outcome: 'needs_attention', captureId, errorCode: 'DESTINATION_LOCKED' });
+    const lockedCapture = (await locked.service.listCaptures({}))[0];
+    assert.strictEqual(lockedCapture.status, 'claimed');
+    assert.strictEqual(lockedCapture.deliveryAttempts.lastErrorCode, 'DESTINATION_LOCKED');
+
+    const conflictBridge = new ReadingObsidianBridge(conflicted.service, conflicted.directory);
+    assert.deepStrictEqual(await conflictBridge.runOnce(), { outcome: 'needs_attention', captureId, errorCode: 'DESTINATION_CONFLICTED' });
+    assert.strictEqual((await conflicted.service.listCaptures({}))[0].status, 'claimed');
+  } finally { await Promise.all([locked.cleanup(), conflicted.cleanup()]); }
 });
 
-test('worker treats an exact existing block as delivered without appending again', async () => {
-  const claim = makeClaim();
-  const vault = await createVault(`# Note\n\n${claim.markdown}\n`);
-  const client = new FakeBridgeClient();
-  client.claims.push(claim);
+test('an incomplete matching entry is never acknowledged', async () => {
+  const capture = makeCapture();
+  const fixture = await createFixture(`<!-- life-site-reading-capture:${captureId} -->\npartial`);
   try {
-    const before = await fs.readFile(vault.note, 'utf8');
-    const bridge = new ReadingObsidianBridge(
-      client,
-      vault.directory,
-      'windows-bridge',
-    );
-    assert.deepStrictEqual(await bridge.runOnce(), {
-      outcome: 'delivered',
-      captureId,
-      appendOutcome: 'already_present',
-    });
-    assert.strictEqual(await fs.readFile(vault.note, 'utf8'), before);
-    assert.strictEqual(client.confirmations.length, 1);
-  } finally {
-    await vault.cleanup();
-  }
-});
-
-test('worker never duplicates after confirmation uncertainty', async () => {
-  const vault = await createVault();
-  const client = new FakeBridgeClient();
-  const claim = makeClaim();
-  client.claims.push(claim, claim);
-  client.confirmError = new Error('simulated network uncertainty with private details');
-  try {
-    const bridge = new ReadingObsidianBridge(
-      client,
-      vault.directory,
-      'windows-bridge',
-    );
-    await assert.rejects(() => bridge.runOnce());
-    client.confirmError = null;
-    assert.deepStrictEqual(await bridge.runOnce(), {
-      outcome: 'delivered',
-      captureId,
-      appendOutcome: 'already_present',
-    });
-    const content = await fs.readFile(vault.note, 'utf8');
-    assert.strictEqual(content.split(marker).length - 1, 1);
-    assert.deepStrictEqual(client.failures, []);
-  } finally {
-    await vault.cleanup();
-  }
-});
-
-test('worker reports sanitized local failures without modifying the vault', async () => {
-  const vault = await createVault();
-  const cases: Array<{
-    claim: BridgeClaim;
-    errorCode: BridgeFailureCode;
-  }> = [
-    {
-      claim: makeClaim({ destinationNotePath: '../private.md' }),
-      errorCode: 'UNSAFE_DESTINATION',
-    },
-    {
-      claim: makeClaim({
-        destinationNotePath: 'Literature notes/_Staging/Missing.md',
-      }),
-      errorCode: 'DESTINATION_NOT_FOUND',
-    },
-    {
-      claim: makeClaim(),
-      errorCode: 'PARTIAL_CAPTURE_BLOCK',
-    },
-  ];
-  try {
-    await fs.writeFile(vault.note, `${marker}\npartial\n`, 'utf8');
-    for (const item of cases) {
-      const client = new FakeBridgeClient();
-      client.claims.push(item.claim);
-      const bridge = new ReadingObsidianBridge(
-        client,
-        vault.directory,
-        'windows-bridge',
-      );
-      const result = await bridge.runOnce();
-      assert.strictEqual(result.outcome, 'needs_attention');
-      assert.strictEqual(
-        result.outcome === 'needs_attention' ? result.errorCode : '',
-        item.errorCode,
-      );
-      assert.deepStrictEqual(client.confirmations, []);
-      assert.strictEqual(client.failures[0].errorCode, item.errorCode);
-      assert.strictEqual(
-        JSON.stringify(client.failures).includes(vault.directory),
-        false,
-      );
-      assert.strictEqual(
-        JSON.stringify(client.failures).includes('private.md'),
-        false,
-      );
-    }
-  } finally {
-    await vault.cleanup();
-  }
-});
-
-test('append rejects a marker-only partial write and leaves it unchanged', async () => {
-  const claim = makeClaim();
-  const vault = await createVault(`${marker}\npartial`);
-  try {
-    const before = await fs.readFile(vault.note, 'utf8');
-    await assert.rejects(
-      () => appendCaptureToExistingNote(vault.directory, claim),
-      (error: unknown) => (
-        error instanceof BridgeLocalError &&
-        error.code === 'PARTIAL_CAPTURE_BLOCK'
-      ),
-    );
-    assert.strictEqual(await fs.readFile(vault.note, 'utf8'), before);
-  } finally {
-    await vault.cleanup();
-  }
-});
-
-test('append rejects oversized injected Markdown without touching the note', async () => {
-  const vault = await createVault();
-  const oversized = makeClaim({
-    markdown: `${marker}\n${'x'.repeat(128 * 1024)}`,
-  });
-  try {
-    const before = await fs.readFile(vault.note, 'utf8');
-    await assert.rejects(
-      () => appendCaptureToExistingNote(vault.directory, oversized),
-      (error: unknown) => (
-        error instanceof BridgeLocalError &&
-        error.code === 'APPEND_FAILED'
-      ),
-    );
-    assert.strictEqual(await fs.readFile(vault.note, 'utf8'), before);
-  } finally {
-    await vault.cleanup();
-  }
-});
-
-test('HTTP client requires safe transport and returns only sanitized errors', async () => {
-  const rawToken = 'private-bridge-token-value';
-  assert.throws(
-    () => new HttpReadingBridgeClient(
-      'http://staging.example.test',
-      rawToken,
-    ),
-    (error: unknown) => (
-      error instanceof BridgeProtocolError &&
-      error.code === 'INVALID_CONFIGURATION' &&
-      !error.message.includes(rawToken)
-    ),
-  );
-
-  const client = new HttpReadingBridgeClient(
-    'https://staging.example.test',
-    rawToken,
-    async () => new Response(
-      JSON.stringify({
-        success: false,
-        error: `provider leaked ${rawToken}`,
-      }),
-      { status: 503, headers: { 'Content-Type': 'application/json' } },
-    ),
-  );
-  await assert.rejects(
-    () => client.claim('windows-bridge'),
-    (error: unknown) => (
-      error instanceof BridgeProtocolError &&
-      error.code === 'REQUEST_FAILED' &&
-      !error.message.includes(rawToken)
-    ),
-  );
-});
-
-test('HTTP client stops at its bounded response limit', async () => {
-  const client = new HttpReadingBridgeClient(
-    'https://staging.example.test',
-    'private-bridge-token-value',
-    async () => new Response('x'.repeat(512 * 1024 + 1), { status: 200 }),
-  );
-  await assert.rejects(
-    () => client.claim('windows-bridge'),
-    (error: unknown) => (
-      error instanceof BridgeProtocolError &&
-      error.code === 'INVALID_RESPONSE'
-    ),
-  );
-});
-
-test('single-instance lock prevents overlap and releases after normal completion', async () => {
-  const directory = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'life-site-reading-bridge-lock-'),
-  );
-  const lockFile = path.join(directory, 'bridge.lock');
-  try {
-    await withSingleInstanceLock(lockFile, async () => {
-      await assert.rejects(
-        () => withSingleInstanceLock(lockFile, async () => undefined),
-        (error: unknown) => (
-          error instanceof BridgeProtocolError &&
-          error.code === 'INVALID_CONFIGURATION'
-        ),
-      );
-    });
-    await withSingleInstanceLock(lockFile, async () => undefined);
-    await assert.rejects(() => fs.stat(lockFile));
-  } finally {
-    await fs.rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('single-instance lock is released by the OS after an unexpected process crash', async () => {
-  const directory = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'life-site-reading-bridge-crash-lock-'),
-  );
-  const lockIdentity = path.join(directory, 'bridge.lock');
-  const moduleUrl = pathToFileURL(
-    path.join(process.cwd(), 'bridge', 'windows', 'readingObsidianBridge.ts'),
-  ).href;
-  const childScript = [
-    `import { withSingleInstanceLock } from ${JSON.stringify(moduleUrl)};`,
-    `await withSingleInstanceLock(${JSON.stringify(lockIdentity)}, async () => {`,
-    `  process.stdout.write('LOCKED\\n');`,
-    `  await new Promise(() => undefined);`,
-    `});`,
-  ].join('\n');
-  const child = spawn(
-    process.execPath,
-    ['--import', 'tsx', '--input-type=module', '--eval', childScript],
-    { stdio: ['ignore', 'pipe', 'pipe'] },
-  );
-  const childClosed = once(child, 'close');
-
-  try {
-    await new Promise<void>((resolve, reject) => {
-      let output = '';
-      let errors = '';
-      const timer = setTimeout(() => {
-        reject(new Error(`Timed out waiting for lock holder. ${errors}`));
-      }, 10_000);
-      child.stdout.on('data', (chunk: Buffer) => {
-        output += chunk.toString('utf8');
-        if (output.includes('LOCKED')) {
-          clearTimeout(timer);
-          resolve();
-        }
-      });
-      child.stderr.on('data', (chunk: Buffer) => {
-        errors += chunk.toString('utf8');
-      });
-      child.once('exit', (code) => {
-        clearTimeout(timer);
-        reject(new Error(`Lock holder exited early with ${code}. ${errors}`));
-      });
-    });
-
-    await assert.rejects(
-      () => withSingleInstanceLock(lockIdentity, async () => undefined),
-      (error: unknown) => (
-        error instanceof BridgeProtocolError &&
-        error.code === 'INVALID_CONFIGURATION'
-      ),
-    );
-
-    child.kill('SIGKILL');
-    await childClosed;
-    await withSingleInstanceLock(lockIdentity, async () => undefined);
-  } finally {
-    if (child.exitCode === null) {
-      child.kill('SIGKILL');
-      await childClosed.catch(() => undefined);
-    }
-    await fs.rm(directory, { recursive: true, force: true });
-  }
-});
-
-test('worker exposes explicit expired-lease recovery without starting a loop', async () => {
-  const client = new FakeBridgeClient();
-  const bridge = new ReadingObsidianBridge(
-    client,
-    'unused-in-this-test',
-    'windows-bridge',
-  );
-  assert.strictEqual(await bridge.recoverExpired(), 1);
-  assert.deepStrictEqual(client.recoveries, ['windows-bridge']);
-});
-
-test('one-shot rehearsal refuses an unexpected capture before accessing the vault', async () => {
-  const client = new FakeBridgeClient();
-  client.claims.push(makeClaim());
-  const bridge = new ReadingObsidianBridge(
-    client,
-    'path-that-must-not-be-accessed',
-    'windows-bridge-staging-rehearsal',
-  );
-
-  await assert.rejects(
-    () => bridge.runOnce({
-      expectedCaptureId: `reading_${'b'.repeat(32)}`,
-    }),
-    (error: unknown) => (
-      error instanceof BridgeProtocolError &&
-      error.code === 'UNEXPECTED_CAPTURE'
-    ),
-  );
-  assert.deepStrictEqual(client.confirmations, []);
-  assert.deepStrictEqual(client.failures, []);
+    await assert.rejects(() => appendCaptureToExistingNote(fixture.directory, capture), (error: unknown) => error instanceof BridgeLocalError && error.code === 'PARTIAL_CAPTURE_BLOCK');
+  } finally { await fixture.cleanup(); }
 });

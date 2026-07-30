@@ -55,7 +55,6 @@ import {
   createReadingActionRouter,
   isReadingCaptureApiTokenHashValid,
 } from './server/reading/readingActionRoutes';
-import { createReadingBridgeRouter } from './server/reading/readingBridgeRoutes';
 
 const normalizeSecretValue = (value?: string | null): string =>
   typeof value === 'string' ? value.trim() : '';
@@ -235,7 +234,6 @@ async function saveSettings(settings: UserSettings): Promise<void> {
 // Load or initialize Secrets via SecretStore
 let cachedSecrets: Secrets = { ...defaultSecrets };
 let readingCaptureApiTokenHash = '';
-let readingBridgeApiTokenHash = '';
 
 let secretAvailability: SafeSecretAvailabilityStatus = {
   usernameSecretAvailable: false,
@@ -250,8 +248,6 @@ let secretAvailability: SafeSecretAvailabilityStatus = {
   writableOAuthSecretConfigurationReady: false,
   readingCaptureApiTokenHashAvailable: false,
   readingCaptureApiCredentialReady: false,
-  readingBridgeApiTokenHashAvailable: false,
-  readingBridgeApiCredentialReady: false,
 };
 
 async function initializeSecrets() {
@@ -289,9 +285,6 @@ async function initializeSecrets() {
   readingCaptureApiTokenHash = normalizeSecretValue(
     await getSafeSecret('READING_CAPTURE_API_TOKEN_HASH'),
   );
-  readingBridgeApiTokenHash = normalizeSecretValue(
-    await getSafeSecret('READING_BRIDGE_API_TOKEN_HASH'),
-  );
 
   cachedSecrets.todoistToken = todoistToken;
   cachedSecrets.googleClientId = googleClientId;
@@ -309,7 +302,6 @@ async function initializeSecrets() {
     GOOGLE_REFRESH_TOKEN: googleRefreshToken,
     GOOGLE_WRITE_AUTHORIZED: googleWriteAuthorized,
     READING_CAPTURE_API_TOKEN_HASH: readingCaptureApiTokenHash,
-    READING_BRIDGE_API_TOKEN_HASH: readingBridgeApiTokenHash,
   });
 
   if (SECRET_STORE_CONFIGURATION.provider === 'existing') {
@@ -322,7 +314,6 @@ async function initializeSecrets() {
     process.env.GOOGLE_REFRESH_TOKEN = googleRefreshToken;
     process.env.GOOGLE_WRITE_AUTHORIZED = googleWriteAuthorized;
     process.env.READING_CAPTURE_API_TOKEN_HASH = readingCaptureApiTokenHash;
-    process.env.READING_BRIDGE_API_TOKEN_HASH = readingBridgeApiTokenHash;
   }
 
   const isProduction = SECRET_STORE_CONFIGURATION.deployedRuntime;
@@ -655,7 +646,6 @@ async function startServer() {
   console.log(`[Startup Info] Secret Name Prefix Configured: ${safeSecretConfiguration.secretNamePrefixConfigured}`);
   console.log(`[Startup Info] Secret Configuration Valid: ${safeSecretConfiguration.secretConfigurationValid}`);
   console.log(`[Startup Info] Reading Capture API Credential Ready: ${secretAvailability.readingCaptureApiCredentialReady}`);
-  console.log(`[Startup Info] Reading Bridge API Credential Ready: ${secretAvailability.readingBridgeApiCredentialReady}`);
   console.log(`[Startup Info] Deployed Runtime: ${PERSISTENT_STORAGE_CONFIGURATION.deployedRuntime}`);
   console.log(`[Startup Info] Storage Provider: ${STORES.provider}`);
   console.log(`[Startup Info] Firestore Project Configured: ${PERSISTENT_STORAGE_CONFIGURATION.firestoreProjectConfigured}`);
@@ -706,17 +696,6 @@ async function startServer() {
       () => (
         isReadingCaptureApiTokenHashValid(readingCaptureApiTokenHash)
           ? readingCaptureApiTokenHash
-          : ''
-      ),
-    ),
-  );
-  app.use(
-    '/api/bridge/reading-captures',
-    createReadingBridgeRouter(
-      READING_SERVICE,
-      () => (
-        isReadingCaptureApiTokenHashValid(readingBridgeApiTokenHash)
-          ? readingBridgeApiTokenHash
           : ''
       ),
     ),

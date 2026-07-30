@@ -31,9 +31,11 @@ export function formatReadingCaptureMarkdown(capture: ReadingCapture): string {
 
   return [
     `<!-- life-site-reading-capture:${capture.id} -->`,
+    `## Reading capture — ${capture.capturedAt}`,
     `### ${CAPTURE_TYPE_LABELS[capture.captureType]}`,
     ...metadata,
     '',
     capture.originalText,
+    `<!-- /life-site-reading-capture:${capture.id} -->`,
   ].join('\n');
 }
