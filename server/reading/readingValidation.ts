@@ -21,9 +21,8 @@ const CAPTURE_TYPES = new Set<ReadingCaptureType>([
 const BOOK_STATUSES = new Set<ReadingBookStatus>(['active', 'archived']);
 const CAPTURE_STATUSES = new Set<ReadingCaptureStatus>([
   'pending',
-  'in_progress',
-  'delivered',
-  'needs_attention',
+  'claimed',
+  'done',
 ]);
 const LOCATOR_KINDS = new Set(['page', 'location', 'chapter', 'timestamp']);
 
@@ -314,22 +313,6 @@ export function validateCreateReadingActionCaptureInput(
     source: optionalSource(body.source, 'source'),
     locator: validateLocator(body.locator),
   };
-}
-
-export function validateIdempotencyKey(value: unknown): string {
-  if (
-    typeof value !== 'string' ||
-    value.length < 16 ||
-    value.length > 200 ||
-    value !== value.trim() ||
-    !/^[\x20-\x7e]+$/.test(value)
-  ) {
-    throw new ReadingValidationError(
-      'invalid_idempotency_key',
-      'Idempotency-Key must be 16 to 200 printable ASCII characters.',
-    );
-  }
-  return value;
 }
 
 export function validateCaptureListFilter(value: {

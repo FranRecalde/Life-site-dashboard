@@ -6,7 +6,6 @@ import {
   validateCreateCaptureInput,
   validateCreateReadingActionCaptureInput,
   validateDestinationNotePath,
-  validateIdempotencyKey,
 } from './readingValidation';
 
 test('destination paths must be exact Markdown paths beneath Literature notes', () => {
@@ -99,16 +98,15 @@ test('browser capture input rejects protected server and delivery fields', () =>
   for (const protectedField of [
     'id',
     'creatorType',
-    'payloadHash',
     'capturedAt',
     'receivedAt',
     'bookTitle',
     'bookTags',
     'status',
     'deliveryAttempts',
-    'deliveryLease',
+    'claimedAt',
     'lastErrorCode',
-    'deliveredAt',
+    'doneAt',
   ]) {
     assert.throws(
       () => validateCreateCaptureInput({
@@ -159,12 +157,12 @@ test('action capture validation accepts only the restricted title-based contract
     'bookId',
     'id',
     'creatorType',
-    'payloadHash',
     'destinationNotePath',
     'bookTags',
     'status',
     'deliveryAttempts',
-    'deliveryLease',
+    'claimedAt',
+    'doneAt',
     'capturedAt',
     'receivedAt',
   ]) {
@@ -184,6 +182,7 @@ test('action capture validation accepts only the restricted title-based contract
   }
 });
 
+/* Queue creation no longer uses idempotency keys.
 test('idempotency keys must be stable printable values of sufficient length', () => {
   const key = '2b98ef39-314f-4f69-8a16-b51d099bc814';
   assert.strictEqual(validateIdempotencyKey(key), key);
@@ -198,3 +197,4 @@ test('idempotency keys must be stable printable values of sufficient length', ()
     assert.throws(() => validateIdempotencyKey(invalid), ReadingValidationError);
   }
 });
+*/

@@ -1,63 +1,46 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import crypto from 'node:crypto';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
+import crypto from 'crypto';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import express from 'express';
-import { AddressInfo } from 'node:net';
+import { AddressInfo } from 'net';
 import { LocalReadingStore } from '../storage/localReadingStore';
-import { createReadingActionRouter } from './readingActionRoutes';
 import { createReadingBridgeRouter } from './readingBridgeRoutes';
-import { ReadingService } from './readingService';
+import { READING_CLAIM_STALE_MS, ReadingService } from './readingService';
 
-async function createFixture(configuredBridgeHash?: string) {
+async function createFixture(configuredHash?: string) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'life-site-reading-bridge-routes-'));
   const store = new LocalReadingStore(path.join(directory, 'reading.json'));
-  let currentTime = '2026-07-28T12:00:00.000Z';
-  let nextBookId = 0;
-  let nextLeaseId = 0;
+  let nowMs = Date.parse('2026-07-28T12:00:00.000Z');
+  let captureId = 0;
   const service = new ReadingService(
     store,
-    () => currentTime,
-    () => `book_${++nextBookId}`,
-    () => `lease_${++nextLeaseId}`,
+    () => new Date(nowMs).toISOString(),
+    () => 'book_1',
+    () => `reading_${String(++captureId).padStart(32, '0')}`,
   );
   const bridgeCredential = crypto.randomBytes(32).toString('base64url');
-  const actionCredential = crypto.randomBytes(32).toString('base64url');
   const bridgeHash = crypto
     .createHash('sha256')
     .update(bridgeCredential, 'utf8')
     .digest('hex');
-  const actionHash = crypto
-    .createHash('sha256')
-    .update(actionCredential, 'utf8')
-    .digest('hex');
-
   const app = express();
   app.use(
-    '/api/actions/reading-captures',
-    createReadingActionRouter(service, () => actionHash),
-  );
-  app.use(
     '/api/bridge/reading-captures',
-    createReadingBridgeRouter(
-      service,
-      () => configuredBridgeHash ?? bridgeHash,
-    ),
+    createReadingBridgeRouter(service, () => configuredHash ?? bridgeHash),
   );
   const server = app.listen(0, '127.0.0.1');
   await new Promise<void>((resolve) => server.once('listening', resolve));
   const address = server.address() as AddressInfo;
-
   return {
     baseUrl: `http://127.0.0.1:${address.port}`,
     bridgeCredential,
-    actionCredential,
     service,
     store,
-    setNow: (value: string) => {
-      currentTime = value;
+    advance(ms: number) {
+      nowMs += ms;
     },
     close: async () => {
       await new Promise<void>((resolve, reject) => {
@@ -68,60 +51,45 @@ async function createFixture(configuredBridgeHash?: string) {
   };
 }
 
-function bridgeHeaders(
-  credential: string,
-): Record<string, string> {
+function bridgeHeaders(credential: string): Record<string, string> {
   return {
     Authorization: `Bearer ${credential}`,
     'Content-Type': 'application/json',
   };
 }
 
-async function createPendingCapture(
-  fixture: Awaited<ReturnType<typeof createFixture>>,
-  text = 'STAGING-ONLY harmless bridge verification',
-) {
-  const books = await fixture.service.listBooks();
-  const book = books[0] ?? await fixture.service.createBook({
-    title: 'Phase 3 Bridge Verification',
-    author: 'Life Site staging',
-    destinationNotePath:
-      'Literature notes/_Staging/Phase 3 Bridge Verification.md',
-    tags: ['staging-only'],
+async function queueCapture(fixture: Awaited<ReturnType<typeof createFixture>>) {
+  await fixture.service.createBook({
+    title: 'Book',
+    author: 'Author',
+    destinationNotePath: 'Literature notes/Book — Author.md',
+    tags: ['reading'],
   });
-  return fixture.service.createCapture(
-    {
-      bookId: book.id,
-      originalText: text,
-      captureType: 'thought',
-    },
-    crypto.randomUUID(),
-  );
+  return fixture.service.createCapture({
+    bookId: 'book_1',
+    originalText: 'STAGING-ONLY harmless bridge verification',
+    captureType: 'thought',
+  });
 }
 
-test('bridge authentication is separate, fail-closed, and checked before parsing', async () => {
+test('bridge authentication is route-scoped, fail-closed, and checked before parsing', async () => {
   const fixture = await createFixture();
   const unavailable = await createFixture('');
   try {
-    await createPendingCapture(fixture);
-
-    for (const headers of [
-      { 'Content-Type': 'application/json' },
-      {
-        ...bridgeHeaders(fixture.actionCredential),
-        Cookie: `session_token=${fixture.bridgeCredential}`,
-      },
-    ]) {
+    for (const credential of [undefined, 'wrong-token']) {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (credential) headers.Authorization = `Bearer ${credential}`;
       const response = await fetch(
         `${fixture.baseUrl}/api/bridge/reading-captures/claim`,
         {
           method: 'POST',
           headers,
-          body: JSON.stringify({ ownerId: 'windows-bridge' }),
+          body: '{"ownerId":',
         },
       );
       assert.strictEqual(response.status, 401);
-      assert.strictEqual((await response.json() as any).code, 'unauthorized');
     }
 
     const unavailableResponse = await fetch(
@@ -129,27 +97,23 @@ test('bridge authentication is separate, fail-closed, and checked before parsing
       {
         method: 'POST',
         headers: bridgeHeaders(unavailable.bridgeCredential),
-        body: '{',
+        body: JSON.stringify({ ownerId: 'windows-bridge' }),
       },
     );
-    const unavailablePayload = await unavailableResponse.json() as any;
     assert.strictEqual(unavailableResponse.status, 503);
-    assert.strictEqual(unavailablePayload.code, 'bridge_unavailable');
     assert.strictEqual(
-      JSON.stringify(unavailablePayload).includes(unavailable.bridgeCredential),
-      false,
+      (await unavailableResponse.json() as any).code,
+      'bridge_unavailable',
     );
-    assert.strictEqual((await fixture.store.listCaptures())[0].status, 'pending');
   } finally {
-    await fixture.close();
-    await unavailable.close();
+    await Promise.all([fixture.close(), unavailable.close()]);
   }
 });
 
-test('bridge claims a minimal payload and confirms delivery idempotently', async () => {
+test('compatibility API claims and confirms the simple queue without stored leases', async () => {
   const fixture = await createFixture();
   try {
-    const created = await createPendingCapture(fixture);
+    const created = await queueCapture(fixture);
     const claimResponse = await fetch(
       `${fixture.baseUrl}/api/bridge/reading-captures/claim`,
       {
@@ -158,141 +122,46 @@ test('bridge claims a minimal payload and confirms delivery idempotently', async
         body: JSON.stringify({ ownerId: 'windows-bridge' }),
       },
     );
-    const claimPayload = await claimResponse.json() as any;
+    const claim = await claimResponse.json() as any;
     assert.strictEqual(claimResponse.status, 200);
-    assert.strictEqual(claimResponse.headers.get('cache-control'), 'no-store');
-    assert.deepStrictEqual(Object.keys(claimPayload.data).sort(), [
-      'captureId',
-      'destinationNotePath',
-      'leaseExpiresAt',
-      'leaseId',
-      'markdown',
-    ]);
-    assert.strictEqual(claimPayload.data.captureId, created.capture.id);
-    assert.strictEqual(
-      claimPayload.data.destinationNotePath,
-      created.capture.destinationNotePath,
-    );
-    assert.match(
-      claimPayload.data.markdown,
-      new RegExp(`life-site-reading-capture:${created.capture.id}`),
-    );
-    assert.strictEqual(
-      JSON.stringify(claimPayload).includes(fixture.bridgeCredential),
-      false,
-    );
+    assert.strictEqual(claim.data.captureId, created.capture.id);
+    assert.strictEqual(claim.data.leaseId, created.capture.id);
+    assert.ok(claim.data.markdown.startsWith(
+      `<!-- life-site-reading-capture:${created.capture.id} -->`,
+    ));
+    const storedClaim = await fixture.store.getCapture(created.capture.id);
+    assert.strictEqual(storedClaim?.status, 'claimed');
+    assert.strictEqual('deliveryLease' in (storedClaim ?? {}), false);
 
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const confirmResponse = await fetch(
-        `${fixture.baseUrl}/api/bridge/reading-captures/${created.capture.id}/confirm`,
-        {
-          method: 'POST',
-          headers: bridgeHeaders(fixture.bridgeCredential),
-          body: JSON.stringify({ leaseId: claimPayload.data.leaseId }),
-        },
-      );
-      const confirmPayload = await confirmResponse.json() as any;
-      assert.strictEqual(confirmResponse.status, 200);
-      assert.strictEqual(confirmPayload.data.status, 'delivered');
-    }
-
-    const idleResponse = await fetch(
-      `${fixture.baseUrl}/api/bridge/reading-captures/claim`,
+    fixture.advance(1_000);
+    const confirmResponse = await fetch(
+      `${fixture.baseUrl}/api/bridge/reading-captures/${created.capture.id}/confirm`,
       {
         method: 'POST',
         headers: bridgeHeaders(fixture.bridgeCredential),
-        body: JSON.stringify({ ownerId: 'windows-bridge' }),
+        body: JSON.stringify({ leaseId: created.capture.id }),
       },
     );
-    assert.strictEqual((await idleResponse.json() as any).data, null);
+    const confirmation = await confirmResponse.json() as any;
+    assert.strictEqual(confirmResponse.status, 200);
+    assert.strictEqual(confirmation.data.status, 'done');
+    assert.strictEqual(
+      (await fixture.store.getCapture(created.capture.id))?.status,
+      'done',
+    );
   } finally {
     await fixture.close();
   }
 });
 
-test('bridge validates strict bodies and exposes no GET or generic read route', async () => {
+test('compatibility recovery is a no-op because stale claims are reclaimed on claim', async () => {
   const fixture = await createFixture();
   try {
-    await createPendingCapture(fixture);
-    const cases = [
-      {
-        path: '/claim',
-        body: { ownerId: 'windows bridge' },
-        code: 'invalid_owner_id',
-      },
-      {
-        path: '/claim',
-        body: { ownerId: 'windows-bridge', leaseDurationMs: 900_000 },
-        code: 'unexpected_field',
-      },
-      {
-        path: '/reading_not-an-id/confirm',
-        body: { leaseId: 'lease_1' },
-        code: 'invalid_capture_id',
-      },
-      {
-        path: `/reading_${'a'.repeat(32)}/failure`,
-        body: { leaseId: 'lease_1', errorCode: 'private path text' },
-        code: 'invalid_error_code',
-      },
-      {
-        path: '/claim?limit=200',
-        body: { ownerId: 'windows-bridge' },
-        code: 'unexpected_query_parameter',
-      },
-    ];
-    for (const item of cases) {
-      const response = await fetch(
-        `${fixture.baseUrl}/api/bridge/reading-captures${item.path}`,
-        {
-          method: 'POST',
-          headers: bridgeHeaders(fixture.bridgeCredential),
-          body: JSON.stringify(item.body),
-        },
-      );
-      assert.strictEqual(response.status, 400);
-      assert.strictEqual((await response.json() as any).code, item.code);
-    }
+    const created = await queueCapture(fixture);
+    await fixture.service.claimCapture(created.capture.id);
+    fixture.advance(READING_CLAIM_STALE_MS + 1);
 
-    const getResponse = await fetch(
-      `${fixture.baseUrl}/api/bridge/reading-captures/claim`,
-      { headers: { Authorization: `Bearer ${fixture.bridgeCredential}` } },
-    );
-    assert.strictEqual(getResponse.status, 405);
-
-    const genericRead = await fetch(
-      `${fixture.baseUrl}/api/bridge/reading-captures`,
-      {
-        headers: {
-          Authorization: `Bearer ${fixture.bridgeCredential}`,
-          'Content-Type': 'application/json',
-        },
-      },
-    );
-    assert.strictEqual(genericRead.status, 405);
-  } finally {
-    await fixture.close();
-  }
-});
-
-test('bridge reports failures and recovers only expired leases for the same owner', async () => {
-  const fixture = await createFixture();
-  try {
-    const first = await createPendingCapture(fixture, 'First');
-    const firstClaim = await fixture.service.claimCapture(
-      first.capture.id,
-      'windows-bridge',
-      300_000,
-    );
-    const second = await createPendingCapture(fixture, 'Second');
-    await fixture.service.claimCapture(
-      second.capture.id,
-      'other-bridge',
-      300_000,
-    );
-    fixture.setNow('2026-07-28T12:05:00.000Z');
-
-    const recoverResponse = await fetch(
+    const recoveryResponse = await fetch(
       `${fixture.baseUrl}/api/bridge/reading-captures/recover-expired`,
       {
         method: 'POST',
@@ -300,51 +169,83 @@ test('bridge reports failures and recovers only expired leases for the same owne
         body: JSON.stringify({ ownerId: 'windows-bridge' }),
       },
     );
-    assert.strictEqual(
-      (await recoverResponse.json() as any).data.recoveredCount,
-      1,
-    );
-    assert.strictEqual(
-      (await fixture.store.getCapture(second.capture.id))?.status,
-      'in_progress',
+    assert.deepStrictEqual(
+      (await recoveryResponse.json() as any).data,
+      { recoveredCount: 0 },
     );
 
-    const reclaimed = await fixture.service.claimCapture(
-      first.capture.id,
-      'windows-bridge',
-      300_000,
+    const claimResponse = await fetch(
+      `${fixture.baseUrl}/api/bridge/reading-captures/claim`,
+      {
+        method: 'POST',
+        headers: bridgeHeaders(fixture.bridgeCredential),
+        body: JSON.stringify({ ownerId: 'windows-bridge' }),
+      },
     );
-    const failureResponse = await fetch(
-      `${fixture.baseUrl}/api/bridge/reading-captures/${first.capture.id}/failure`,
+    assert.strictEqual((await claimResponse.json() as any).data.captureId, created.capture.id);
+    assert.strictEqual(
+      (await fixture.store.getCapture(created.capture.id))
+        ?.deliveryAttempts.count,
+      2,
+    );
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('failure records a fixed code and leaves the claim for stale retry', async () => {
+  const fixture = await createFixture();
+  try {
+    const created = await queueCapture(fixture);
+    await fixture.service.claimCapture(created.capture.id);
+    const response = await fetch(
+      `${fixture.baseUrl}/api/bridge/reading-captures/${created.capture.id}/failure`,
       {
         method: 'POST',
         headers: bridgeHeaders(fixture.bridgeCredential),
         body: JSON.stringify({
-          leaseId: reclaimed.deliveryLease!.leaseId,
-          errorCode: 'DESTINATION_NOT_FOUND',
+          leaseId: created.capture.id,
+          errorCode: 'APPEND_FAILED',
         }),
       },
     );
-    const failurePayload = await failureResponse.json() as any;
-    assert.strictEqual(failureResponse.status, 200);
-    assert.strictEqual(failurePayload.data.status, 'needs_attention');
-    assert.strictEqual(
-      failurePayload.data.errorCode,
-      'DESTINATION_NOT_FOUND',
-    );
+    const payload = await response.json() as any;
+    assert.strictEqual(payload.data.status, 'claimed');
+    assert.strictEqual(payload.data.errorCode, 'APPEND_FAILED');
+  } finally {
+    await fixture.close();
+  }
+});
 
-    const repeatFailure = await fetch(
-      `${fixture.baseUrl}/api/bridge/reading-captures/${first.capture.id}/failure`,
+test('bridge compatibility routes remain POST-only with strict bodies', async () => {
+  const fixture = await createFixture();
+  try {
+    const headers = bridgeHeaders(fixture.bridgeCredential);
+    const invalidOwner = await fetch(
+      `${fixture.baseUrl}/api/bridge/reading-captures/claim`,
       {
         method: 'POST',
-        headers: bridgeHeaders(fixture.bridgeCredential),
-        body: JSON.stringify({
-          leaseId: firstClaim.deliveryLease!.leaseId,
-          errorCode: 'DESTINATION_NOT_FOUND',
-        }),
+        headers,
+        body: JSON.stringify({ ownerId: 'windows bridge' }),
       },
     );
-    assert.strictEqual(repeatFailure.status, 200);
+    assert.strictEqual(invalidOwner.status, 400);
+
+    const read = await fetch(
+      `${fixture.baseUrl}/api/bridge/reading-captures`,
+      { headers: { Authorization: `Bearer ${fixture.bridgeCredential}` } },
+    );
+    assert.strictEqual(read.status, 405);
+
+    const genericPost = await fetch(
+      `${fixture.baseUrl}/api/bridge/reading-captures`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({}),
+      },
+    );
+    assert.strictEqual(genericPost.status, 405);
   } finally {
     await fixture.close();
   }

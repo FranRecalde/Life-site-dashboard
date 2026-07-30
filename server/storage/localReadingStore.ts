@@ -2,33 +2,25 @@ import fs from 'fs';
 import path from 'path';
 import { ReadingBook, ReadingCapture, ReadingCaptureListFilter } from '../../src/types';
 import {
+  CaptureCreateCommand,
+  CaptureCreateResult,
   CaptureTransitionCommand,
   CaptureTransitionResult,
-  getCaptureLeaseGuardFailure,
-  IdempotentCaptureCreateCommand,
-  IdempotentCaptureCreateResult,
   ReadingBookUpdateResult,
   ReadingStore,
 } from './types';
-
-interface ReadingIdempotencyClaim {
-  payloadHash: string;
-  captureId: string;
-  createdAt: string;
-}
+import { normalizeReadingCaptureState } from './readingCaptureState';
 
 interface LocalReadingState {
   version: 1;
   books: ReadingBook[];
   captures: ReadingCapture[];
-  idempotency: Record<string, ReadingIdempotencyClaim>;
 }
 
 const emptyState = (): LocalReadingState => ({
   version: 1,
   books: [],
   captures: [],
-  idempotency: {},
 });
 
 function bookMatchesCapture(book: ReadingBook, capture: ReadingCapture): boolean {
@@ -67,14 +59,15 @@ export class LocalReadingStore implements ReadingStore {
     if (
       parsed.version !== 1 ||
       !Array.isArray(parsed.books) ||
-      !Array.isArray(parsed.captures) ||
-      !parsed.idempotency ||
-      typeof parsed.idempotency !== 'object' ||
-      Array.isArray(parsed.idempotency)
+      !Array.isArray(parsed.captures)
     ) {
       throw new Error('Local ReadingStore state is invalid.');
     }
-    return parsed as LocalReadingState;
+    return {
+      version: 1,
+      books: parsed.books,
+      captures: parsed.captures.map(normalizeReadingCaptureState),
+    };
   }
 
   private writeState(state: LocalReadingState): void {
@@ -151,7 +144,7 @@ export class LocalReadingStore implements ReadingStore {
   }
 
   async listCapturesForDelivery(
-    status: 'pending' | 'in_progress',
+    status: 'pending' | 'claimed',
   ): Promise<ReadingCapture[]> {
     return this.withLock(() => (
       this.readState().captures
@@ -166,23 +159,11 @@ export class LocalReadingStore implements ReadingStore {
     ));
   }
 
-  async createCaptureIdempotently(
-    command: IdempotentCaptureCreateCommand,
-  ): Promise<IdempotentCaptureCreateResult> {
+  async createCapture(
+    command: CaptureCreateCommand,
+  ): Promise<CaptureCreateResult> {
     return this.withLock(() => {
       const state = this.readState();
-      const claim = state.idempotency[command.idempotencyKeyHash];
-      if (claim) {
-        if (claim.payloadHash !== command.payloadHash) {
-          return { outcome: 'conflict' };
-        }
-        const existing = state.captures.find((capture) => capture.id === claim.captureId);
-        if (!existing) {
-          throw new Error('Reading idempotency claim references a missing capture.');
-        }
-        return { outcome: 'replayed', capture: existing };
-      }
-
       const book = state.books.find((candidate) => candidate.id === command.capture.bookId);
       if (!book) return { outcome: 'book_not_found' };
       if (book.status !== 'active') return { outcome: 'book_inactive' };
@@ -194,24 +175,10 @@ export class LocalReadingStore implements ReadingStore {
         (capture) => capture.id === command.capture.id,
       );
       if (existingCapture) {
-        if (existingCapture.payloadHash !== command.payloadHash) {
-          return { outcome: 'conflict' };
-        }
-        state.idempotency[command.idempotencyKeyHash] = {
-          payloadHash: command.payloadHash,
-          captureId: existingCapture.id,
-          createdAt: existingCapture.receivedAt,
-        };
-        this.writeState(state);
-        return { outcome: 'replayed', capture: existingCapture };
+        throw new Error('Reading capture ID already exists.');
       }
 
       state.captures.push(command.capture);
-      state.idempotency[command.idempotencyKeyHash] = {
-        payloadHash: command.payloadHash,
-        captureId: command.capture.id,
-        createdAt: command.capture.receivedAt,
-      };
       this.writeState(state);
       return { outcome: 'created', capture: command.capture };
     });
@@ -227,14 +194,12 @@ export class LocalReadingStore implements ReadingStore {
       );
       if (index === -1) return { outcome: 'not_found' };
       const current = state.captures[index];
-      if (current.status !== command.expectedStatus) {
+      if (
+        current.status !== command.expectedStatus ||
+        current.updatedAt !== command.expectedUpdatedAt
+      ) {
         return { outcome: 'state_conflict' };
       }
-      const leaseGuardFailure = getCaptureLeaseGuardFailure(
-        current,
-        command.leaseGuard,
-      );
-      if (leaseGuardFailure) return { outcome: leaseGuardFailure };
       state.captures[index] = command.capture;
       this.writeState(state);
       return { outcome: 'updated', capture: command.capture };

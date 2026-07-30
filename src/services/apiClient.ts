@@ -330,13 +330,11 @@ export class ApiClient {
 
   static async createReadingCapture(
     input: CreateReadingCaptureInput,
-    idempotencyKey: string,
-  ): Promise<{ capture: ReadingCapture; replayed: boolean }> {
+  ): Promise<{ capture: ReadingCapture }> {
     return this.request('/api/reading/captures', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Idempotency-Key': idempotencyKey,
       },
       body: JSON.stringify(input),
     });

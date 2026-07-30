@@ -1,18 +1,20 @@
-import crypto from 'crypto';
 import express, {
   NextFunction,
   Request,
   RequestHandler,
   Response,
 } from 'express';
-import { ReadingService, ReadingServiceError } from './readingService';
+import {
+  READING_CLAIM_STALE_MS,
+  ReadingService,
+  ReadingServiceError,
+} from './readingService';
+import { createReadingBearerAuthenticator } from './readingBearerAuth';
 
-const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/i;
 const CAPTURE_ID_PATTERN = /^reading_[0-9a-f]{32}$/;
 const OWNER_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
 const LEASE_ID_PATTERN = /^[\x20-\x7e]{1,200}$/;
 const ERROR_CODE_PATTERN = /^[A-Z0-9_]{1,64}$/;
-const BRIDGE_LEASE_DURATION_MS = 300_000;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -70,46 +72,6 @@ function sendError(
     error: message,
     code,
   });
-}
-
-function authenticateBridge(
-  getConfiguredTokenHash: () => string,
-): RequestHandler {
-  return (request, response, next) => {
-    const configuredHash = getConfiguredTokenHash();
-    if (
-      typeof configuredHash !== 'string' ||
-      !SHA256_HEX_PATTERN.test(configuredHash)
-    ) {
-      sendError(
-        response,
-        503,
-        'bridge_unavailable',
-        'Reading Capture bridge is temporarily unavailable.',
-      );
-      return;
-    }
-
-    const authorization = request.get('Authorization');
-    const match = authorization?.match(/^Bearer ([^\s]+)$/i);
-    if (!match) {
-      response.set('WWW-Authenticate', 'Bearer');
-      sendError(response, 401, 'unauthorized', 'Unauthorized.');
-      return;
-    }
-
-    const presentedHash = crypto
-      .createHash('sha256')
-      .update(match[1], 'utf8')
-      .digest();
-    const expectedHash = Buffer.from(configuredHash, 'hex');
-    if (!crypto.timingSafeEqual(presentedHash, expectedHash)) {
-      response.set('WWW-Authenticate', 'Bearer');
-      sendError(response, 401, 'unauthorized', 'Unauthorized.');
-      return;
-    }
-    next();
-  };
 }
 
 function requireJson(
@@ -196,9 +158,6 @@ function sendBridgeError(error: unknown, response: Response): void {
     const statuses: Partial<Record<ReadingServiceError['code'], number>> = {
       capture_not_found: 404,
       capture_state_conflict: 409,
-      capture_lease_conflict: 409,
-      capture_lease_expired: 409,
-      capture_lease_not_expired: 409,
       invalid_capture_transition: 409,
       invalid_delivery_metadata: 400,
     };
@@ -241,7 +200,10 @@ export function createReadingBridgeRouter(
     response.set('Cache-Control', 'no-store');
     next();
   });
-  router.use(authenticateBridge(getConfiguredTokenHash));
+  router.use(createReadingBearerAuthenticator(getConfiguredTokenHash, {
+    code: 'bridge_unavailable',
+    message: 'Reading Capture bridge is temporarily unavailable.',
+  }));
   router.use((request, response, next) => {
     if (request.method !== 'POST') {
       response.set('Allow', 'POST');
@@ -269,20 +231,17 @@ export function createReadingBridgeRouter(
   router.use(jsonParser);
 
   router.post('/claim', asyncRoute(async (request, response) => {
-    const ownerId = validateOwnerBody(request.body);
-    const capture = await service.claimNextCapture(
-      ownerId,
-      BRIDGE_LEASE_DURATION_MS,
-    );
+    validateOwnerBody(request.body);
+    const capture = await service.claimNextCapture();
     if (!capture) {
       response.json({ success: true, data: null });
       return;
     }
-    const lease = capture.deliveryLease;
-    if (!lease) {
+    const claimedAtMs = Date.parse(capture.claimedAt ?? '');
+    if (!Number.isFinite(claimedAtMs)) {
       throw new ReadingServiceError(
         'invalid_delivery_metadata',
-        'The claimed capture has no delivery lease.',
+        'The claimed capture has no valid claim timestamp.',
       );
     }
     response.json({
@@ -291,31 +250,38 @@ export function createReadingBridgeRouter(
         captureId: capture.id,
         destinationNotePath: capture.destinationNotePath,
         markdown: service.formatCapture(capture),
-        leaseId: lease.leaseId,
-        leaseExpiresAt: lease.expiresAt,
+        leaseId: capture.id,
+        leaseExpiresAt: new Date(
+          claimedAtMs + READING_CLAIM_STALE_MS,
+        ).toISOString(),
       },
     });
   }));
 
   router.post('/recover-expired', asyncRoute(async (request, response) => {
-    const ownerId = validateOwnerBody(request.body);
-    const recoveredCount = await service.recoverExpiredCaptures(ownerId);
+    validateOwnerBody(request.body);
     response.json({
       success: true,
-      data: { recoveredCount },
+      data: { recoveredCount: 0 },
     });
   }));
 
   router.post('/:captureId/confirm', asyncRoute(async (request, response) => {
     const captureId = validateCaptureId(request.params.captureId);
     const leaseId = validateLeaseBody(request.body);
-    const capture = await service.confirmDelivery(captureId, leaseId);
+    if (leaseId !== captureId) {
+      throw new BridgeRequestError(
+        'invalid_lease_id',
+        'leaseId does not match the claimed capture.',
+      );
+    }
+    const capture = await service.confirmDelivery(captureId);
     response.json({
       success: true,
       data: {
         captureId: capture.id,
         status: capture.status,
-        deliveredAt: capture.deliveredAt,
+        deliveredAt: capture.doneAt,
       },
     });
   }));
@@ -323,9 +289,14 @@ export function createReadingBridgeRouter(
   router.post('/:captureId/failure', asyncRoute(async (request, response) => {
     const captureId = validateCaptureId(request.params.captureId);
     const { leaseId, errorCode } = validateFailureBody(request.body);
+    if (leaseId !== captureId) {
+      throw new BridgeRequestError(
+        'invalid_lease_id',
+        'leaseId does not match the claimed capture.',
+      );
+    }
     const capture = await service.reportDeliveryFailure(
       captureId,
-      leaseId,
       errorCode,
     );
     response.json({

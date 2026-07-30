@@ -242,9 +242,8 @@ export type ReadingBookStatus = 'active' | 'archived';
 
 export type ReadingCaptureStatus =
   | 'pending'
-  | 'in_progress'
-  | 'delivered'
-  | 'needs_attention';
+  | 'claimed'
+  | 'done';
 
 export type ReadingCaptureCreatorType = 'life_site' | 'custom_gpt';
 
@@ -272,13 +271,6 @@ export interface ReadingDeliveryAttempts {
   lastErrorCode?: string;
 }
 
-export interface ReadingDeliveryLease {
-  leaseId: string;
-  ownerId: string;
-  acquiredAt: string;
-  expiresAt: string;
-}
-
 export interface ReadingCapture {
   id: string;
   bookId: string;
@@ -295,11 +287,10 @@ export interface ReadingCapture {
   receivedAt: string;
   creatorType: ReadingCaptureCreatorType;
   status: ReadingCaptureStatus;
-  payloadHash: string;
   markdownRenderVersion: 1;
   deliveryAttempts: ReadingDeliveryAttempts;
-  deliveryLease?: ReadingDeliveryLease;
-  deliveredAt?: string;
+  claimedAt?: string;
+  doneAt?: string;
   updatedAt: string;
 }
 
