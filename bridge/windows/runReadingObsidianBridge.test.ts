@@ -8,13 +8,13 @@ test('launcher directly opens the configured local queue and vault paths', async
     'C:\\queue\\reading.json', 'C:\\vault', `reading_${'a'.repeat(32)}`,
     {
       createService: (queueFile) => { events.push(`queue:${queueFile}`); return {} as any; },
-      createBridge: (_service, vaultRoot) => ({ runOnce: async (options) => { events.push(`vault:${vaultRoot}:${options?.expectedCaptureId}`); return { outcome: 'idle' }; } }),
+      createBridge: (_service, vaultRoot, queueFile) => ({ runOnce: async (options) => { events.push(`vault:${vaultRoot}:${queueFile}:${options?.expectedCaptureId}`); return { outcome: 'idle' }; } }),
     },
   );
   assert.deepStrictEqual(result, { outcome: 'idle' });
   assert.deepStrictEqual(events, [
     'queue:C:\\queue\\reading.json',
-    `vault:C:\\vault:reading_${'a'.repeat(32)}`,
+    `vault:C:\\vault:C:\\queue\\reading.json:reading_${'a'.repeat(32)}`,
   ]);
 });
 

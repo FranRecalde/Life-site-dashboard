@@ -12,9 +12,13 @@ The worker:
 - rejects absolute paths, traversal, and canonical paths outside the vault;
 - renders each entry from the queued capture ID and capture timestamp, hashes
   LF-normalized complete entry blocks, and compares only the final 100 entries;
-- appends and flushes once, then confirms delivery;
+- appends and flushes once, then records delivery with a receipt marker;
+- creates an exclusive, flushed capture-ID marker beside the queue after a
+  verified append; it never rewrites the queue file;
+- skips captures with existing markers while the Life Site API consumes markers
+  before every queue read or write, persists `done` status, then deletes them;
 - reports only fixed, sanitized failure codes;
-- leaves locked or sync-conflicted notes claimed for stale-claim retry, and uses
+- leaves locked or sync-conflicted notes pending for the next bridge retry, and uses
   an OS-owned single-instance lock released after normal completion or crash.
 
 Task Scheduler configuration, real-vault selection, continuous service startup,
@@ -45,6 +49,6 @@ opening the vault path. Output is limited to fixed outcome/error codes, capture
 IDs, and the fixed append outcome. Destination paths, Markdown, and provider
 error details are never printed.
 
-An unexpected capture remains claimed without being appended or acknowledged.
-After the five-minute stale timeout it can be retried. Continuous operation, a
-real-vault run, and Task Scheduler remain separate approval gates.
+An unexpected capture remains pending without being appended or receipted.
+Continuous operation, a real-vault run, and Task Scheduler remain separate
+approval gates.

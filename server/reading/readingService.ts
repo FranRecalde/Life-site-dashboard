@@ -126,6 +126,10 @@ export class ReadingService {
     return this.store.listCaptures(filter);
   }
 
+  async listPendingCapturesForBridge(): Promise<ReadingCapture[]> {
+    return this.store.listCapturesForDelivery('pending');
+  }
+
   async createCapture(
     value: unknown,
     creatorType: ReadingCaptureCreatorType = 'life_site',

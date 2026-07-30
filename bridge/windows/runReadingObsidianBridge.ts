@@ -23,7 +23,7 @@ interface BridgeRunner {
 
 export interface BridgeLauncherDependencies {
   createService?: (queueFile: string) => ReadingService;
-  createBridge?: (service: ReadingService, vaultRoot: string) => BridgeRunner;
+  createBridge?: (service: ReadingService, vaultRoot: string, queueFile: string) => BridgeRunner;
 }
 
 function requireAbsolutePath(value: string): string {
@@ -44,8 +44,12 @@ export async function runReadingBridgeRehearsal(
   }
   const resolvedQueueFile = requireAbsolutePath(queueFile);
   const resolvedVaultRoot = requireAbsolutePath(vaultRoot);
-  const service = (dependencies.createService ?? ((file) => new ReadingService(new LocalReadingStore(file))))(resolvedQueueFile);
-  const bridge = (dependencies.createBridge ?? ((candidate, root) => new ReadingObsidianBridge(candidate, root)))(service, resolvedVaultRoot);
+  const service = (dependencies.createService ?? ((file) => new ReadingService(
+    new LocalReadingStore(file, { reconcileDeliveryMarkers: false }),
+  )))(resolvedQueueFile);
+  const bridge = (dependencies.createBridge ?? ((candidate, root, file) => (
+    new ReadingObsidianBridge(candidate, root, file)
+  )))(service, resolvedVaultRoot, resolvedQueueFile);
   return withSingleInstanceLock(`${resolvedQueueFile}.lock`, () => (
     bridge.runOnce({ expectedCaptureId })
   ));

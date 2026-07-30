@@ -5,6 +5,10 @@ import path from 'node:path';
 import { ReadingCapture } from '../../src/types';
 import { formatReadingCaptureMarkdown } from '../../server/reading/readingFormatter';
 import { ReadingService } from '../../server/reading/readingService';
+import {
+  createReadingDeliveryMarker,
+  hasReadingDeliveryMarker,
+} from '../../server/storage/readingDeliveryMarkers';
 
 const CAPTURE_ID_PATTERN = /^reading_[0-9a-f]{32}$/;
 const MAX_NOTE_BYTES = 10 * 1024 * 1024;
@@ -215,6 +219,7 @@ export class ReadingObsidianBridge {
   constructor(
     private readonly service: ReadingService,
     private readonly vaultRoot: string,
+    private readonly queueFile: string,
     private readonly appendCapture: typeof appendCaptureToExistingNote = appendCaptureToExistingNote,
   ) {}
 
@@ -222,7 +227,8 @@ export class ReadingObsidianBridge {
     if (options.expectedCaptureId !== undefined && !CAPTURE_ID_PATTERN.test(options.expectedCaptureId)) {
       throw new BridgeProtocolError('INVALID_CONFIGURATION');
     }
-    const capture = await this.service.claimNextCapture();
+    const captures = await this.service.listPendingCapturesForBridge();
+    const capture = await this.findFirstUndeliveredCapture(captures);
     if (!capture) return { outcome: 'idle' };
     if (options.expectedCaptureId !== undefined && capture.id !== options.expectedCaptureId) {
       throw new BridgeProtocolError('UNEXPECTED_CAPTURE');
@@ -233,12 +239,24 @@ export class ReadingObsidianBridge {
       appendOutcome = await this.appendCapture(this.vaultRoot, capture);
     } catch (error) {
       const localError = normalizeLocalError(error);
-      await this.service.reportDeliveryFailure(capture.id, localError.code);
       return { outcome: 'needs_attention', captureId: capture.id, errorCode: localError.code };
     }
 
-    await this.service.confirmDelivery(capture.id);
+    try {
+      await createReadingDeliveryMarker(this.queueFile, capture.id);
+    } catch {
+      return { outcome: 'needs_attention', captureId: capture.id, errorCode: 'APPEND_FAILED' };
+    }
     return { outcome: 'delivered', captureId: capture.id, appendOutcome };
+  }
+
+  private async findFirstUndeliveredCapture(
+    captures: ReadingCapture[],
+  ): Promise<ReadingCapture | null> {
+    for (const capture of captures) {
+      if (!await hasReadingDeliveryMarker(this.queueFile, capture.id)) return capture;
+    }
+    return null;
   }
 
   async run(options: {

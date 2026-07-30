@@ -35,21 +35,32 @@ async function createFixture(initialContent = '# Book\n') {
   await fs.mkdir(path.dirname(note), { recursive: true });
   await fs.writeFile(note, initialContent, 'utf8');
   const now = () => '2026-07-28T12:01:00.000Z';
-  const service = new ReadingService(new LocalReadingStore(queueFile), now, () => 'book_1', () => captureId);
-  await service.createBook({ title: 'Book', author: 'Author', destinationNotePath: 'Literature notes/Book.md' });
-  await service.createCapture({ bookId: 'book_1', originalText: 'A deterministic queued thought.', captureType: 'thought' });
-  return { directory, note, service, cleanup: () => fs.rm(directory, { recursive: true, force: true }) };
+  let nextCapture = 0;
+  const createCaptureId = () => (
+    nextCapture++ === 0 ? captureId : `reading_${'b'.repeat(32)}`
+  );
+  const apiService = new ReadingService(new LocalReadingStore(queueFile), now, () => 'book_1', createCaptureId);
+  const bridgeService = new ReadingService(
+    new LocalReadingStore(queueFile, { reconcileDeliveryMarkers: false }),
+    now,
+    () => 'book_1',
+    createCaptureId,
+  );
+  await apiService.createBook({ title: 'Book', author: 'Author', destinationNotePath: 'Literature notes/Book.md' });
+  await apiService.createCapture({ bookId: 'book_1', originalText: 'A deterministic queued thought.', captureType: 'thought' });
+  return { directory, note, queueFile, apiService, bridgeService, cleanup: () => fs.rm(directory, { recursive: true, force: true }) };
 }
 
 test('worker renders a deterministic timestamped block, appends it, then confirms the queue', async () => {
   const fixture = await createFixture();
   try {
-    const bridge = new ReadingObsidianBridge(fixture.service, fixture.directory);
+    const bridge = new ReadingObsidianBridge(fixture.bridgeService, fixture.directory, fixture.queueFile);
     assert.deepStrictEqual(await bridge.runOnce(), { outcome: 'delivered', captureId, appendOutcome: 'appended' });
     const note = await fs.readFile(fixture.note, 'utf8');
     assert.ok(note.includes(`## Reading capture — ${capturedAt}`));
     assert.ok(note.includes(`<!-- /life-site-reading-capture:${captureId} -->`));
-    assert.strictEqual((await fixture.service.listCaptures({}))[0].status, 'done');
+    assert.deepStrictEqual(await bridge.runOnce(), { outcome: 'idle' });
+    assert.strictEqual((await fixture.apiService.listCaptures({}))[0].status, 'done');
   } finally { await fixture.cleanup(); }
 });
 
@@ -75,24 +86,46 @@ test('a hash match outside the final 100 entries does not suppress a new append'
   } finally { await fixture.cleanup(); }
 });
 
-test('locked files and sync-conflicted content remain claimed and are not acknowledged', async () => {
+test('locked files and sync-conflicted content remain pending and are not acknowledged', async () => {
   const locked = await createFixture();
   const conflicted = await createFixture('<<<<<<< local\n# Book\n=======\n# Book\n>>>>>>> remote\n');
   try {
     const lockedBridge = new ReadingObsidianBridge(
-      locked.service,
+      locked.bridgeService,
       locked.directory,
+      locked.queueFile,
       async () => { throw Object.assign(new Error('locked'), { code: 'EBUSY' }); },
     );
     assert.deepStrictEqual(await lockedBridge.runOnce(), { outcome: 'needs_attention', captureId, errorCode: 'DESTINATION_LOCKED' });
-    const lockedCapture = (await locked.service.listCaptures({}))[0];
-    assert.strictEqual(lockedCapture.status, 'claimed');
-    assert.strictEqual(lockedCapture.deliveryAttempts.lastErrorCode, 'DESTINATION_LOCKED');
+    const lockedCapture = (await locked.apiService.listCaptures({}))[0];
+    assert.strictEqual(lockedCapture.status, 'pending');
+    assert.strictEqual(lockedCapture.deliveryAttempts.lastErrorCode, undefined);
 
-    const conflictBridge = new ReadingObsidianBridge(conflicted.service, conflicted.directory);
+    const conflictBridge = new ReadingObsidianBridge(conflicted.bridgeService, conflicted.directory, conflicted.queueFile);
     assert.deepStrictEqual(await conflictBridge.runOnce(), { outcome: 'needs_attention', captureId, errorCode: 'DESTINATION_CONFLICTED' });
-    assert.strictEqual((await conflicted.service.listCaptures({}))[0].status, 'claimed');
+    assert.strictEqual((await conflicted.apiService.listCaptures({}))[0].status, 'pending');
   } finally { await Promise.all([locked.cleanup(), conflicted.cleanup()]); }
+});
+
+test('an API write and bridge delivery keep both captures and append only one entry', async () => {
+  const fixture = await createFixture();
+  try {
+    const bridge = new ReadingObsidianBridge(fixture.bridgeService, fixture.directory, fixture.queueFile);
+    const created = await Promise.all([
+      bridge.runOnce(),
+      fixture.apiService.createCapture({
+        bookId: 'book_1',
+        originalText: 'Second capture created while delivery runs.',
+        captureType: 'thought',
+      }),
+    ]);
+    assert.strictEqual(created[0].outcome, 'delivered');
+    const captures = await fixture.apiService.listCaptures({});
+    assert.strictEqual(captures.length, 2);
+    assert.strictEqual(captures.filter((capture) => capture.status === 'done').length, 1);
+    const note = await fs.readFile(fixture.note, 'utf8');
+    assert.strictEqual(note.split(`<!-- life-site-reading-capture:${captureId} -->`).length - 1, 1);
+  } finally { await fixture.cleanup(); }
 });
 
 test('an incomplete matching entry is never acknowledged', async () => {

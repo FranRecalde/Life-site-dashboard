@@ -307,6 +307,34 @@ test('local ReadingStore persists simple queue records and drops legacy idempote
   }
 });
 
+test('local ReadingStore reconciles valid delivery markers before reads and retains unknown markers', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'life-site-reading-markers-'));
+  const stateFile = path.join(directory, 'reading.json');
+  const markerDirectory = `${stateFile}.delivery-markers`;
+  const capture = makeCapture();
+  const unknownId = 'reading_abcdefabcdefabcdefabcdefabcdefab';
+  const originalWarn = console.warn;
+  try {
+    const store = new LocalReadingStore(stateFile);
+    await store.createBook(makeBook());
+    await store.createCapture(makeCreateCommand(capture));
+    fs.mkdirSync(markerDirectory, { recursive: true });
+    fs.writeFileSync(path.join(markerDirectory, `${capture.id}.delivered`), '');
+    fs.writeFileSync(path.join(markerDirectory, `${unknownId}.delivered`), '');
+    const warnings: string[] = [];
+    console.warn = (message: string) => warnings.push(message);
+
+    const captures = await store.listCaptures();
+    assert.strictEqual(captures[0].status, 'done');
+    assert.strictEqual(fs.existsSync(path.join(markerDirectory, `${capture.id}.delivered`)), false);
+    assert.strictEqual(fs.existsSync(path.join(markerDirectory, `${unknownId}.delivered`)), true);
+    assert.deepStrictEqual(warnings, ['Reading delivery marker references an unknown capture.']);
+  } finally {
+    console.warn = originalWarn;
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('Firestore ReadingStore creates only book and capture records', async () => {
   const database = new FakeFirestore();
   await exerciseStore(new FirestoreReadingStore(database as any));
