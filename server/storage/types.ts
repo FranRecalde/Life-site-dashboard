@@ -43,63 +43,25 @@ export type ReadingBookUpdateResult =
   | { outcome: 'not_found' }
   | { outcome: 'revision_conflict' };
 
-export interface IdempotentCaptureCreateCommand {
-  idempotencyKeyHash: string;
-  payloadHash: string;
+export interface CaptureCreateCommand {
   capture: ReadingCapture;
 }
 
-export type IdempotentCaptureCreateResult =
-  | { outcome: 'created' | 'replayed'; capture: ReadingCapture }
-  | { outcome: 'conflict' | 'book_not_found' | 'book_inactive' | 'book_revision_conflict' };
+export type CaptureCreateResult =
+  | { outcome: 'created'; capture: ReadingCapture }
+  | { outcome: 'book_not_found' | 'book_inactive' | 'book_revision_conflict' };
 
 export interface CaptureTransitionCommand {
   captureId: string;
   expectedStatus: ReadingCaptureStatus;
-  leaseGuard: CaptureLeaseGuard;
+  expectedUpdatedAt: string;
   capture: ReadingCapture;
 }
-
-export type CaptureLeaseGuard =
-  | { kind: 'none' }
-  | { kind: 'current'; leaseId: string; observedAt: string }
-  | { kind: 'expired'; leaseId: string; observedAt: string };
-
-export type CaptureLeaseGuardFailure =
-  | 'lease_conflict'
-  | 'lease_expired'
-  | 'lease_not_expired';
 
 export type CaptureTransitionResult =
   | { outcome: 'updated'; capture: ReadingCapture }
   | { outcome: 'not_found' }
-  | { outcome: 'state_conflict' }
-  | { outcome: CaptureLeaseGuardFailure };
-
-export function getCaptureLeaseGuardFailure(
-  capture: ReadingCapture,
-  guard: CaptureLeaseGuard,
-): CaptureLeaseGuardFailure | null {
-  if (guard.kind === 'none') {
-    return capture.deliveryLease ? 'lease_conflict' : null;
-  }
-
-  const lease = capture.deliveryLease;
-  if (!lease || lease.leaseId !== guard.leaseId) {
-    return 'lease_conflict';
-  }
-
-  const expiresAt = Date.parse(lease.expiresAt);
-  const observedAt = Date.parse(guard.observedAt);
-  if (!Number.isFinite(expiresAt) || !Number.isFinite(observedAt)) {
-    return 'lease_conflict';
-  }
-
-  if (guard.kind === 'current') {
-    return expiresAt <= observedAt ? 'lease_expired' : null;
-  }
-  return expiresAt > observedAt ? 'lease_not_expired' : null;
-}
+  | { outcome: 'state_conflict' };
 
 export interface ReadingStore {
   listBooks(options?: { includeArchived?: boolean }): Promise<ReadingBook[]>;
@@ -112,12 +74,10 @@ export interface ReadingStore {
   ): Promise<ReadingBookUpdateResult>;
   listCaptures(filter?: ReadingCaptureListFilter): Promise<ReadingCapture[]>;
   listCapturesForDelivery(
-    status: 'pending' | 'in_progress',
+    status: 'pending' | 'claimed',
   ): Promise<ReadingCapture[]>;
   getCapture(id: string): Promise<ReadingCapture | null>;
-  createCaptureIdempotently(
-    command: IdempotentCaptureCreateCommand,
-  ): Promise<IdempotentCaptureCreateResult>;
+  createCapture(command: CaptureCreateCommand): Promise<CaptureCreateResult>;
   transitionCapture(command: CaptureTransitionCommand): Promise<CaptureTransitionResult>;
 }
 

@@ -1,4 +1,4 @@
-import React, { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import React, { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Archive,
@@ -36,16 +36,14 @@ const SOURCE_OPTIONS: Array<{ value: ReadingSource; label: string }> = [
 
 const STATUS_LABELS: Record<ReadingCaptureStatus, string> = {
   pending: 'Pending',
-  in_progress: 'In progress',
-  delivered: 'Delivered',
-  needs_attention: 'Needs attention',
+  claimed: 'Claimed',
+  done: 'Done',
 };
 
 const STATUS_STYLES: Record<ReadingCaptureStatus, string> = {
   pending: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
-  in_progress: 'border-blue-500/30 bg-blue-500/10 text-blue-200',
-  delivered: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
-  needs_attention: 'border-red-500/30 bg-red-500/10 text-red-200',
+  claimed: 'border-blue-500/30 bg-blue-500/10 text-blue-200',
+  done: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
 };
 
 interface BookFormState {
@@ -88,10 +86,6 @@ export const ReadingCaptureWorkspace: React.FC = () => {
   >('');
   const [locatorValue, setLocatorValue] = useState('');
   const [savingCapture, setSavingCapture] = useState(false);
-  const pendingSubmission = useRef<{
-    signature: string;
-    key: string;
-  } | null>(null);
 
   const activeBooks = useMemo(
     () => books.filter((book) => book.status === 'active'),
@@ -224,24 +218,12 @@ export const ReadingCaptureWorkspace: React.FC = () => {
           ? { kind: locatorKind, value: locatorValue }
           : undefined,
     };
-    const signature = JSON.stringify(input);
-    if (!pendingSubmission.current || pendingSubmission.current.signature !== signature) {
-      pendingSubmission.current = {
-        signature,
-        key: crypto.randomUUID(),
-      };
-    }
-
     setSavingCapture(true);
     setError('');
     setSuccess('');
     try {
-      const result = await ApiClient.createReadingCapture(
-        input,
-        pendingSubmission.current.key,
-      );
-      setSuccess(result.replayed ? 'Existing capture safely returned.' : 'Capture queued.');
-      pendingSubmission.current = null;
+      await ApiClient.createReadingCapture(input);
+      setSuccess('Capture queued.');
       setOriginalText('');
       setCaptureType('thought');
       setSource('');
@@ -249,10 +231,7 @@ export const ReadingCaptureWorkspace: React.FC = () => {
       setLocatorValue('');
       await loadWorkspace();
     } catch (caught) {
-      const requestError = caught as Error & { code?: string };
-      if (requestError.code === 'idempotency_conflict') {
-        pendingSubmission.current = null;
-      }
+      const requestError = caught as Error;
       setError(requestError.message || 'Failed to queue capture.');
     } finally {
       setSavingCapture(false);

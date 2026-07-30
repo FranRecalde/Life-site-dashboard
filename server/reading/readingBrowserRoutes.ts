@@ -17,7 +17,6 @@ function sendReadingError(error: unknown, response: Response): void {
         ? 404
         : error.code === 'book_revision_conflict' ||
             error.code === 'capture_state_conflict' ||
-            error.code === 'idempotency_conflict' ||
             error.code === 'book_inactive'
           ? 409
           : 400;
@@ -84,14 +83,12 @@ export function createReadingBrowserRouter(service: ReadingService): express.Rou
   router.post('/captures', asyncRoute(async (request, response) => {
     const result = await service.createCapture(
       request.body,
-      request.get('Idempotency-Key'),
       'life_site',
     );
-    response.status(result.outcome === 'created' ? 201 : 200).json({
+    response.status(201).json({
       success: true,
       data: {
         capture: result.capture,
-        replayed: result.outcome === 'replayed',
       },
     });
   }));

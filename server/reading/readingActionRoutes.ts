@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import express, {
   NextFunction,
   Request,
@@ -7,12 +6,12 @@ import express, {
 } from 'express';
 import { ReadingService, ReadingServiceError } from './readingService';
 import { ReadingValidationError } from './readingValidation';
+import {
+  createReadingBearerAuthenticator,
+  isReadingApiTokenHashValid,
+} from './readingBearerAuth';
 
-const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/i;
-
-export function isReadingCaptureApiTokenHashValid(value: unknown): value is string {
-  return typeof value === 'string' && SHA256_HEX_PATTERN.test(value);
-}
+export const isReadingCaptureApiTokenHashValid = isReadingApiTokenHashValid;
 
 function sendError(
   response: Response,
@@ -25,44 +24,6 @@ function sendError(
     error: message,
     code,
   });
-}
-
-function authenticateReadingCaptureAction(
-  getConfiguredTokenHash: () => string,
-): RequestHandler {
-  return (request, response, next) => {
-    const configuredHash = getConfiguredTokenHash();
-    if (!isReadingCaptureApiTokenHashValid(configuredHash)) {
-      sendError(
-        response,
-        503,
-        'api_unavailable',
-        'Reading Capture is temporarily unavailable.',
-      );
-      return;
-    }
-
-    const authorization = request.get('Authorization');
-    const match = authorization?.match(/^Bearer ([^\s]+)$/i);
-    if (!match) {
-      response.set('WWW-Authenticate', 'Bearer');
-      sendError(response, 401, 'unauthorized', 'Unauthorized.');
-      return;
-    }
-
-    const presentedHash = crypto
-      .createHash('sha256')
-      .update(match[1], 'utf8')
-      .digest();
-    const expectedHash = Buffer.from(configuredHash, 'hex');
-    if (!crypto.timingSafeEqual(presentedHash, expectedHash)) {
-      response.set('WWW-Authenticate', 'Bearer');
-      sendError(response, 401, 'unauthorized', 'Unauthorized.');
-      return;
-    }
-
-    next();
-  };
 }
 
 function requireJsonContentType(
@@ -101,7 +62,6 @@ function sendReadingActionError(error: unknown, response: Response): void {
       book_ambiguous: 409,
       book_inactive: 409,
       book_revision_conflict: 409,
-      idempotency_conflict: 409,
     };
     sendError(response, statuses[error.code] ?? 400, error.code, error.message);
     return;
@@ -143,7 +103,10 @@ export function createReadingActionRouter(
 
   router.post(
     '/',
-    authenticateReadingCaptureAction(getConfiguredTokenHash),
+    createReadingBearerAuthenticator(getConfiguredTokenHash, {
+      code: 'api_unavailable',
+      message: 'Reading Capture is temporarily unavailable.',
+    }),
     requireJsonContentType,
     jsonParser,
     asyncRoute(async (request, response) => {
@@ -153,11 +116,8 @@ export function createReadingActionRouter(
           'Query parameters are not allowed.',
         );
       }
-      const result = await service.createCaptureFromAction(
-        request.body,
-        request.get('Idempotency-Key'),
-      );
-      response.status(result.outcome === 'created' ? 201 : 200).json({
+      const result = await service.createCaptureFromAction(request.body);
+      response.status(201).json({
         success: true,
         data: {
           captureId: result.capture.id,
@@ -165,7 +125,6 @@ export function createReadingActionRouter(
           bookAuthor: result.capture.bookAuthor,
           status: result.capture.status,
           receivedAt: result.capture.receivedAt,
-          replayed: result.outcome === 'replayed',
         },
       });
     }),

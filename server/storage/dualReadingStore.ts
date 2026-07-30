@@ -1,9 +1,9 @@
 import { ReadingBook, ReadingCapture, ReadingCaptureListFilter } from '../../src/types';
 import {
+  CaptureCreateCommand,
+  CaptureCreateResult,
   CaptureTransitionCommand,
   CaptureTransitionResult,
-  IdempotentCaptureCreateCommand,
-  IdempotentCaptureCreateResult,
   ReadingBookUpdateResult,
   ReadingStore,
 } from './types';
@@ -133,7 +133,7 @@ export class DualReadingStore implements ReadingStore {
   }
 
   async listCapturesForDelivery(
-    status: 'pending' | 'in_progress',
+    status: 'pending' | 'claimed',
   ): Promise<ReadingCapture[]> {
     const results = await Promise.allSettled([
       this.local.listCapturesForDelivery(status),
@@ -169,36 +169,18 @@ export class DualReadingStore implements ReadingStore {
     return firestoreResult.value ?? localResult.value;
   }
 
-  async createCaptureIdempotently(
-    command: IdempotentCaptureCreateCommand,
-  ): Promise<IdempotentCaptureCreateResult> {
+  async createCapture(
+    command: CaptureCreateCommand,
+  ): Promise<CaptureCreateResult> {
     const results = await Promise.allSettled([
-      this.local.createCaptureIdempotently(command),
-      this.firestore.createCaptureIdempotently(command),
+      this.local.createCapture(command),
+      this.firestore.createCapture(command),
     ]);
     const values = requireBothProviderResults(results, 'capture creation');
-    const captureOutcomes = values.every(
-      (value) => value.outcome === 'created' || value.outcome === 'replayed',
-    );
-    if (!captureOutcomes) {
-      if (!sameRecord(values[0], values[1])) {
-        throw new Error('DualReadingStore capture creation divergence detected.');
-      }
-      return values[0];
+    if (!sameRecord(values[0], values[1])) {
+      throw new Error('DualReadingStore capture creation divergence detected.');
     }
-    const captureResults = values as Array<{
-      outcome: 'created' | 'replayed';
-      capture: ReadingCapture;
-    }>;
-    if (!sameRecord(captureResults[0].capture, captureResults[1].capture)) {
-      throw new Error('DualReadingStore capture record divergence detected.');
-    }
-    return {
-      outcome: captureResults.some((result) => result.outcome === 'replayed')
-        ? 'replayed'
-        : 'created',
-      capture: captureResults[0].capture,
-    };
+    return values[0];
   }
 
   async transitionCapture(

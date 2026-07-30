@@ -60,7 +60,7 @@ test('all browser Reading Capture routes are behind the existing auth boundary',
   }
 });
 
-test('browser routes create books and provide create, replay, and conflict semantics', async () => {
+test('browser routes create books and queue each accepted capture independently', async () => {
   const fixture = await createRouteFixture();
   try {
     const authHeaders = {
@@ -81,7 +81,6 @@ test('browser routes create books and provide create, replay, and conflict seman
     assert.strictEqual(bookResponse.status, 201);
     const bookPayload = await bookResponse.json() as any;
 
-    const idempotencyKey = '9adc629e-c4b8-4b5b-aead-d88eb777f953';
     const captureBody = {
       bookId: bookPayload.data.id,
       originalText: 'Exact original words',
@@ -89,49 +88,38 @@ test('browser routes create books and provide create, replay, and conflict seman
     };
     const firstResponse = await fetch(`${fixture.baseUrl}/api/reading/captures`, {
       method: 'POST',
-      headers: { ...authHeaders, 'Idempotency-Key': idempotencyKey },
+      headers: authHeaders,
       body: JSON.stringify(captureBody),
     });
     assert.strictEqual(firstResponse.status, 201);
     const firstPayload = await firstResponse.json() as any;
-    assert.strictEqual(firstPayload.data.replayed, false);
+    assert.strictEqual('replayed' in firstPayload.data, false);
     assert.strictEqual(firstPayload.data.capture.status, 'pending');
     assert.strictEqual(firstPayload.data.capture.source, 'physical');
     assert.deepStrictEqual(firstPayload.data.capture.bookTags, ['reading']);
 
-    const replayResponse = await fetch(`${fixture.baseUrl}/api/reading/captures`, {
+    const secondResponse = await fetch(`${fixture.baseUrl}/api/reading/captures`, {
       method: 'POST',
-      headers: { ...authHeaders, 'Idempotency-Key': idempotencyKey },
+      headers: authHeaders,
       body: JSON.stringify(captureBody),
     });
-    assert.strictEqual(replayResponse.status, 200);
-    const replayPayload = await replayResponse.json() as any;
-    assert.strictEqual(replayPayload.data.replayed, true);
-    assert.strictEqual(
-      replayPayload.data.capture.id,
+    assert.strictEqual(secondResponse.status, 201);
+    const secondPayload = await secondResponse.json() as any;
+    assert.notStrictEqual(
+      secondPayload.data.capture.id,
       firstPayload.data.capture.id,
     );
-
-    const conflictResponse = await fetch(`${fixture.baseUrl}/api/reading/captures`, {
-      method: 'POST',
-      headers: { ...authHeaders, 'Idempotency-Key': idempotencyKey },
-      body: JSON.stringify({ ...captureBody, originalText: 'Changed words' }),
-    });
-    assert.strictEqual(conflictResponse.status, 409);
-    const conflictPayload = await conflictResponse.json() as any;
-    assert.strictEqual(conflictPayload.code, 'idempotency_conflict');
   } finally {
     await fixture.close();
   }
 });
 
-test('browser routes reject delivery fields and expose no delivered-status mutation route', async () => {
+test('browser routes reject delivery fields and expose no done-status mutation route', async () => {
   const fixture = await createRouteFixture();
   try {
     const headers = {
       Authorization: 'Bearer valid-session',
       'Content-Type': 'application/json',
-      'Idempotency-Key': '9f6bcf31-f188-4c0d-88d3-9075313b3ed7',
     };
     const protectedResponse = await fetch(`${fixture.baseUrl}/api/reading/captures`, {
       method: 'POST',
@@ -140,7 +128,7 @@ test('browser routes reject delivery fields and expose no delivered-status mutat
         bookId: 'book_1',
         originalText: 'Words',
         captureType: 'thought',
-        status: 'delivered',
+        status: 'done',
       }),
     });
     assert.strictEqual(protectedResponse.status, 400);
@@ -152,7 +140,7 @@ test('browser routes reject delivery fields and expose no delivered-status mutat
       {
         method: 'PATCH',
         headers,
-        body: JSON.stringify({ status: 'delivered' }),
+        body: JSON.stringify({ status: 'done' }),
       },
     );
     assert.strictEqual(mutationResponse.status, 404);
