@@ -1,11 +1,11 @@
 ---
 name: life-site-safe-release
 description: >-
-  Safely verify, build once, deploy, verify, promote, and explicitly roll back
-  the Life Site Dashboard through separate staging and production Google Cloud
-  Run services. Use for staging releases, production releases, production
-  verification, or rollback work involving FranRecalde/Life-site-dashboard,
-  life-site-dashboard-staging, and life-site-dashboard.
+  Release an already merged commit of Life Site Dashboard to staging or
+  production Cloud Run. Use ONLY when deploying, promoting, verifying a
+  deployed service, or rolling back. Do NOT use for writing code, adding
+  features, refactoring, fixing bugs, or running tests. Feature work
+  follows AGENTS.md, not this skill.
 ---
 
 # Life Site Safe Release
