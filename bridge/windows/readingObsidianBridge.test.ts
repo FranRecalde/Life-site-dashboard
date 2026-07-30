@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { ReadingCapture } from '../../src/types';
 import { formatReadingCaptureMarkdown } from '../../server/reading/readingFormatter';
 import { ReadingService } from '../../server/reading/readingService';
@@ -10,7 +13,9 @@ import { LocalReadingStore } from '../../server/storage/localReadingStore';
 import {
   appendCaptureToExistingNote,
   BridgeLocalError,
+  BridgeProtocolError,
   ReadingObsidianBridge,
+  withSingleInstanceLock,
 } from './readingObsidianBridge';
 
 const captureId = `reading_${'a'.repeat(32)}`;
@@ -133,5 +138,86 @@ test('an incomplete matching entry is never acknowledged', async () => {
   const fixture = await createFixture(`<!-- life-site-reading-capture:${captureId} -->\npartial`);
   try {
     await assert.rejects(() => appendCaptureToExistingNote(fixture.directory, capture), (error: unknown) => error instanceof BridgeLocalError && error.code === 'PARTIAL_CAPTURE_BLOCK');
+  } finally { await fixture.cleanup(); }
+});
+
+test('single-instance lock prevents overlap and releases after normal completion', async () => {
+  const lockIdentity = path.join(os.tmpdir(), `life-site-reading-bridge-${process.pid}-normal.lock`);
+  await withSingleInstanceLock(lockIdentity, async () => {
+    await assert.rejects(
+      () => withSingleInstanceLock(lockIdentity, async () => undefined),
+      (error: unknown) => error instanceof BridgeProtocolError && error.code === 'INVALID_CONFIGURATION',
+    );
+  });
+  await withSingleInstanceLock(lockIdentity, async () => undefined);
+});
+
+test('single-instance lock is released by the OS after an unexpected process crash', async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'life-site-reading-bridge-crash-lock-'));
+  const lockIdentity = path.join(directory, 'bridge.lock');
+  const moduleUrl = pathToFileURL(path.join(process.cwd(), 'bridge', 'windows', 'readingObsidianBridge.ts')).href;
+  const childScript = [
+    `import { withSingleInstanceLock } from ${JSON.stringify(moduleUrl)};`,
+    `await withSingleInstanceLock(${JSON.stringify(lockIdentity)}, async () => {`,
+    "  process.stdout.write('LOCKED\\n');",
+    '  await new Promise(() => undefined);',
+    '});',
+  ].join('\n');
+  const child = spawn(process.execPath, ['--import', 'tsx', '--input-type=module', '--eval', childScript], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const childClosed = once(child, 'close');
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      let errors = '';
+      const timer = setTimeout(() => reject(new Error(`Timed out waiting for lock holder. ${errors}`)), 10_000);
+      child.stdout.on('data', (chunk: Buffer) => {
+        if (chunk.toString('utf8').includes('LOCKED')) {
+          clearTimeout(timer);
+          resolve();
+        }
+      });
+      child.stderr.on('data', (chunk: Buffer) => { errors += chunk.toString('utf8'); });
+      child.once('exit', (code) => {
+        clearTimeout(timer);
+        reject(new Error(`Lock holder exited early with ${code}. ${errors}`));
+      });
+    });
+    await assert.rejects(
+      () => withSingleInstanceLock(lockIdentity, async () => undefined),
+      (error: unknown) => error instanceof BridgeProtocolError && error.code === 'INVALID_CONFIGURATION',
+    );
+    child.kill('SIGKILL');
+    await childClosed;
+    await withSingleInstanceLock(lockIdentity, async () => undefined);
+  } finally {
+    if (child.exitCode === null) {
+      child.kill('SIGKILL');
+      await childClosed.catch(() => undefined);
+    }
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('one-shot rehearsal refuses an unexpected capture before accessing the vault', async () => {
+  const fixture = await createFixture();
+  let appendAttempted = false;
+  try {
+    const bridge = new ReadingObsidianBridge(
+      fixture.bridgeService,
+      fixture.directory,
+      fixture.queueFile,
+      async () => {
+        appendAttempted = true;
+        throw new Error('The vault must not be accessed for an unexpected capture.');
+      },
+    );
+    await assert.rejects(
+      () => bridge.runOnce({ expectedCaptureId: `reading_${'b'.repeat(32)}` }),
+      (error: unknown) => error instanceof BridgeProtocolError && error.code === 'UNEXPECTED_CAPTURE',
+    );
+    assert.strictEqual(appendAttempted, false);
+    assert.strictEqual((await fixture.apiService.listCaptures({}))[0].status, 'pending');
   } finally { await fixture.cleanup(); }
 });
