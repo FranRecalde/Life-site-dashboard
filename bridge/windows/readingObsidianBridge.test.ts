@@ -141,6 +141,63 @@ test('an incomplete matching entry is never acknowledged', async () => {
   } finally { await fixture.cleanup(); }
 });
 
+test('restart after an append before marker creation does not duplicate and reconciles delivery', async () => {
+  const fixture = await createFixture();
+  try {
+    const capture = (await fixture.bridgeService.listPendingCapturesForBridge())[0];
+    assert.ok(capture);
+    const markerPath = path.join(`${fixture.queueFile}.delivery-markers`, `${capture.id}.delivered`);
+    assert.strictEqual(await appendCaptureToExistingNote(fixture.directory, capture), 'appended');
+    await assert.rejects(() => fs.access(markerPath), { code: 'ENOENT' });
+
+    const restartedService = new ReadingService(
+      new LocalReadingStore(fixture.queueFile, { reconcileDeliveryMarkers: false }),
+    );
+    const restartedBridge = new ReadingObsidianBridge(
+      restartedService,
+      fixture.directory,
+      fixture.queueFile,
+    );
+    assert.deepStrictEqual(await restartedBridge.runOnce(), {
+      outcome: 'delivered',
+      captureId: capture.id,
+      appendOutcome: 'already_present',
+    });
+    const note = await fs.readFile(fixture.note, 'utf8');
+    assert.strictEqual(note.split(`<!-- life-site-reading-capture:${capture.id} -->`).length - 1, 1);
+    await fs.access(markerPath);
+    assert.strictEqual((await fixture.apiService.listCaptures({}))[0].status, 'done');
+  } finally { await fixture.cleanup(); }
+});
+
+test('a different block in the note is appended and not treated as already present', async () => {
+  const fixture = await createFixture();
+  try {
+    const capture = (await fixture.bridgeService.listPendingCapturesForBridge())[0];
+    assert.ok(capture);
+    const queuedBlock = formatReadingCaptureMarkdown(capture);
+    const differentBlock = queuedBlock.replace(
+      capture.originalText,
+      'A genuinely different queued thought.',
+    );
+    await fs.writeFile(fixture.note, `# Book\n\n${differentBlock}`, 'utf8');
+
+    const bridge = new ReadingObsidianBridge(
+      fixture.bridgeService,
+      fixture.directory,
+      fixture.queueFile,
+    );
+    assert.deepStrictEqual(await bridge.runOnce(), {
+      outcome: 'delivered',
+      captureId: capture.id,
+      appendOutcome: 'appended',
+    });
+    const note = await fs.readFile(fixture.note, 'utf8');
+    assert.strictEqual(note.split(`<!-- life-site-reading-capture:${capture.id} -->`).length - 1, 2);
+    assert.ok(note.endsWith(queuedBlock));
+  } finally { await fixture.cleanup(); }
+});
+
 test('single-instance lock prevents overlap and releases after normal completion', async () => {
   const lockIdentity = path.join(os.tmpdir(), `life-site-reading-bridge-${process.pid}-normal.lock`);
   await withSingleInstanceLock(lockIdentity, async () => {
