@@ -21,7 +21,6 @@ export const LOGICAL_SECRET_SUFFIXES = {
   GOOGLE_REFRESH_TOKEN: 'google-refresh-token',
   GOOGLE_WRITE_AUTHORIZED: 'google-write-authorized',
   READING_CAPTURE_API_TOKEN_HASH: 'reading-capture-api-token-hash',
-  READING_BRIDGE_API_TOKEN_HASH: 'reading-bridge-api-token-hash',
 } as const;
 
 export type LogicalSecretKey = keyof typeof LOGICAL_SECRET_SUFFIXES;
@@ -36,7 +35,6 @@ const LEGACY_SECRET_MAPPING: Record<LogicalSecretKey, string> = {
   GOOGLE_REFRESH_TOKEN: 'googleRefreshToken',
   GOOGLE_WRITE_AUTHORIZED: 'googleWriteAuthorized',
   READING_CAPTURE_API_TOKEN_HASH: 'readingCaptureApiTokenHash',
-  READING_BRIDGE_API_TOKEN_HASH: 'readingBridgeApiTokenHash',
 };
 
 const REVERSE_LEGACY_SECRET_MAPPING = Object.fromEntries(
@@ -91,8 +89,6 @@ export interface SafeSecretAvailabilityStatus {
   writableOAuthSecretConfigurationReady: boolean;
   readingCaptureApiTokenHashAvailable: boolean;
   readingCaptureApiCredentialReady: boolean;
-  readingBridgeApiTokenHashAvailable: boolean;
-  readingBridgeApiCredentialReady: boolean;
 }
 
 export type LogicalSecretValues = Partial<Record<LogicalSecretKey, string | null | undefined>>;
@@ -244,8 +240,6 @@ export function evaluateSafeSecretAvailability(
   const writeAuthorizedValue = values.GOOGLE_WRITE_AUTHORIZED?.trim();
   const readingCaptureApiTokenHash =
     values.READING_CAPTURE_API_TOKEN_HASH?.trim() ?? '';
-  const readingBridgeApiTokenHash =
-    values.READING_BRIDGE_API_TOKEN_HASH?.trim() ?? '';
 
   return {
     usernameSecretAvailable,
@@ -264,9 +258,6 @@ export function evaluateSafeSecretAvailability(
     readingCaptureApiTokenHashAvailable: readingCaptureApiTokenHash !== '',
     readingCaptureApiCredentialReady:
       /^[0-9a-f]{64}$/i.test(readingCaptureApiTokenHash),
-    readingBridgeApiTokenHashAvailable: readingBridgeApiTokenHash !== '',
-    readingBridgeApiCredentialReady:
-      /^[0-9a-f]{64}$/i.test(readingBridgeApiTokenHash),
   };
 }
 

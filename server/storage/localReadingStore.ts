@@ -10,6 +10,10 @@ import {
   ReadingStore,
 } from './types';
 import { normalizeReadingCaptureState } from './readingCaptureState';
+import {
+  deleteReadingDeliveryMarker,
+  listReadingDeliveryMarkerIds,
+} from './readingDeliveryMarkers';
 
 interface LocalReadingState {
   version: 1;
@@ -36,7 +40,10 @@ function bookMatchesCapture(book: ReadingBook, capture: ReadingCapture): boolean
 export class LocalReadingStore implements ReadingStore {
   private lockTail: Promise<void> = Promise.resolve();
 
-  constructor(private readonly stateFile: string) {}
+  constructor(
+    private readonly stateFile: string,
+    private readonly options: { reconcileDeliveryMarkers?: boolean } = {},
+  ) {}
 
   private async withLock<T>(operation: () => T | Promise<T>): Promise<T> {
     const previous = this.lockTail;
@@ -54,8 +61,9 @@ export class LocalReadingStore implements ReadingStore {
   }
 
   private readState(): LocalReadingState {
-    if (!fs.existsSync(this.stateFile)) return emptyState();
-    const parsed = JSON.parse(fs.readFileSync(this.stateFile, 'utf-8')) as Partial<LocalReadingState>;
+    const parsed = fs.existsSync(this.stateFile)
+      ? JSON.parse(fs.readFileSync(this.stateFile, 'utf-8')) as Partial<LocalReadingState>
+      : emptyState();
     if (
       parsed.version !== 1 ||
       !Array.isArray(parsed.books) ||
@@ -63,11 +71,50 @@ export class LocalReadingStore implements ReadingStore {
     ) {
       throw new Error('Local ReadingStore state is invalid.');
     }
-    return {
+    const state: LocalReadingState = {
       version: 1,
       books: parsed.books,
       captures: parsed.captures.map(normalizeReadingCaptureState),
     };
+    if (this.options.reconcileDeliveryMarkers !== false) {
+      this.reconcileDeliveryMarkers(state);
+    }
+    return state;
+  }
+
+  private reconcileDeliveryMarkers(state: LocalReadingState): void {
+    const markerIds = listReadingDeliveryMarkerIds(this.stateFile);
+    if (markerIds.length === 0) return;
+    const markerIdsToDelete: string[] = [];
+    let changed = false;
+    for (const captureId of markerIds) {
+      const index = state.captures.findIndex((capture) => capture.id === captureId);
+      if (index === -1) {
+        console.warn('Reading delivery marker references an unknown capture.');
+        continue;
+      }
+      const current = state.captures[index];
+      if (current.status !== 'done') {
+        const timestamp = new Date().toISOString();
+        state.captures[index] = {
+          ...current,
+          status: 'done',
+          claimedAt: undefined,
+          doneAt: timestamp,
+          deliveryAttempts: {
+            ...current.deliveryAttempts,
+            lastErrorCode: undefined,
+          },
+          updatedAt: timestamp,
+        };
+        changed = true;
+      }
+      markerIdsToDelete.push(captureId);
+    }
+    if (changed) this.writeState(state);
+    for (const captureId of markerIdsToDelete) {
+      deleteReadingDeliveryMarker(this.stateFile, captureId);
+    }
   }
 
   private writeState(state: LocalReadingState): void {

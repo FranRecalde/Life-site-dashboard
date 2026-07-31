@@ -65,7 +65,6 @@ test('logical secret keys map to exact, environment-specific secret IDs', () => 
     GOOGLE_REFRESH_TOKEN: 'google-refresh-token',
     GOOGLE_WRITE_AUTHORIZED: 'google-write-authorized',
     READING_CAPTURE_API_TOKEN_HASH: 'reading-capture-api-token-hash',
-    READING_BRIDGE_API_TOKEN_HASH: 'reading-bridge-api-token-hash',
   };
 
   assert.deepStrictEqual(LOGICAL_SECRET_SUFFIXES, expectedSuffixes);
@@ -268,7 +267,6 @@ test('safe readiness requires login secrets but keeps optional integrations non-
     SESSION_SECRET: 'readiness-test-session',
     GOOGLE_WRITE_AUTHORIZED: 'false',
     READING_CAPTURE_API_TOKEN_HASH: 'a'.repeat(64),
-    READING_BRIDGE_API_TOKEN_HASH: 'b'.repeat(64),
   });
 
   assert.strictEqual(ready.requiredLoginSecretsAvailable, true);
@@ -279,8 +277,6 @@ test('safe readiness requires login secrets but keeps optional integrations non-
   assert.strictEqual(ready.writableOAuthSecretConfigurationReady, true);
   assert.strictEqual(ready.readingCaptureApiTokenHashAvailable, true);
   assert.strictEqual(ready.readingCaptureApiCredentialReady, true);
-  assert.strictEqual(ready.readingBridgeApiTokenHashAvailable, true);
-  assert.strictEqual(ready.readingBridgeApiCredentialReady, true);
 
   const missingSession = evaluateSafeSecretAvailability(configuration, {
     LIFE_SITE_USERNAME: 'readiness-test-user',
@@ -290,8 +286,6 @@ test('safe readiness requires login secrets but keeps optional integrations non-
   assert.strictEqual(missingSession.requiredLoginSecretsAvailable, false);
   assert.strictEqual(missingSession.readingCaptureApiTokenHashAvailable, false);
   assert.strictEqual(missingSession.readingCaptureApiCredentialReady, false);
-  assert.strictEqual(missingSession.readingBridgeApiTokenHashAvailable, false);
-  assert.strictEqual(missingSession.readingBridgeApiCredentialReady, false);
   assert.strictEqual(JSON.stringify(missingSession).includes('readiness-test-user'), false);
 });
 
@@ -301,13 +295,10 @@ test('Reading Capture API readiness fails closed for malformed configured hashes
   );
   const malformed = evaluateSafeSecretAvailability(configuration, {
     READING_CAPTURE_API_TOKEN_HASH: 'not-a-sha256-hash',
-    READING_BRIDGE_API_TOKEN_HASH: 'also-not-a-sha256-hash',
   });
 
   assert.strictEqual(malformed.readingCaptureApiTokenHashAvailable, true);
   assert.strictEqual(malformed.readingCaptureApiCredentialReady, false);
-  assert.strictEqual(malformed.readingBridgeApiTokenHashAvailable, true);
-  assert.strictEqual(malformed.readingBridgeApiCredentialReady, false);
   assert.strictEqual(
     JSON.stringify(malformed).includes('not-a-sha256-hash'),
     false,
