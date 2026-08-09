@@ -8,6 +8,12 @@ cost. Build for that, not for production scale.
 - Full suite: `npm test` (once, before merge, never after each step)
 - Lint and build before merge
 
+## Reading capture pipeline
+- The Windows Reading bridge has no authentication by design. It runs as the logged-in user on one private machine and relies on Windows file permissions and Application Default Credentials. Do not propose tokens, endpoints, or extra auth layers for it.
+- A read-only session must never commit, push, stage, or create a branch. If it finds a needed change, it stops and reports it.
+- Any PR touching the Reading Capture pipeline must report the full `npm.cmd test` count, not the `npm run test:reading` subset.
+- `package.json` lists every test file individually. A new test file omitted from that list never runs even when the suite passes; any PR adding one must add it and confirm the suite count increased.
+
 ## Risk tiers
 
 GREEN: UI, styling, copy, docs.
