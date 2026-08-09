@@ -247,10 +247,14 @@ revision configuration.
      fields as evidence that deferred production secrets or IAM bindings exist.
    Stop if any other required safe field is absent, false, or ambiguous. Do not
    print other response content.
-8. Inspect the verified OAuth origin allowlist in application source. Require its
-   exact production hostname to equal `PRODUCTION_SERVICE_URL` and its exact
-   staging hostname to equal `STAGING_SERVICE_URL`. Require the corresponding
-   callback URLs to use the fixed callback path. Stop if either origin is stale,
+8. Inspect the verified OAuth origin allowlist in application source. Read each
+   service's complete URL set from its `run.googleapis.com/urls` annotation.
+   Require the exact production origin to be a member of the production service's
+   URL set and the exact staging origin to be a member of the staging service's
+   URL set. Cloud Run assigns more than one hostname per service and `status.url`
+   reports only one of them, so equality against `status.url` produces a false
+   mismatch. Require the corresponding callback URLs to use the fixed callback
+   path. Stop if either origin is stale,
    tagged, ambiguous, or points to the wrong service. Require read-only evidence
    or explicit operator confirmation that both exact callbacks are registered in
    Google OAuth. Never open or modify OAuth settings automatically.
