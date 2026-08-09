@@ -361,9 +361,6 @@ Require automated evidence:
 - `readingCaptureApiTokenHashAvailable` and
   `readingCaptureApiCredentialReady` are both present and exactly `true`; an
   omitted, false, malformed, partial, or ambiguous value is a staging failure;
-- `readingBridgeApiTokenHashAvailable` and
-  `readingBridgeApiCredentialReady` are both present and exactly `true`; an
-  omitted, false, malformed, partial, or ambiguous value is a staging failure;
 - production revision, configuration, and traffic unchanged.
 
 Give the user the permanent staging-service URL and require this browser checklist
@@ -421,13 +418,6 @@ approval phrase.
    either field is present, require both to be present and exactly `true`; stop
    on a partial, false, malformed, or ambiguous value. Omission is permitted only
    until production traffic is promoted to the verified candidate.
-   Independently allow the current revision to omit both
-   `readingBridgeApiTokenHashAvailable` and
-   `readingBridgeApiCredentialReady` because it may predate the bridge. If
-   either bridge field is present, require both to be present and exactly
-   `true`; stop on a partial, false, malformed, or ambiguous value. Omission is
-   permitted only until production traffic is promoted to the verified
-   candidate.
 
 Repeat this production credential preflight after the first production approval
 and immediately before deploying the no-traffic production candidate. Repeat it
@@ -508,14 +498,9 @@ Require and report only safe evidence:
 - persistent storage ready and Firestore reachable are true;
 - project and database configured booleans are true;
 - Secret Manager project/prefix configuration, required login secrets, Reading
-  Capture and Reading Bridge API credential hashes, and writable OAuth
-  configuration are ready;
+  Capture API credential hashes, and writable OAuth configuration are ready;
 - `readingCaptureApiTokenHashAvailable` and
   `readingCaptureApiCredentialReady` are both present and exactly `true`; an
-  omitted, false, malformed, partial, or ambiguous value is a production
-  failure;
-- `readingBridgeApiTokenHashAvailable` and
-  `readingBridgeApiCredentialReady` are both present and exactly `true`; an
   omitted, false, malformed, partial, or ambiguous value is a production
   failure;
 - login, dashboard, habits, Calendar, Todoist, and Obsidian checks pass where
