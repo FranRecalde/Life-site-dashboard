@@ -39,10 +39,6 @@ traffic is missing, unsafe, or ambiguous.
   `life-site-staging-reading-capture-api-token-hash`
 - Production Reading Capture hash secret:
   `life-site-prod-reading-capture-api-token-hash`
-- Staging Reading Bridge hash secret:
-  `life-site-staging-reading-bridge-api-token-hash`
-- Production Reading Bridge hash secret:
-  `life-site-prod-reading-bridge-api-token-hash`
 - Google OAuth callback path: `/api/auth/google/callback`
 
 Treat the two Cloud Run services as separate houses. Never use a traffic tag,
@@ -180,10 +176,10 @@ revision configuration.
    `PRODUCTION_FIRESTORE_ADDRESS` to that explicit pair. Require the complete
    staging and production project/database pairs and secret prefixes to differ.
 5. Require each service to use its exact fixed runtime identity. From the
-   verified source's explicit logical-key mapping, derive the ten exact
+   verified source's explicit logical-key mapping, derive the nine exact
    environment-prefixed secret identifiers. Inspect metadata only and never
    access a payload.
-   - Before staging deployment, require all ten exact staging-prefixed secret
+   - Before staging deployment, require all nine exact staging-prefixed secret
      resources, an enabled version of each, and exact secret-resource
      `roles/secretmanager.secretAccessor` for the staging runtime identity.
    - Require exact secret-resource
@@ -194,10 +190,9 @@ revision configuration.
      `life-site-staging-google-refresh-token`, and
      `life-site-staging-google-write-authorized`.
    - Forbid every write, administrative, or version-adding permission on these
-     five read-only staging secrets: `life-site-staging-username`,
+     four read-only staging secrets: `life-site-staging-username`,
      `life-site-staging-password-hash`, `life-site-staging-session-secret`,
-     `life-site-staging-reading-capture-api-token-hash`, and
-     `life-site-staging-reading-bridge-api-token-hash`.
+     and `life-site-staging-reading-capture-api-token-hash`.
    - Stop on a project-wide, production-family, cross-environment, broader,
      inherited, conditional, unexpected-identity, or ambiguous staging grant.
    - Before staging acceptance, inspect the eight non-deferred production-family
@@ -212,10 +207,9 @@ revision configuration.
      broader, project-wide, staging-family, or cross-environment grant. Defer
      complete production write-permission enforcement to the Production
      credential preflight.
-   - The exact production Reading Capture and Reading Bridge hash secrets
-     `life-site-prod-reading-capture-api-token-hash` and
-     `life-site-prod-reading-bridge-api-token-hash` remain the only pre-staging
-     production-secret exceptions. Do not require those resources, enabled
+   - The exact production Reading Capture hash secret
+     `life-site-prod-reading-capture-api-token-hash` remains the only pre-staging
+     production-secret exception. Do not require that resource, enabled
      versions, or production accessor bindings yet; do not infer that any other
      production foundation may be absent.
    Stop on a literal secret environment value, Cloud Run secret binding that
@@ -386,13 +380,13 @@ staging test report pass, and before displaying or accepting either production
 approval phrase.
 
 1. Reconfirm the exact production runtime identity. From the verified source
-   mapping, derive all ten exact `life-site-prod` secret identifiers in Secret
+   mapping, derive all nine exact `life-site-prod` secret identifiers in Secret
    Manager project `gen-lang-client-0802447346`.
-2. Inspect metadata only. Require all ten exact secret resources and an enabled
+2. Inspect metadata only. Require all nine exact secret resources and an enabled
    version of each to exist. Never access or display their payloads.
 3. Require
    `life-site-dashboard-prod@gen-lang-client-0802447346.iam.gserviceaccount.com`
-   to have exact secret-resource `roles/secretmanager.secretAccessor` on all ten
+   to have exact secret-resource `roles/secretmanager.secretAccessor` on all nine
    production secrets.
    - Require exact secret-resource
      `roles/secretmanager.secretVersionAdder` on only these five mutable
@@ -402,10 +396,9 @@ approval phrase.
      `life-site-prod-google-refresh-token`, and
      `life-site-prod-google-write-authorized`.
    - Forbid every write, administrative, or version-adding permission on these
-     five read-only production secrets: `life-site-prod-username`,
+     four read-only production secrets: `life-site-prod-username`,
      `life-site-prod-password-hash`, `life-site-prod-session-secret`,
-     `life-site-prod-reading-capture-api-token-hash`, and
-     `life-site-prod-reading-bridge-api-token-hash`.
+     and `life-site-prod-reading-capture-api-token-hash`.
    - Stop on a project-wide, staging-family, cross-environment, broader,
      inherited, conditional, unexpected-identity, or ambiguous grant.
 4. Reconfirm there is no literal value or Cloud Run secret binding for any of
