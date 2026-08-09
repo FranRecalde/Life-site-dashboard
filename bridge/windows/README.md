@@ -6,17 +6,16 @@ credential, configure Windows, or access an Obsidian vault.
 
 The worker:
 
-- opens the local Reading Capture queue and a canonical vault root from the
-  approved one-shot launcher;
+- opens the configured Firestore Reading Capture queue using Application Default
+  Credentials and a canonical vault root from the approved one-shot launcher;
 - requires each destination note to exist beneath `Literature notes/`;
 - rejects absolute paths, traversal, and canonical paths outside the vault;
 - renders each entry from the queued capture ID and capture timestamp, hashes
   LF-normalized complete entry blocks, and compares only the final 100 entries;
-- appends and flushes once, then records delivery with a receipt marker;
-- creates an exclusive, flushed capture-ID marker beside the queue after a
-  verified append; it never rewrites the queue file;
-- skips captures with existing markers while the Life Site API consumes markers
-  before every queue read or write, persists `done` status, then deletes them;
+- appends and flushes once, then creates an exclusive, flushed local
+  capture-ID marker before confirming the capture as `done` in Firestore;
+- reconciles leftover local markers before selecting a new capture, retaining a
+  marker until Firestore confirmation succeeds;
 - reports only fixed, sanitized failure codes;
 - leaves locked or sync-conflicted notes pending for the next bridge retry, and uses
   an OS-owned single-instance lock released after normal completion or crash.
@@ -37,12 +36,22 @@ Build it with:
 npm.cmd run build:reading-bridge
 ```
 
-The launcher requires absolute queue and vault paths and the exact capture ID
-approved for the rehearsal:
+The launcher requires explicit Firestore project and database IDs, an absolute
+vault path, and the exact capture ID approved for the rehearsal. It uses
+Application Default Credentials; no bearer token, secret, or public bridge
+endpoint is configured.
+
+For staging, use project `gen-lang-client-0802447346` and database
+`life-site-staging`:
 
 ```text
-node dist/reading-obsidian-bridge.cjs --queue-file C:\absolute\reading.json --vault-root C:\absolute\disposable-rehearsal-vault --expected-capture-id reading_0123456789abcdef0123456789abcdef
+node dist/reading-obsidian-bridge.cjs --firestore-project-id gen-lang-client-0802447346 --firestore-database-id life-site-staging --vault-root C:\absolute\disposable-rehearsal-vault --expected-capture-id reading_0123456789abcdef0123456789abcdef
 ```
+
+Local recovery markers are stored beneath
+`%LOCALAPPDATA%\LifeSiteDashboard\reading-bridge`. They are scoped to the
+Firestore project/database pair and are deleted only after Firestore confirms
+the capture as `done`.
 
 It refuses any capture other than `--expected-capture-id` before resolving or
 opening the vault path. Output is limited to fixed outcome/error codes, capture

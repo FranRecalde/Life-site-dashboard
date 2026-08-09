@@ -4,10 +4,12 @@ import net from 'node:net';
 import path from 'node:path';
 import { ReadingCapture } from '../../src/types';
 import { formatReadingCaptureMarkdown } from '../../server/reading/readingFormatter';
-import { ReadingService } from '../../server/reading/readingService';
+import { ReadingService, ReadingServiceError } from '../../server/reading/readingService';
 import {
   createReadingDeliveryMarker,
+  deleteReadingDeliveryMarker,
   hasReadingDeliveryMarker,
+  listReadingDeliveryMarkerIds,
 } from '../../server/storage/readingDeliveryMarkers';
 
 const CAPTURE_ID_PATTERN = /^reading_[0-9a-f]{32}$/;
@@ -227,6 +229,8 @@ export class ReadingObsidianBridge {
     if (options.expectedCaptureId !== undefined && !CAPTURE_ID_PATTERN.test(options.expectedCaptureId)) {
       throw new BridgeProtocolError('INVALID_CONFIGURATION');
     }
+    const reconciliationResult = await this.reconcileDeliveryMarkers();
+    if (reconciliationResult) return reconciliationResult;
     const captures = await this.service.listPendingCapturesForBridge();
     const capture = await this.findFirstUndeliveredCapture(captures);
     if (!capture) return { outcome: 'idle' };
@@ -247,7 +251,41 @@ export class ReadingObsidianBridge {
     } catch {
       return { outcome: 'needs_attention', captureId: capture.id, errorCode: 'APPEND_FAILED' };
     }
+    try {
+      await this.confirmMarkedCapture(capture.id);
+      deleteReadingDeliveryMarker(this.queueFile, capture.id);
+    } catch {
+      return { outcome: 'needs_attention', captureId: capture.id, errorCode: 'APPEND_FAILED' };
+    }
     return { outcome: 'delivered', captureId: capture.id, appendOutcome };
+  }
+
+  private async reconcileDeliveryMarkers(): Promise<BridgeCycleResult | null> {
+    for (const captureId of listReadingDeliveryMarkerIds(this.queueFile)) {
+      try {
+        await this.confirmMarkedCapture(captureId);
+        deleteReadingDeliveryMarker(this.queueFile, captureId);
+      } catch {
+        return { outcome: 'needs_attention', captureId, errorCode: 'APPEND_FAILED' };
+      }
+    }
+    return null;
+  }
+
+  private async confirmMarkedCapture(captureId: string): Promise<void> {
+    try {
+      await this.service.confirmDelivery(captureId);
+      return;
+    } catch (error) {
+      if (
+        !(error instanceof ReadingServiceError) ||
+        error.code !== 'invalid_capture_transition'
+      ) {
+        throw error;
+      }
+    }
+    await this.service.claimCapture(captureId);
+    await this.service.confirmDelivery(captureId);
   }
 
   private async findFirstUndeliveredCapture(
