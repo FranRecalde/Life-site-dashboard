@@ -75,6 +75,26 @@ test('capture creation uses fresh queue IDs and no idempotency payload state', a
   }
 });
 
+test('exact capture lookup returns the capture or nothing without changing it', async () => {
+  const fixture = createFixture();
+  try {
+    await createBook(fixture.service);
+    const created = await fixture.service.createCapture(captureInput);
+
+    assert.deepStrictEqual(
+      await fixture.service.getCapture(created.capture.id),
+      created.capture,
+    );
+    assert.strictEqual(
+      await fixture.service.getCapture(`reading_${'f'.repeat(32)}`),
+      null,
+    );
+    assert.strictEqual((await fixture.store.getCapture(created.capture.id))?.status, 'pending');
+  } finally {
+    fs.rmSync(fixture.directory, { recursive: true, force: true });
+  }
+});
+
 test('create-only action resolves one active book and queues every accepted request', async () => {
   const fixture = createFixture();
   try {

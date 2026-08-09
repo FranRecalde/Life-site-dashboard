@@ -130,6 +130,20 @@ export class ReadingService {
     return this.store.listCapturesForDelivery('pending');
   }
 
+  async getCapture(captureId: string): Promise<ReadingCapture | null> {
+    try {
+      return await this.requireCapture(captureId);
+    } catch (error) {
+      if (
+        error instanceof ReadingServiceError &&
+        error.code === 'capture_not_found'
+      ) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
   async createCapture(
     value: unknown,
     creatorType: ReadingCaptureCreatorType = 'life_site',
@@ -234,7 +248,7 @@ export class ReadingService {
   async claimCapture(
     captureId: string,
   ): Promise<ReadingCapture> {
-    const current = await this.getCapture(captureId);
+    const current = await this.requireCapture(captureId);
     const timestamp = this.now();
     const observedAtMs = Date.parse(timestamp);
     if (!Number.isFinite(observedAtMs)) {
@@ -295,7 +309,7 @@ export class ReadingService {
   }
 
   async confirmDelivery(captureId: string): Promise<ReadingCapture> {
-    const current = await this.getCapture(captureId);
+    const current = await this.requireCapture(captureId);
     if (current.status === 'done') return current;
     this.requireCaptureStatus(current, 'claimed');
     const observedAt = this.now();
@@ -323,7 +337,7 @@ export class ReadingService {
         'A sanitized delivery error code is required.',
       );
     }
-    const current = await this.getCapture(captureId);
+    const current = await this.requireCapture(captureId);
     if (
       current.status === 'claimed' &&
       current.deliveryAttempts.lastErrorCode === errorCode
@@ -343,7 +357,7 @@ export class ReadingService {
     return this.executeTransition(current, capture);
   }
 
-  private async getCapture(captureId: string): Promise<ReadingCapture> {
+  private async requireCapture(captureId: string): Promise<ReadingCapture> {
     const current = await this.store.getCapture(captureId);
     if (!current) {
       throw new ReadingServiceError('capture_not_found', 'Capture not found.');

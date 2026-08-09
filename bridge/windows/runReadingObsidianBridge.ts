@@ -1,6 +1,8 @@
+import crypto from 'node:crypto';
 import path from 'node:path';
-import { LocalReadingStore } from '../../server/storage/localReadingStore';
 import { ReadingService } from '../../server/reading/readingService';
+import { getFirestoreClient } from '../../server/storage/firestoreClient';
+import { FirestoreReadingStore } from '../../server/storage/firestoreReadingStore';
 import {
   BridgeCycleResult,
   BridgeProtocolError,
@@ -22,8 +24,9 @@ interface BridgeRunner {
 }
 
 export interface BridgeLauncherDependencies {
-  createService?: (queueFile: string) => ReadingService;
-  createBridge?: (service: ReadingService, vaultRoot: string, queueFile: string) => BridgeRunner;
+  createService?: (projectId: string, databaseId: string) => ReadingService;
+  createBridge?: (service: ReadingService, vaultRoot: string, markerBasePath: string) => BridgeRunner;
+  getMarkerBasePath?: (projectId: string, databaseId: string) => string;
 }
 
 function requireAbsolutePath(value: string): string {
@@ -33,8 +36,28 @@ function requireAbsolutePath(value: string): string {
   return path.resolve(value);
 }
 
+function requireIdentifier(value: string): string {
+  if (!value || value !== value.trim() || /[\u0000-\u001f\u007f]/.test(value)) {
+    throw new BridgeLauncherError('INVALID_CONFIGURATION');
+  }
+  return value;
+}
+
+function getDefaultMarkerBasePath(projectId: string, databaseId: string): string {
+  const localAppData = process.env.LOCALAPPDATA?.trim();
+  if (!localAppData || !path.isAbsolute(localAppData)) {
+    throw new BridgeLauncherError('INVALID_CONFIGURATION');
+  }
+  const identity = crypto
+    .createHash('sha256')
+    .update(`${projectId}\u0000${databaseId}`, 'utf8')
+    .digest('hex');
+  return path.join(localAppData, 'LifeSiteDashboard', 'reading-bridge', identity);
+}
+
 export async function runReadingBridgeRehearsal(
-  queueFile: string,
+  projectId: string,
+  databaseId: string,
   vaultRoot: string,
   expectedCaptureId: string,
   dependencies: BridgeLauncherDependencies = {},
@@ -42,29 +65,45 @@ export async function runReadingBridgeRehearsal(
   if (!CAPTURE_ID_PATTERN.test(expectedCaptureId)) {
     throw new BridgeLauncherError('INVALID_ARGUMENTS');
   }
-  const resolvedQueueFile = requireAbsolutePath(queueFile);
+  const resolvedProjectId = requireIdentifier(projectId);
+  const resolvedDatabaseId = requireIdentifier(databaseId);
   const resolvedVaultRoot = requireAbsolutePath(vaultRoot);
-  const service = (dependencies.createService ?? ((file) => new ReadingService(
-    new LocalReadingStore(file, { reconcileDeliveryMarkers: false }),
-  )))(resolvedQueueFile);
+  const markerBasePath = requireAbsolutePath((dependencies.getMarkerBasePath ?? getDefaultMarkerBasePath)(
+    resolvedProjectId,
+    resolvedDatabaseId,
+  ));
+  const service = (dependencies.createService ?? ((configuredProjectId, configuredDatabaseId) => new ReadingService(
+    new FirestoreReadingStore(getFirestoreClient(configuredProjectId, configuredDatabaseId)),
+  )))(resolvedProjectId, resolvedDatabaseId);
   const bridge = (dependencies.createBridge ?? ((candidate, root, file) => (
     new ReadingObsidianBridge(candidate, root, file)
-  )))(service, resolvedVaultRoot, resolvedQueueFile);
-  return withSingleInstanceLock(`${resolvedQueueFile}.lock`, () => (
+  )))(service, resolvedVaultRoot, markerBasePath);
+  return withSingleInstanceLock(`${markerBasePath}.lock`, () => (
     bridge.runOnce({ expectedCaptureId })
   ));
 }
 
-function parseArguments(args: string[]): { queueFile: string; vaultRoot: string; expectedCaptureId: string } {
+function parseArguments(args: string[]): {
+  projectId: string;
+  databaseId: string;
+  vaultRoot: string;
+  expectedCaptureId: string;
+} {
   if (
-    args.length !== 6 ||
-    args[0] !== '--queue-file' ||
-    args[2] !== '--vault-root' ||
-    args[4] !== '--expected-capture-id'
+    args.length !== 8 ||
+    args[0] !== '--firestore-project-id' ||
+    args[2] !== '--firestore-database-id' ||
+    args[4] !== '--vault-root' ||
+    args[6] !== '--expected-capture-id'
   ) {
     throw new BridgeLauncherError('INVALID_ARGUMENTS');
   }
-  return { queueFile: args[1], vaultRoot: args[3], expectedCaptureId: args[5] };
+  return {
+    projectId: args[1],
+    databaseId: args[3],
+    vaultRoot: args[5],
+    expectedCaptureId: args[7],
+  };
 }
 
 function safeErrorCode(error: unknown): string {
@@ -85,7 +124,13 @@ export async function main(
   try {
     const parsed = parseArguments(args);
     const run = dependencies.run ?? runReadingBridgeRehearsal;
-    const result = await run(parsed.queueFile, parsed.vaultRoot, parsed.expectedCaptureId, dependencies);
+    const result = await run(
+      parsed.projectId,
+      parsed.databaseId,
+      parsed.vaultRoot,
+      parsed.expectedCaptureId,
+      dependencies,
+    );
     stdout(JSON.stringify(result));
     return result.outcome === 'needs_attention' ? 2 : 0;
   } catch (error) {
