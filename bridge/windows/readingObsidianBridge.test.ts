@@ -151,6 +151,52 @@ test('deduplication hashes LF-normalized complete blocks from only the last 100 
   } finally { await fixture.cleanup(); }
 });
 
+test('a missing destination note is created when its parent folder exists', async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'life-site-reading-bridge-'));
+  const note = path.join(directory, 'Literature notes', 'Created Book.md');
+  await fs.mkdir(path.dirname(note), { recursive: true });
+  const capture = makeCapture({
+    bookTitle: 'Created Book',
+    destinationNotePath: 'Literature notes/Created Book.md',
+  });
+  try {
+    assert.strictEqual(await appendCaptureToExistingNote(directory, capture), 'appended');
+    const contents = await fs.readFile(note, 'utf8');
+    assert.match(contents, /^\n\d{12}\n# Created Book\n##### Type: Book\n##### Status: In progress\n\n<!-- life-site-reading-capture:/);
+    assert.ok(contents.endsWith(`<!-- /life-site-reading-capture:${capture.id} -->`));
+  } finally { await fs.rm(directory, { recursive: true, force: true }); }
+});
+
+test('a newly created note removes leading hashes and square brackets from its heading', async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'life-site-reading-bridge-'));
+  const note = path.join(directory, 'Literature notes', 'Safe Heading.md');
+  await fs.mkdir(path.dirname(note), { recursive: true });
+  const capture = makeCapture({
+    bookTitle: '## [El niño]',
+    destinationNotePath: 'Literature notes/Safe Heading.md',
+  });
+  try {
+    assert.strictEqual(await appendCaptureToExistingNote(directory, capture), 'appended');
+    const contents = await fs.readFile(note, 'utf8');
+    assert.match(contents, /^\n\d{12}\n# El niño\n/);
+  } finally { await fs.rm(directory, { recursive: true, force: true }); }
+});
+
+test('a missing destination note is not created when its parent folder is missing', async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'life-site-reading-bridge-'));
+  const missingParent = path.join(directory, 'Literature notes', 'Missing');
+  const note = path.join(missingParent, 'Book.md');
+  const capture = makeCapture({ destinationNotePath: 'Literature notes/Missing/Book.md' });
+  try {
+    await assert.rejects(
+      () => appendCaptureToExistingNote(directory, capture),
+      (error: unknown) => error instanceof BridgeLocalError && error.code === 'DESTINATION_NOT_FOUND',
+    );
+    await assert.rejects(() => fs.access(note), { code: 'ENOENT' });
+    await assert.rejects(() => fs.access(missingParent), { code: 'ENOENT' });
+  } finally { await fs.rm(directory, { recursive: true, force: true }); }
+});
+
 test('a hash match outside the final 100 entries does not suppress a new append', async () => {
   const capture = makeCapture();
   const entries = [formatReadingCaptureMarkdown(capture)];

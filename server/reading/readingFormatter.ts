@@ -10,6 +10,15 @@ const CAPTURE_TYPE_LABELS: Record<ReadingCapture['captureType'], string> = {
   summary: 'Summary',
 };
 
+function formatTag(tag: string): string | null {
+  const normalized = tag
+    .trim()
+    .replace(/^#/, '')
+    .replace(/\s+/g, '-')
+    .replace(/[^\p{L}\p{N}_/-]/gu, '');
+  return normalized ? `#${normalized}` : null;
+}
+
 /**
  * Pure, deterministic formatting for a future append-only bridge.
  * Phase 1 never sends this output to Obsidian.
@@ -25,8 +34,11 @@ export function formatReadingCaptureMarkdown(capture: ReadingCapture): string {
   if (capture.locator) {
     metadata.push(`- ${capture.locator.kind}: ${capture.locator.value}`);
   }
-  if (capture.bookTags.length > 0) {
-    metadata.push(`- Tags: ${capture.bookTags.join(', ')}`);
+  const tags = capture.bookTags
+    .map(formatTag)
+    .filter((tag): tag is string => tag !== null);
+  if (tags.length > 0) {
+    metadata.push(`- Tags: ${tags.join(', ')}`);
   }
 
   return [

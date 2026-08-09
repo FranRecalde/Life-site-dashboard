@@ -8,7 +8,7 @@ The worker:
 
 - opens the configured Firestore Reading Capture queue using Application Default
   Credentials and a canonical vault root from the approved one-shot launcher;
-- requires each destination note to exist beneath `Literature notes/`;
+- creates a missing destination note beneath `Literature notes/` only when its parent folder already exists; a missing parent folder is refused;
 - rejects absolute paths, traversal, and canonical paths outside the vault;
 - renders each entry from the queued capture ID and capture timestamp, hashes
   LF-normalized complete entry blocks, and compares only the final 100 entries;
