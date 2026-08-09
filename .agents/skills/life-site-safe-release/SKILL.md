@@ -225,23 +225,23 @@ revision configuration.
 6. Retrieve each permanent service URL from Cloud Run; never construct or guess
    it. Set `STAGING_SERVICE_URL` and `PRODUCTION_SERVICE_URL`.
 7. Request each service's `/api/health` and `/api/readiness` using safe GETs.
-   Require health HTTP 200. Require readiness HTTP 200, `status=ready`,
-   `firestoreReachable=true`, `persistentStorageReady=true`, configuration valid,
-   project/database configured booleans true, `secretProvider=secretmanager`,
-   `secretManagerProjectConfigured=true`, `secretNamePrefixConfigured=true`,
-   `secretConfigurationValid=true`, `requiredLoginSecretsAvailable=true`,
-   `writableOAuthSecretConfigurationReady=true`. Optional Todoist or Google
+   Require health HTTP 200. Require readiness HTTP 200 and root `status=ready`.
+   In the readiness `details` object, require `details.firestoreReachable=true`,
+   `details.persistentStorageReady=true`, `details.persistentStorageConfigurationValid=true`,
+   `details.firestoreProjectConfigured=true`, `details.firestoreDatabaseConfigured=true`,
+   `details.secretProvider=secretmanager`,
+   `details.secretManagerProjectConfigured=true`, `details.secretNamePrefixConfigured=true`,
+   `details.secretConfigurationValid=true`, `details.requiredLoginSecretsAvailable=true`,
+   `details.writableOAuthSecretConfigurationReady=true`. Optional Todoist or Google
    connection availability may be false.
    - Before staging deployment, allow the currently deployed staging revision to
-     omit both `readingCaptureApiTokenHashAvailable` and
-     `readingCaptureApiCredentialReady` because it may predate Reading Capture.
+     omit both `details.readingCaptureApiTokenHashAvailable` and
+     `details.readingCaptureApiCredentialReady` because it may predate Reading Capture.
      If either field is present, require both to be present and exactly `true`;
      stop on a partial, false, malformed, or ambiguous value.
-     Independently allow the current revision to omit both
-     `readingBridgeApiTokenHashAvailable` and
-     `readingBridgeApiCredentialReady` because it may predate the bridge. If
-     either bridge field is present, require both to be present and exactly
-     `true`; stop on a partial, false, malformed, or ambiguous value.
+     The Reading bridge has no API token by design and authenticates to Firestore
+     using Application Default Credentials, so no bridge credential readiness
+     field exists or should be expected.
    - Before staging acceptance, apply the same paired-field rule to the currently
      deployed production revision. Do not treat omitted credential-readiness
      fields as evidence that deferred production secrets or IAM bindings exist.
