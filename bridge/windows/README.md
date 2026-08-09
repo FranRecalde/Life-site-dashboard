@@ -48,7 +48,7 @@ For staging, use project `gen-lang-client-0802447346` and database
 node dist/reading-obsidian-bridge.cjs --firestore-project-id gen-lang-client-0802447346 --firestore-database-id life-site-staging --vault-root C:\absolute\disposable-rehearsal-vault --expected-capture-id reading_0123456789abcdef0123456789abcdef
 ```
 
-Local recovery markers are stored beneath
+The runner derives a local marker base path beneath
 `%LOCALAPPDATA%\LifeSiteDashboard\reading-bridge`. They are scoped to the
 Firestore project/database pair and are deleted only after Firestore confirms
 the capture as `done`.

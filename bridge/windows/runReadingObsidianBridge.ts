@@ -25,8 +25,8 @@ interface BridgeRunner {
 
 export interface BridgeLauncherDependencies {
   createService?: (projectId: string, databaseId: string) => ReadingService;
-  createBridge?: (service: ReadingService, vaultRoot: string, markerFile: string) => BridgeRunner;
-  getMarkerFile?: (projectId: string, databaseId: string) => string;
+  createBridge?: (service: ReadingService, vaultRoot: string, markerBasePath: string) => BridgeRunner;
+  getMarkerBasePath?: (projectId: string, databaseId: string) => string;
 }
 
 function requireAbsolutePath(value: string): string {
@@ -43,7 +43,7 @@ function requireIdentifier(value: string): string {
   return value;
 }
 
-function getDefaultMarkerFile(projectId: string, databaseId: string): string {
+function getDefaultMarkerBasePath(projectId: string, databaseId: string): string {
   const localAppData = process.env.LOCALAPPDATA?.trim();
   if (!localAppData || !path.isAbsolute(localAppData)) {
     throw new BridgeLauncherError('INVALID_CONFIGURATION');
@@ -68,7 +68,7 @@ export async function runReadingBridgeRehearsal(
   const resolvedProjectId = requireIdentifier(projectId);
   const resolvedDatabaseId = requireIdentifier(databaseId);
   const resolvedVaultRoot = requireAbsolutePath(vaultRoot);
-  const markerFile = requireAbsolutePath((dependencies.getMarkerFile ?? getDefaultMarkerFile)(
+  const markerBasePath = requireAbsolutePath((dependencies.getMarkerBasePath ?? getDefaultMarkerBasePath)(
     resolvedProjectId,
     resolvedDatabaseId,
   ));
@@ -77,8 +77,8 @@ export async function runReadingBridgeRehearsal(
   )))(resolvedProjectId, resolvedDatabaseId);
   const bridge = (dependencies.createBridge ?? ((candidate, root, file) => (
     new ReadingObsidianBridge(candidate, root, file)
-  )))(service, resolvedVaultRoot, markerFile);
-  return withSingleInstanceLock(`${markerFile}.lock`, () => (
+  )))(service, resolvedVaultRoot, markerBasePath);
+  return withSingleInstanceLock(`${markerBasePath}.lock`, () => (
     bridge.runOnce({ expectedCaptureId })
   ));
 }

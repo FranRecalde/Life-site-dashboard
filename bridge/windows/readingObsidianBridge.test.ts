@@ -108,7 +108,7 @@ function makeCapture(overrides: Partial<ReadingCapture> = {}): ReadingCapture {
 
 async function createFixture(initialContent = '# Book\n') {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'life-site-reading-bridge-'));
-  const markerFile = path.join(directory, 'firestore-reading-bridge');
+  const markerBasePath = path.join(directory, 'firestore-reading-bridge');
   const note = path.join(directory, 'Literature notes', 'Book.md');
   await fs.mkdir(path.dirname(note), { recursive: true });
   await fs.writeFile(note, initialContent, 'utf8');
@@ -120,22 +120,22 @@ async function createFixture(initialContent = '# Book\n') {
   const service = new ReadingService(store, () => capturedAt, () => 'book_1', createCaptureId);
   await service.createBook({ title: 'Book', author: 'Author', destinationNotePath: 'Literature notes/Book.md' });
   await service.createCapture({ bookId: 'book_1', originalText: 'A deterministic queued thought.', captureType: 'thought' });
-  return { directory, note, markerFile, store, service, cleanup: () => fs.rm(directory, { recursive: true, force: true }) };
+  return { directory, note, markerBasePath, store, service, cleanup: () => fs.rm(directory, { recursive: true, force: true }) };
 }
 
-function markerPath(markerFile: string, id = captureId): string {
-  return path.join(`${markerFile}.delivery-markers`, `${id}.delivered`);
+function markerPath(markerBasePath: string, id = captureId): string {
+  return path.join(`${markerBasePath}.delivery-markers`, `${id}.delivered`);
 }
 
 test('worker renders a deterministic timestamped block, marks delivery locally, then confirms Firestore', async () => {
   const fixture = await createFixture();
   try {
-    const bridge = new ReadingObsidianBridge(fixture.service, fixture.directory, fixture.markerFile);
+    const bridge = new ReadingObsidianBridge(fixture.service, fixture.directory, fixture.markerBasePath);
     assert.deepStrictEqual(await bridge.runOnce(), { outcome: 'delivered', captureId, appendOutcome: 'appended' });
     const note = await fs.readFile(fixture.note, 'utf8');
     assert.ok(note.includes(`## Reading capture — ${capturedAt}`));
     assert.ok(note.includes(`<!-- /life-site-reading-capture:${captureId} -->`));
-    await assert.rejects(() => fs.access(markerPath(fixture.markerFile)), { code: 'ENOENT' });
+    await assert.rejects(() => fs.access(markerPath(fixture.markerBasePath)), { code: 'ENOENT' });
     assert.deepStrictEqual(await bridge.runOnce(), { outcome: 'idle' });
     assert.strictEqual((await fixture.service.listCaptures({}))[0].status, 'done');
   } finally { await fixture.cleanup(); }
@@ -168,13 +168,13 @@ test('locked files and sync-conflicted content remain pending and are not acknow
   const conflicted = await createFixture('<<<<<<< local\n# Book\n=======\n# Book\n>>>>>>> remote\n');
   try {
     const lockedBridge = new ReadingObsidianBridge(
-      locked.service, locked.directory, locked.markerFile,
+      locked.service, locked.directory, locked.markerBasePath,
       async () => { throw Object.assign(new Error('locked'), { code: 'EBUSY' }); },
     );
     assert.deepStrictEqual(await lockedBridge.runOnce(), { outcome: 'needs_attention', captureId, errorCode: 'DESTINATION_LOCKED' });
     assert.strictEqual((await locked.service.listCaptures({}))[0].status, 'pending');
 
-    const conflictBridge = new ReadingObsidianBridge(conflicted.service, conflicted.directory, conflicted.markerFile);
+    const conflictBridge = new ReadingObsidianBridge(conflicted.service, conflicted.directory, conflicted.markerBasePath);
     assert.deepStrictEqual(await conflictBridge.runOnce(), { outcome: 'needs_attention', captureId, errorCode: 'DESTINATION_CONFLICTED' });
     assert.strictEqual((await conflicted.service.listCaptures({}))[0].status, 'pending');
   } finally { await Promise.all([locked.cleanup(), conflicted.cleanup()]); }
@@ -183,7 +183,7 @@ test('locked files and sync-conflicted content remain pending and are not acknow
 test('an API write and bridge delivery keep both captures and append only one entry', async () => {
   const fixture = await createFixture();
   try {
-    const bridge = new ReadingObsidianBridge(fixture.service, fixture.directory, fixture.markerFile);
+    const bridge = new ReadingObsidianBridge(fixture.service, fixture.directory, fixture.markerBasePath);
     const created = await Promise.all([
       bridge.runOnce(),
       fixture.service.createCapture({ bookId: 'book_1', originalText: 'Second capture created while delivery runs.', captureType: 'thought' }),
@@ -210,15 +210,15 @@ test('restart after an append before marker creation does not duplicate and reco
     const capture = (await fixture.service.listPendingCapturesForBridge())[0];
     assert.ok(capture);
     assert.strictEqual(await appendCaptureToExistingNote(fixture.directory, capture), 'appended');
-    await assert.rejects(() => fs.access(markerPath(fixture.markerFile)), { code: 'ENOENT' });
+    await assert.rejects(() => fs.access(markerPath(fixture.markerBasePath)), { code: 'ENOENT' });
 
     // A fresh service over the same in-memory store models a new bridge process.
     const restartedService = new ReadingService(fixture.store);
-    const bridge = new ReadingObsidianBridge(restartedService, fixture.directory, fixture.markerFile);
+    const bridge = new ReadingObsidianBridge(restartedService, fixture.directory, fixture.markerBasePath);
     assert.deepStrictEqual(await bridge.runOnce(), { outcome: 'delivered', captureId: capture.id, appendOutcome: 'already_present' });
     const note = await fs.readFile(fixture.note, 'utf8');
     assert.strictEqual(note.split(`<!-- life-site-reading-capture:${capture.id} -->`).length - 1, 1);
-    await assert.rejects(() => fs.access(markerPath(fixture.markerFile)), { code: 'ENOENT' });
+    await assert.rejects(() => fs.access(markerPath(fixture.markerBasePath)), { code: 'ENOENT' });
     assert.strictEqual((await fixture.service.listCaptures({}))[0].status, 'done');
   } finally { await fixture.cleanup(); }
 });
@@ -229,12 +229,52 @@ test('leftover markers are reconciled before a new capture is fetched', async ()
     const capture = (await fixture.service.listPendingCapturesForBridge())[0];
     assert.ok(capture);
     assert.strictEqual(await appendCaptureToExistingNote(fixture.directory, capture), 'appended');
-    await createReadingDeliveryMarker(fixture.markerFile, capture.id);
+    await createReadingDeliveryMarker(fixture.markerBasePath, capture.id);
 
-    const bridge = new ReadingObsidianBridge(fixture.service, fixture.directory, fixture.markerFile);
+    const bridge = new ReadingObsidianBridge(fixture.service, fixture.directory, fixture.markerBasePath);
     assert.deepStrictEqual(await bridge.runOnce(), { outcome: 'idle' });
     assert.strictEqual((await fixture.service.listCaptures({}))[0].status, 'done');
-    await assert.rejects(() => fs.access(markerPath(fixture.markerFile)), { code: 'ENOENT' });
+    await assert.rejects(() => fs.access(markerPath(fixture.markerBasePath)), { code: 'ENOENT' });
+  } finally { await fixture.cleanup(); }
+});
+
+test('a retained marker for an already done capture is removed without appending', async () => {
+  const fixture = await createFixture();
+  let confirmationCalls = 0;
+  let appendAttempted = false;
+  try {
+    const capture = (await fixture.service.listPendingCapturesForBridge())[0];
+    assert.ok(capture);
+    await fixture.service.claimCapture(capture.id);
+    await fixture.service.confirmDelivery(capture.id);
+    await createReadingDeliveryMarker(fixture.markerBasePath, capture.id);
+
+    const trackingService = new Proxy(fixture.service, {
+      get(target, property, receiver) {
+        if (property === 'confirmDelivery') {
+          return async (captureId: string) => {
+            confirmationCalls += 1;
+            return target.confirmDelivery(captureId);
+          };
+        }
+        const value = Reflect.get(target, property, receiver);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const bridge = new ReadingObsidianBridge(
+      trackingService as ReadingService,
+      fixture.directory,
+      fixture.markerBasePath,
+      async () => {
+        appendAttempted = true;
+        throw new Error('A done capture must not be appended again.');
+      },
+    );
+
+    assert.deepStrictEqual(await bridge.runOnce(), { outcome: 'idle' });
+    assert.strictEqual(confirmationCalls, 1);
+    assert.strictEqual(appendAttempted, false);
+    await assert.rejects(() => fs.access(markerPath(fixture.markerBasePath)), { code: 'ENOENT' });
   } finally { await fixture.cleanup(); }
 });
 
@@ -253,13 +293,13 @@ test('a marker remains when Firestore confirmation fails after the append', asyn
     const bridge = new ReadingObsidianBridge(
       failingService as ReadingService,
       fixture.directory,
-      fixture.markerFile,
+      fixture.markerBasePath,
     );
     assert.deepStrictEqual(await bridge.runOnce(), {
       outcome: 'needs_attention', captureId, errorCode: 'APPEND_FAILED',
     });
-    await fs.access(markerPath(fixture.markerFile));
-    assert.strictEqual((await fixture.service.listCaptures({}))[0].status, 'pending');
+    await fs.access(markerPath(fixture.markerBasePath));
+    assert.strictEqual((await fixture.service.listCaptures({}))[0].status, 'claimed');
   } finally { await fixture.cleanup(); }
 });
 
@@ -270,7 +310,7 @@ test('a different block in the note is appended and not treated as already prese
     assert.ok(capture);
     const queuedBlock = formatReadingCaptureMarkdown(capture);
     await fs.writeFile(fixture.note, `# Book\n\n${queuedBlock.replace(capture.originalText, 'A genuinely different queued thought.')}`, 'utf8');
-    const bridge = new ReadingObsidianBridge(fixture.service, fixture.directory, fixture.markerFile);
+    const bridge = new ReadingObsidianBridge(fixture.service, fixture.directory, fixture.markerBasePath);
     assert.deepStrictEqual(await bridge.runOnce(), { outcome: 'delivered', captureId: capture.id, appendOutcome: 'appended' });
     const note = await fs.readFile(fixture.note, 'utf8');
     assert.strictEqual(note.split(`<!-- life-site-reading-capture:${capture.id} -->`).length - 1, 2);
@@ -322,7 +362,7 @@ test('one-shot rehearsal refuses an unexpected capture before accessing the vaul
   let appendAttempted = false;
   try {
     const bridge = new ReadingObsidianBridge(
-      fixture.service, fixture.directory, fixture.markerFile,
+      fixture.service, fixture.directory, fixture.markerBasePath,
       async () => { appendAttempted = true; throw new Error('The vault must not be accessed for an unexpected capture.'); },
     );
     await assert.rejects(() => bridge.runOnce({ expectedCaptureId: `reading_${'b'.repeat(32)}` }), (error: unknown) => error instanceof BridgeProtocolError && error.code === 'UNEXPECTED_CAPTURE');

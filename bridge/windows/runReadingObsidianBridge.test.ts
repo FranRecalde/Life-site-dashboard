@@ -14,10 +14,10 @@ test('launcher opens the configured Firestore store and local vault paths', asyn
         events.push(`store:${projectId}:${databaseId}`);
         return {} as any;
       },
-      getMarkerFile: () => 'C:\\bridge-state\\staging',
-      createBridge: (_service, vaultRoot, markerFile) => ({
+      getMarkerBasePath: () => 'C:\\bridge-state\\staging',
+      createBridge: (_service, vaultRoot, markerBasePath) => ({
         runOnce: async (options) => {
-          events.push(`vault:${vaultRoot}:${markerFile}:${options?.expectedCaptureId}`);
+          events.push(`vault:${vaultRoot}:${markerBasePath}:${options?.expectedCaptureId}`);
           return { outcome: 'idle' };
         },
       }),

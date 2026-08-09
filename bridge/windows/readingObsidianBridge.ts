@@ -4,7 +4,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { ReadingCapture } from '../../src/types';
 import { formatReadingCaptureMarkdown } from '../../server/reading/readingFormatter';
-import { ReadingService, ReadingServiceError } from '../../server/reading/readingService';
+import { ReadingService } from '../../server/reading/readingService';
 import {
   createReadingDeliveryMarker,
   deleteReadingDeliveryMarker,
@@ -221,7 +221,7 @@ export class ReadingObsidianBridge {
   constructor(
     private readonly service: ReadingService,
     private readonly vaultRoot: string,
-    private readonly queueFile: string,
+    private readonly markerBasePath: string,
     private readonly appendCapture: typeof appendCaptureToExistingNote = appendCaptureToExistingNote,
   ) {}
 
@@ -247,13 +247,13 @@ export class ReadingObsidianBridge {
     }
 
     try {
-      await createReadingDeliveryMarker(this.queueFile, capture.id);
+      await createReadingDeliveryMarker(this.markerBasePath, capture.id);
     } catch {
       return { outcome: 'needs_attention', captureId: capture.id, errorCode: 'APPEND_FAILED' };
     }
     try {
       await this.confirmMarkedCapture(capture.id);
-      deleteReadingDeliveryMarker(this.queueFile, capture.id);
+      deleteReadingDeliveryMarker(this.markerBasePath, capture.id);
     } catch {
       return { outcome: 'needs_attention', captureId: capture.id, errorCode: 'APPEND_FAILED' };
     }
@@ -261,10 +261,10 @@ export class ReadingObsidianBridge {
   }
 
   private async reconcileDeliveryMarkers(): Promise<BridgeCycleResult | null> {
-    for (const captureId of listReadingDeliveryMarkerIds(this.queueFile)) {
+    for (const captureId of listReadingDeliveryMarkerIds(this.markerBasePath)) {
       try {
         await this.confirmMarkedCapture(captureId);
-        deleteReadingDeliveryMarker(this.queueFile, captureId);
+        deleteReadingDeliveryMarker(this.markerBasePath, captureId);
       } catch {
         return { outcome: 'needs_attention', captureId, errorCode: 'APPEND_FAILED' };
       }
@@ -273,18 +273,15 @@ export class ReadingObsidianBridge {
   }
 
   private async confirmMarkedCapture(captureId: string): Promise<void> {
-    try {
+    const capture = await this.service.getCapture(captureId);
+    if (!capture) throw new Error('Reading delivery marker references an unknown capture.');
+    if (capture.status === 'done') {
       await this.service.confirmDelivery(captureId);
       return;
-    } catch (error) {
-      if (
-        !(error instanceof ReadingServiceError) ||
-        error.code !== 'invalid_capture_transition'
-      ) {
-        throw error;
-      }
     }
-    await this.service.claimCapture(captureId);
+    if (capture.status === 'pending') {
+      await this.service.claimCapture(captureId);
+    }
     await this.service.confirmDelivery(captureId);
   }
 
@@ -292,7 +289,7 @@ export class ReadingObsidianBridge {
     captures: ReadingCapture[],
   ): Promise<ReadingCapture | null> {
     for (const capture of captures) {
-      if (!await hasReadingDeliveryMarker(this.queueFile, capture.id)) return capture;
+      if (!await hasReadingDeliveryMarker(this.markerBasePath, capture.id)) return capture;
     }
     return null;
   }
