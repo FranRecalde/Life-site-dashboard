@@ -167,6 +167,21 @@ test('a missing destination note is created when its parent folder exists', asyn
   } finally { await fs.rm(directory, { recursive: true, force: true }); }
 });
 
+test('a newly created note removes leading hashes and square brackets from its heading', async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'life-site-reading-bridge-'));
+  const note = path.join(directory, 'Literature notes', 'Safe Heading.md');
+  await fs.mkdir(path.dirname(note), { recursive: true });
+  const capture = makeCapture({
+    bookTitle: '## [El niño]',
+    destinationNotePath: 'Literature notes/Safe Heading.md',
+  });
+  try {
+    assert.strictEqual(await appendCaptureToExistingNote(directory, capture), 'appended');
+    const contents = await fs.readFile(note, 'utf8');
+    assert.match(contents, /^\n\d{12}\n# El niño\n/);
+  } finally { await fs.rm(directory, { recursive: true, force: true }); }
+});
+
 test('a missing destination note is not created when its parent folder is missing', async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'life-site-reading-bridge-'));
   const missingParent = path.join(directory, 'Literature notes', 'Missing');

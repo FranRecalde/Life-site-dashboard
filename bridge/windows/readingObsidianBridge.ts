@@ -110,6 +110,7 @@ function hashEntry(value: string): string {
 }
 
 function formatNewBookNote(bookTitle: string): string {
+  const headingTitle = bookTitle.replace(/^#+\s*/, '').replace(/[\[\]]/g, '');
   const now = new Date();
   const timestamp = [
     now.getFullYear(),
@@ -118,7 +119,7 @@ function formatNewBookNote(bookTitle: string): string {
     String(now.getHours()).padStart(2, '0'),
     String(now.getMinutes()).padStart(2, '0'),
   ].join('');
-  return `\n${timestamp}\n# ${bookTitle}\n##### Type: Book\n##### Status: In progress\n`;
+  return `\n${timestamp}\n# ${headingTitle}\n##### Type: Book\n##### Status: In progress\n`;
 }
 
 async function resolveOrCreateDestinationNote(
