@@ -109,6 +109,44 @@ function hashEntry(value: string): string {
   return crypto.createHash('sha256').update(normalizeForHash(value), 'utf8').digest('hex');
 }
 
+function formatNewBookNote(bookTitle: string): string {
+  const now = new Date();
+  const timestamp = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+    String(now.getHours()).padStart(2, '0'),
+    String(now.getMinutes()).padStart(2, '0'),
+  ].join('');
+  return `\n${timestamp}\n# ${bookTitle}\n##### Type: Book\n##### Status: In progress\n`;
+}
+
+async function resolveOrCreateDestinationNote(
+  canonicalRoot: string,
+  requestedPath: string,
+  bookTitle: string,
+): Promise<string> {
+  try {
+    return await fs.realpath(requestedPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+
+  const canonicalParent = await fs.realpath(path.dirname(requestedPath));
+  if (!isWithinRoot(canonicalRoot, canonicalParent)) {
+    throw new BridgeLocalError('UNSAFE_DESTINATION');
+  }
+  const newNotePath = path.join(canonicalParent, path.basename(requestedPath));
+  const handle = await fs.open(newNotePath, 'wx');
+  try {
+    await handle.writeFile(formatNewBookNote(bookTitle), 'utf8');
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  return fs.realpath(newNotePath);
+}
+
 function captureMarkers(captureId: string): { open: string; close: string } {
   return {
     open: `<!-- life-site-reading-capture:${captureId} -->`,
@@ -166,7 +204,11 @@ export async function appendCaptureToExistingNote(
     if (!isWithinRoot(canonicalRoot, requestedPath)) {
       throw new BridgeLocalError('UNSAFE_DESTINATION');
     }
-    const canonicalTarget = await fs.realpath(requestedPath);
+    const canonicalTarget = await resolveOrCreateDestinationNote(
+      canonicalRoot,
+      requestedPath,
+      capture.bookTitle,
+    );
     if (!isWithinRoot(canonicalRoot, canonicalTarget)) {
       throw new BridgeLocalError('UNSAFE_DESTINATION');
     }
