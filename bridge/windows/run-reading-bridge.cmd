@@ -15,8 +15,8 @@ if not exist "dist\reading-obsidian-bridge.cjs" (
   echo [%DATE% %TIME%] Bridge bundle missing. Run npm.cmd run build:reading-bridge first.
   >> "%LOG_FILE%" echo [%DATE% %TIME%] Bridge bundle missing. Run npm.cmd run build:reading-bridge first. exitCode=1
   echo [%DATE% %TIME%] exitCode=1
-  if "%QUIET%"=="0" pause
-  exit /b 1
+  set "NODE_EXIT=1"
+  goto :finish
 )
 
 set "OUTPUT_FILE=%TEMP%\life-site-reading-bridge-%RANDOM%-%RANDOM%.log"
@@ -31,5 +31,8 @@ echo [%DATE% %TIME%] exitCode=%NODE_EXIT%
 >> "%LOG_FILE%" echo [%DATE% %TIME%] exitCode=%NODE_EXIT%
 del /q "%OUTPUT_FILE%" >nul 2>&1
 
-if "%QUIET%"=="0" pause
+:finish
+if "%QUIET%"=="0" (
+  pause
+)
 endlocal & exit /b %NODE_EXIT%
