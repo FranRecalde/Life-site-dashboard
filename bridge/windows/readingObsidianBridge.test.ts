@@ -141,6 +141,58 @@ test('worker renders a deterministic timestamped block, marks delivery locally, 
   } finally { await fixture.cleanup(); }
 });
 
+test('a separator is appended between consecutive capture blocks', async () => {
+  const fixture = await createFixture();
+  const first = makeCapture();
+  const second = makeCapture({ id: `reading_${'b'.repeat(32)}`, originalText: 'A second queued thought.' });
+  try {
+    assert.strictEqual(await appendCaptureToExistingNote(fixture.directory, first), 'appended');
+    assert.strictEqual(await appendCaptureToExistingNote(fixture.directory, second), 'appended');
+    const note = await fs.readFile(fixture.note, 'utf8');
+    assert.ok(note.includes(
+      `<!-- /life-site-reading-capture:${first.id} -->\n\n---\n\n<!-- life-site-reading-capture:${second.id} -->`,
+    ));
+  } finally { await fixture.cleanup(); }
+});
+
+test('the first capture in an empty note has no separator', async () => {
+  const fixture = await createFixture('');
+  const capture = makeCapture();
+  try {
+    assert.strictEqual(await appendCaptureToExistingNote(fixture.directory, capture), 'appended');
+    assert.strictEqual(await fs.readFile(fixture.note, 'utf8'), formatReadingCaptureMarkdown(capture));
+  } finally { await fixture.cleanup(); }
+});
+
+test('the first capture in a note without previous captures has no separator', async () => {
+  const fixture = await createFixture('# Book\n');
+  const capture = makeCapture();
+  try {
+    assert.strictEqual(await appendCaptureToExistingNote(fixture.directory, capture), 'appended');
+    assert.strictEqual(
+      await fs.readFile(fixture.note, 'utf8'),
+      `# Book\n\n${formatReadingCaptureMarkdown(capture)}`,
+    );
+  } finally { await fixture.cleanup(); }
+});
+
+test('the separator remains outside each capture block comment marker pair', async () => {
+  const fixture = await createFixture();
+  const first = makeCapture();
+  const second = makeCapture({ id: `reading_${'b'.repeat(32)}`, originalText: 'A second queued thought.' });
+  try {
+    await appendCaptureToExistingNote(fixture.directory, first);
+    await appendCaptureToExistingNote(fixture.directory, second);
+    const note = await fs.readFile(fixture.note, 'utf8');
+    const firstOpen = note.indexOf(`<!-- life-site-reading-capture:${first.id} -->`);
+    const firstClose = note.indexOf(`<!-- /life-site-reading-capture:${first.id} -->`);
+    const separator = note.indexOf('\n---\n');
+    const secondOpen = note.indexOf(`<!-- life-site-reading-capture:${second.id} -->`);
+    const secondClose = note.indexOf(`<!-- /life-site-reading-capture:${second.id} -->`);
+    assert.ok(firstOpen < firstClose && firstClose < separator && separator < secondOpen && secondOpen < secondClose);
+  } finally { await fixture.cleanup(); }
+});
+
 test('drain delivers pending captures oldest first, completing each before the next', async () => {
   const fixture = await createFixture();
   const secondCaptureId = `reading_${'b'.repeat(32)}`;
