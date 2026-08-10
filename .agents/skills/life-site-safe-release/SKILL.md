@@ -450,10 +450,41 @@ gcloud run deploy life-site-dashboard \
   --async
 ```
 
-Do not include environment, secret, IAM, or traffic-tag changes. Reconcile with
-bounded read-only polling and set `PRODUCTION_CANDIDATE_REVISION` only when one
-new ready revision has the exact digest and commit label. Require existing
-production traffic and `PRODUCTION_SAFE_CONFIG_FINGERPRINT` to remain unchanged.
+Do not include environment, secret, IAM, or traffic-tag changes, except for one
+temporary tag assigned only to the named production candidate revision and
+removed after its verification. A temporary tag assignment must not alter the
+percentage split of normal production traffic; any change to that normal traffic
+split remains forbidden until the second approval phrase. Reconcile with bounded
+read-only polling and set `PRODUCTION_CANDIDATE_REVISION` only when one new ready
+revision has the exact digest and commit label. Require existing production
+traffic and `PRODUCTION_SAFE_CONFIG_FINGERPRINT` to remain unchanged.
+
+A zero-traffic candidate is retired by Cloud Run without starting a container, so
+image readiness alone does not prove the container runs against production
+configuration. After identifying `PRODUCTION_CANDIDATE_REVISION`, assign its one
+temporary tag and retrieve the resulting tagged URL. Request that tagged URL's
+`/api/health` and `/api/readiness` using safe GETs. Require health HTTP 200;
+require readiness HTTP 200 and root `status=ready`; and require the following
+readiness fields from its `details` object to have the same staging-verification
+values: `details.firestoreReachable=true`,
+`details.persistentStorageReady=true`,
+`details.persistentStorageConfigurationValid=true`,
+`details.firestoreProjectConfigured=true`,
+`details.firestoreDatabaseConfigured=true`,
+`details.secretProvider=secretmanager`,
+`details.secretManagerProjectConfigured=true`,
+`details.secretNamePrefixConfigured=true`,
+`details.secretConfigurationValid=true`,
+`details.requiredLoginSecretsAvailable=true`,
+`details.writableOAuthSecretConfigurationReady=true`,
+`details.readingCaptureApiTokenHashAvailable=true`, and
+`details.readingCaptureApiCredentialReady=true`. These Firestore fields prove
+production addressing specifically: `details.firestoreReachable`,
+`details.firestoreProjectConfigured`, and
+`details.firestoreDatabaseConfigured` must all be true. Remove the temporary
+tag after this verification, confirm its removal, and reconfirm the normal
+production traffic split and `PRODUCTION_SAFE_CONFIG_FINGERPRINT` before
+offering the second approval phrase.
 
 ## Final production traffic gate
 
