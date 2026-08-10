@@ -5,6 +5,7 @@ import { getFirestoreClient } from '../../server/storage/firestoreClient';
 import { FirestoreReadingStore } from '../../server/storage/firestoreReadingStore';
 import {
   BridgeCycleResult,
+  BridgeDrainResult,
   BridgeProtocolError,
   ReadingObsidianBridge,
   withSingleInstanceLock,
@@ -21,6 +22,7 @@ export class BridgeLauncherError extends Error {
 
 interface BridgeRunner {
   runOnce(options?: { expectedCaptureId?: string }): Promise<BridgeCycleResult>;
+  drainPendingCaptures(): Promise<BridgeDrainResult>;
 }
 
 export interface BridgeLauncherDependencies {
@@ -59,10 +61,10 @@ export async function runReadingBridgeRehearsal(
   projectId: string,
   databaseId: string,
   vaultRoot: string,
-  expectedCaptureId: string,
+  expectedCaptureId: string | undefined,
   dependencies: BridgeLauncherDependencies = {},
-): Promise<BridgeCycleResult> {
-  if (!CAPTURE_ID_PATTERN.test(expectedCaptureId)) {
+): Promise<BridgeCycleResult | BridgeDrainResult> {
+  if (expectedCaptureId !== undefined && !CAPTURE_ID_PATTERN.test(expectedCaptureId)) {
     throw new BridgeLauncherError('INVALID_ARGUMENTS');
   }
   const resolvedProjectId = requireIdentifier(projectId);
@@ -78,8 +80,10 @@ export async function runReadingBridgeRehearsal(
   const bridge = (dependencies.createBridge ?? ((candidate, root, file) => (
     new ReadingObsidianBridge(candidate, root, file)
   )))(service, resolvedVaultRoot, markerBasePath);
-  return withSingleInstanceLock(`${markerBasePath}.lock`, () => (
-    bridge.runOnce({ expectedCaptureId })
+  return withSingleInstanceLock<BridgeCycleResult | BridgeDrainResult>(`${markerBasePath}.lock`, () => (
+    expectedCaptureId === undefined
+      ? bridge.drainPendingCaptures()
+      : bridge.runOnce({ expectedCaptureId })
   ));
 }
 
@@ -87,14 +91,14 @@ function parseArguments(args: string[]): {
   projectId: string;
   databaseId: string;
   vaultRoot: string;
-  expectedCaptureId: string;
+  expectedCaptureId?: string;
 } {
   if (
-    args.length !== 8 ||
+    (args.length !== 6 && args.length !== 8) ||
     args[0] !== '--firestore-project-id' ||
     args[2] !== '--firestore-database-id' ||
     args[4] !== '--vault-root' ||
-    args[6] !== '--expected-capture-id'
+    (args.length === 8 && args[6] !== '--expected-capture-id')
   ) {
     throw new BridgeLauncherError('INVALID_ARGUMENTS');
   }
@@ -102,7 +106,7 @@ function parseArguments(args: string[]): {
     projectId: args[1],
     databaseId: args[3],
     vaultRoot: args[5],
-    expectedCaptureId: args[7],
+    expectedCaptureId: args.length === 8 ? args[7] : undefined,
   };
 }
 
@@ -131,7 +135,14 @@ export async function main(
       parsed.expectedCaptureId,
       dependencies,
     );
-    stdout(JSON.stringify(result));
+    const deliveredCaptureIds = 'deliveredCaptureIds' in result
+      ? result.deliveredCaptureIds
+      : result.outcome === 'delivered' ? [result.captureId] : [];
+    stdout(JSON.stringify({
+      ...result,
+      deliveredCount: deliveredCaptureIds.length,
+      deliveredCaptureIds,
+    }));
     return result.outcome === 'needs_attention' ? 2 : 0;
   } catch (error) {
     stderr(JSON.stringify({ outcome: 'failed', errorCode: safeErrorCode(error) }));

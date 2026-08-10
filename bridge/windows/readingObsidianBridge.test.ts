@@ -141,6 +141,77 @@ test('worker renders a deterministic timestamped block, marks delivery locally, 
   } finally { await fixture.cleanup(); }
 });
 
+test('drain delivers pending captures oldest first, completing each before the next', async () => {
+  const fixture = await createFixture();
+  const secondCaptureId = `reading_${'b'.repeat(32)}`;
+  try {
+    await fixture.service.createCapture({ bookId: 'book_1', originalText: 'Second queued thought.', captureType: 'thought' });
+    fixture.store.captures[1] = {
+      ...fixture.store.captures[1],
+      id: secondCaptureId,
+      receivedAt: '2026-07-28T12:02:00.000Z',
+      updatedAt: '2026-07-28T12:02:00.000Z',
+    };
+    const events: string[] = [];
+    const trackingService = new Proxy(fixture.service, {
+      get(target, property, receiver) {
+        if (property === 'confirmDelivery') {
+          return async (id: string) => { events.push(`confirm:${id}`); return target.confirmDelivery(id); };
+        }
+        const value = Reflect.get(target, property, receiver);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    const bridge = new ReadingObsidianBridge(
+      trackingService as ReadingService,
+      fixture.directory,
+      fixture.markerBasePath,
+      async (vaultRoot, capture) => {
+        events.push(`append:${capture.id}`);
+        return appendCaptureToExistingNote(vaultRoot, capture);
+      },
+    );
+    assert.deepStrictEqual(await bridge.drainPendingCaptures(), {
+      outcome: 'delivered', deliveredCaptureIds: [captureId, secondCaptureId],
+    });
+    assert.deepStrictEqual(events, [
+      `append:${captureId}`, `confirm:${captureId}`,
+      `append:${secondCaptureId}`, `confirm:${secondCaptureId}`,
+    ]);
+    assert.deepStrictEqual((await fixture.service.listCaptures({})).map((capture) => capture.status), ['done', 'done']);
+  } finally { await fixture.cleanup(); }
+});
+
+test('drain stops at the first failure and leaves later captures pending', async () => {
+  const fixture = await createFixture();
+  const secondCaptureId = `reading_${'b'.repeat(32)}`;
+  try {
+    await fixture.service.createCapture({ bookId: 'book_1', originalText: 'Second queued thought.', captureType: 'thought' });
+    fixture.store.captures[1] = {
+      ...fixture.store.captures[1],
+      id: secondCaptureId,
+      receivedAt: '2026-07-28T12:02:00.000Z',
+      updatedAt: '2026-07-28T12:02:00.000Z',
+    };
+    const bridge = new ReadingObsidianBridge(
+      fixture.service,
+      fixture.directory,
+      fixture.markerBasePath,
+      async (_vaultRoot, capture) => {
+        if (capture.id === captureId) throw Object.assign(new Error('locked'), { code: 'EBUSY' });
+        return appendCaptureToExistingNote(fixture.directory, capture);
+      },
+    );
+    assert.deepStrictEqual(await bridge.drainPendingCaptures(), {
+      outcome: 'needs_attention',
+      deliveredCaptureIds: [],
+      captureId,
+      errorCode: 'DESTINATION_LOCKED',
+    });
+    assert.deepStrictEqual((await fixture.service.listCaptures({})).map((capture) => capture.status), ['pending', 'pending']);
+  } finally { await fixture.cleanup(); }
+});
+
 test('deduplication hashes LF-normalized complete blocks from only the last 100 entries', async () => {
   const capture = makeCapture();
   const block = formatReadingCaptureMarkdown(capture).replace(/\n/g, '\r\n');

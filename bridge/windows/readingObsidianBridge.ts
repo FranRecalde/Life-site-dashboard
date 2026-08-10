@@ -39,6 +39,18 @@ export type BridgeCycleResult =
       errorCode: BridgeFailureCode;
     };
 
+export type BridgeDrainResult =
+  | {
+      outcome: 'idle' | 'delivered';
+      deliveredCaptureIds: string[];
+    }
+  | {
+      outcome: 'needs_attention';
+      deliveredCaptureIds: string[];
+      captureId: string;
+      errorCode: BridgeFailureCode;
+    };
+
 export class BridgeProtocolError extends Error {
   constructor(readonly code: 'INVALID_CONFIGURATION' | 'UNEXPECTED_CAPTURE') {
     super(code);
@@ -281,6 +293,31 @@ export class ReadingObsidianBridge {
       throw new BridgeProtocolError('UNEXPECTED_CAPTURE');
     }
 
+    return this.deliverCapture(capture);
+  }
+
+  async drainPendingCaptures(): Promise<BridgeDrainResult> {
+    const reconciliationResult = await this.reconcileDeliveryMarkers();
+    if (reconciliationResult) {
+      return { ...reconciliationResult, deliveredCaptureIds: [] };
+    }
+    const captures = await this.service.listPendingCapturesForBridge();
+    const deliveredCaptureIds: string[] = [];
+    for (const capture of captures) {
+      if (await hasReadingDeliveryMarker(this.markerBasePath, capture.id)) continue;
+      const result = await this.deliverCapture(capture);
+      if (result.outcome === 'needs_attention') {
+        return { ...result, deliveredCaptureIds };
+      }
+      deliveredCaptureIds.push(capture.id);
+    }
+    return {
+      outcome: deliveredCaptureIds.length === 0 ? 'idle' : 'delivered',
+      deliveredCaptureIds,
+    };
+  }
+
+  private async deliverCapture(capture: ReadingCapture): Promise<BridgeCycleResult> {
     let appendOutcome: 'appended' | 'already_present';
     try {
       appendOutcome = await this.appendCapture(this.vaultRoot, capture);
