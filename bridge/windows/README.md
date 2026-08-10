@@ -36,16 +36,17 @@ Build it with:
 npm.cmd run build:reading-bridge
 ```
 
-The launcher requires explicit Firestore project and database IDs, an absolute
-vault path, and the exact capture ID approved for the rehearsal. It uses
-Application Default Credentials; no bearer token, secret, or public bridge
-endpoint is configured.
+The launcher requires explicit Firestore project and database IDs and an
+absolute vault path. `--expected-capture-id` is optional: when present it
+delivers only that first undelivered capture; when absent it delivers all
+pending captures oldest first. It uses Application Default Credentials; no
+bearer token, secret, or public bridge endpoint is configured.
 
 For staging, use project `gen-lang-client-0802447346` and database
 `life-site-staging`:
 
 ```text
-node dist/reading-obsidian-bridge.cjs --firestore-project-id gen-lang-client-0802447346 --firestore-database-id life-site-staging --vault-root C:\absolute\disposable-rehearsal-vault --expected-capture-id reading_0123456789abcdef0123456789abcdef
+node dist/reading-obsidian-bridge.cjs --firestore-project-id gen-lang-client-0802447346 --firestore-database-id life-site-staging --vault-root C:\absolute\disposable-rehearsal-vault
 ```
 
 The runner derives a local marker base path beneath
@@ -53,11 +54,13 @@ The runner derives a local marker base path beneath
 Firestore project/database pair and are deleted only after Firestore confirms
 the capture as `done`.
 
-It refuses any capture other than `--expected-capture-id` before resolving or
-opening the vault path. Output is limited to fixed outcome/error codes, capture
-IDs, and the fixed append outcome. Destination paths, Markdown, and provider
-error details are never printed.
+When `--expected-capture-id` is supplied, it refuses any other first
+undelivered capture before resolving or opening the vault path. Output is
+limited to fixed outcome/error codes, delivered capture IDs and count, and the
+fixed append outcome. Destination paths, Markdown, and provider error details
+are never printed.
 
 An unexpected capture remains pending without being appended or receipted.
-Continuous operation, a real-vault run, and Task Scheduler remain separate
-approval gates.
+Each drained capture is appended, marked, confirmed, and then has its marker
+deleted before the next starts; a failure stops the drain. Continuous
+operation, a real-vault run, and Task Scheduler remain separate approval gates.
