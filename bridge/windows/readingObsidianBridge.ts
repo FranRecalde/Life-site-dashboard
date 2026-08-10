@@ -252,11 +252,15 @@ export async function appendCaptureToExistingNote(
           : existing.endsWith('\n')
             ? '\n'
             : '\n\n';
-      await handle.appendFile(`${separator}${markdown}`, 'utf8');
+      const captureSeparator = getLastEntryHashes(existing).length === 0
+        ? ''
+        : '---\n\n';
+      const appended = `${separator}${captureSeparator}${markdown}`;
+      await handle.appendFile(appended, 'utf8');
       await handle.sync();
 
       const finalStat = await handle.stat();
-      if (finalStat.size > MAX_NOTE_BYTES + Buffer.byteLength(markdown, 'utf8') + 2) {
+      if (finalStat.size > MAX_NOTE_BYTES + Buffer.byteLength(appended, 'utf8') + 2) {
         throw new BridgeLocalError('APPEND_FAILED');
       }
       const verified = await readOpenFile(handle, finalStat.size);
