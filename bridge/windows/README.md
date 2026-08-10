@@ -64,3 +64,13 @@ An unexpected capture remains pending without being appended or receipted.
 Each drained capture is appended, marked, confirmed, and then has its marker
 deleted before the next starts; a failure stops the drain. Continuous
 operation, a real-vault run, and Task Scheduler remain separate approval gates.
+
+## Double-click launcher
+
+`run-reading-bridge.cmd` starts the built bridge against the production Reading
+Capture queue and the configured local vault. It finds the repository root from
+its own location, writes the bridge JSON output and exit code to
+`%LOCALAPPDATA%\LifeSiteDashboard\reading-bridge\launcher.log`, and pauses when
+opened by double click. Build the bundle first with `npm.cmd run
+build:reading-bridge`; a scheduled task will call the launcher with `--quiet`
+so it does not pause.
