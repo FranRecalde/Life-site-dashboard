@@ -1,47 +1,39 @@
-# Life Site Dashboard
+# Life Site Dashboard Guardrails
 
-Private dashboard. One user, one Windows machine, low volume, low failure
-cost. Build for that, not for production scale.
+## Risk lanes
 
-## Commands
-- Scoped tests, reading pipeline: `npm run test:reading`
-- Full suite: `npm test` (once, before merge, never after each step)
-- Lint and build before merge
+### Green
 
-## Reading capture pipeline
-- The Windows Reading bridge has no authentication by design. It runs as the logged-in user on one private machine and relies on Windows file permissions and Application Default Credentials. Do not propose tokens, endpoints, or extra auth layers for it.
-- A read-only session must never commit, push, stage, or create a branch. If it finds a needed change, it stops and reports it.
-- Any PR touching the Reading Capture pipeline must report the full `npm.cmd test` count, not the `npm run test:reading` subset.
-- `package.json` lists every test file individually. A new test file omitted from that list never runs even when the suite passes; any PR adding one must add it and confirm the suite count increased.
+Read-only investigation, documentation, tests, local development-only work, and isolated UI or validation changes that do not affect production credentials, authentication, Firestore rules, infrastructure, or persisted production data.
 
-## Risk tiers
+### Amber
 
-GREEN: UI, styling, copy, docs.
-- Just do it. Test only changed files.
+Proceed without asking, but log what you did.
 
-AMBER: business logic, new routes, state shape with no live data at risk,
-and any change that REMOVES complexity while keeping the same guarantees.
-- One paragraph of intent first. Scoped tests only.
-- When removing something, state in one line what guarantee it protected
-  and what protects it now.
+- Adding a new scoped credential for this personal, single-user project.
+- Removing complexity while preserving the same guarantees.
+- Normal feature implementation.
+- Adding Firestore collections in a safe development environment.
 
-RED: adding or weakening authentication, permissions or write paths;
-migrating live data; anything touching the Obsidian append path.
-- Plan of 300 words or less, no code. Wait for my go ahead.
-- Scoped tests plus anything reading the same data. Full suite once
-  before merge.
-- Ceiling 25,000 tokens. Stop and report if you will exceed it.
+### Red
 
-If a tier feels wrong for the actual blast radius, say so and propose the
-one you think fits. Do not silently apply the heavier one.
+Stop and request explicit approval before:
 
-## Never
-- Re run tests that passed on code you have not since touched.
-- Re verify a result you already verified this session.
-- Split work into more than two pull requests without asking.
-- Load the safe release skill for feature work.
-- Write a document explaining your caution. Write three bullets.
+- Changing production authentication.
+- Changing production Firebase security rules.
+- Changing production secrets.
+- Performing destructive migrations or deletions.
+- Changing production infrastructure.
+- Replacing a major working integration.
+- Taking an irreversible production action.
 
-## Non goals
-Multi user support, concurrency handling, caching, feature flags,
-staged rollout machinery, abstraction layers with one implementation.
+Apply the higher-risk lane only to the specific files that touch it, not to the whole task. One approval covers the entire approved plan; do not re-ask for each step.
+
+## Tests
+
+Use `npm run test:reading` for the scoped reading-capture pipeline.
+
+## Non-goals
+
+- No production changes without explicit approval.
+- No destructive Firestore actions without approval.

@@ -325,3 +325,75 @@ export interface ReadingCaptureListFilter {
   status?: ReadingCaptureStatus;
   limit?: number;
 }
+
+export const SIGNAL_ROLES = [
+  'Father', 'Husband', 'Christian', 'Head of Department', 'Teacher',
+  'Business Owner', 'Writer', 'Reader', 'Aspiring School Leader',
+] as const;
+export const SIGNAL_KINDS = [
+  'Assessment', 'Curriculum', 'Staff', 'Intervention', 'CPD', 'Family', 'Finance', 'Technology',
+] as const;
+export type SignalRole = typeof SIGNAL_ROLES[number];
+export type SignalKind = typeof SIGNAL_KINDS[number];
+export type SignalItemType = 'task' | 'event' | 'information' | 'link';
+export type SignalProcessingStatus = 'received' | 'processing' | 'complete' | 'no_items' | 'failed';
+export type SignalReviewStatus = 'pending' | 'approved' | 'discarded';
+export type SignalDispatchStatus = 'not_started' | 'dispatching' | 'succeeded' | 'failed';
+
+export interface SignalCapture {
+  id: string;
+  rawText: string;
+  sourceUrl?: string;
+  sourceTitle?: string;
+  sourceType: 'selection' | 'paste';
+  capturedAt: string;
+  processingStatus: SignalProcessingStatus;
+  processingError?: string;
+  modelResponse?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SignalItem {
+  id: string;
+  captureId: string;
+  type: SignalItemType;
+  title: string;
+  summary?: string;
+  role?: SignalRole;
+  project?: string;
+  kind?: SignalKind;
+  relevance?: string;
+  dueDate?: string;
+  eventStart?: string;
+  eventEnd?: string;
+  allDay?: boolean;
+  url?: string;
+  destination: 'todoist' | 'google_calendar' | 'obsidian';
+  destinationFile?: string;
+  suggestedLabel?: string;
+  suggestedTag?: string;
+  confidence?: number;
+  sourceExcerpt: string;
+  reviewStatus: SignalReviewStatus;
+  dispatchStatus: SignalDispatchStatus;
+  dispatchError?: string;
+  destinationId?: string;
+  approvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSignalCaptureInput {
+  rawText: string;
+  sourceUrl?: string;
+  sourceTitle?: string;
+  sourceType?: 'selection' | 'paste';
+  capturedAt?: string;
+}
+
+export type UpdateSignalItemInput = Partial<Pick<SignalItem,
+  'type' | 'title' | 'summary' | 'role' | 'project' | 'kind' | 'relevance' |
+  'dueDate' | 'eventStart' | 'eventEnd' | 'allDay' | 'url' | 'destinationFile' |
+  'suggestedLabel' | 'suggestedTag' | 'confidence'
+>>;

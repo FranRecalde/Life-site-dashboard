@@ -11,7 +11,7 @@ import {
   Sparkles, 
   Settings,
   Flame,
-  BookOpen
+  BookOpen, Radio
 } from 'lucide-react';
 import { EntranceHallView } from './entranceHallTypes';
 
@@ -63,6 +63,12 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Reading Capture',
     icon: BookOpen,
     ariaLabel: 'Go to Reading Capture workspace',
+  },
+  {
+    id: 'signal',
+    label: 'Signal',
+    icon: Radio,
+    ariaLabel: 'Go to Signal review queue',
   },
   {
     id: 'thought-catcher',

@@ -5,6 +5,7 @@ export type EntranceHallView =
   | 'projects'
   | 'notes'
   | 'reading-capture'
+  | 'signal'
   | 'thought-catcher'
   | 'habits'
   | 'settings';

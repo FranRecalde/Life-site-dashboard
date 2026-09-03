@@ -5,6 +5,7 @@ import {
   SessionStore,
   HabitStore,
   ReadingStore,
+  SignalStore,
   StorageProviderType,
   SessionData,
 } from './types';
@@ -18,6 +19,7 @@ import { DualHabitStore } from './dualHabitStore';
 import { LocalReadingStore } from './localReadingStore';
 import { FirestoreReadingStore } from './firestoreReadingStore';
 import { DualReadingStore } from './dualReadingStore';
+import { DualSignalStore, FirestoreSignalStore, LocalSignalStore } from './signalStore';
 import { UserSettings } from '../../src/types';
 import {
   PersistentStorageConfiguration,
@@ -122,6 +124,7 @@ export interface Stores {
   sessions: SessionStore;
   habits: HabitStore;
   reading: ReadingStore;
+  signal: SignalStore;
   provider: StorageProviderType;
   testFirestoreConnection: () => Promise<boolean>;
 }
@@ -140,11 +143,13 @@ export function createStores(
   const HABITS_FILE = path.join(DATA_DIR, 'habits.json');
   const HABIT_ENTRIES_FILE = path.join(DATA_DIR, 'habit_entries.json');
   const READING_FILE = path.join(DATA_DIR, 'reading.json');
+  const SIGNAL_FILE = path.join(DATA_DIR, 'signal.json');
 
   const localSettings = new LocalSettingsStore(SETTINGS_FILE);
   const localSessions = new MemorySessionStore();
   const localHabits = new LocalHabitStore(HABITS_FILE, HABIT_ENTRIES_FILE);
   const localReading = new LocalReadingStore(READING_FILE);
+  const localSignal = new LocalSignalStore(SIGNAL_FILE);
 
   if (provider === 'firestore') {
     const db = getFirestoreClient(configuration.projectId!, configuration.databaseId!);
@@ -153,6 +158,7 @@ export function createStores(
       sessions: new FirestoreSessionStore(db),
       habits: new FirestoreHabitStore(db),
       reading: new FirestoreReadingStore(db),
+      signal: new FirestoreSignalStore(db),
       provider: 'firestore',
       testFirestoreConnection: () => testFirestoreConnection(db),
     };
@@ -166,6 +172,7 @@ export function createStores(
       sessions: new DualSessionStore(localSessions, new FirestoreSessionStore(db)),
       habits: new DualHabitStore(localHabits, new FirestoreHabitStore(db)),
       reading: new DualReadingStore(localReading, new FirestoreReadingStore(db)),
+      signal: new DualSignalStore(localSignal, new FirestoreSignalStore(db)),
       provider: 'dual',
       testFirestoreConnection: () => testFirestoreConnection(db),
     };
@@ -176,6 +183,7 @@ export function createStores(
       sessions: localSessions,
       habits: localHabits,
       reading: localReading,
+      signal: localSignal,
       provider: 'local',
       testFirestoreConnection: async () => false,
     };

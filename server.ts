@@ -55,6 +55,9 @@ import {
   createReadingActionRouter,
   isReadingCaptureApiTokenHashValid,
 } from './server/reading/readingActionRoutes';
+import { createOpenAIInterpreter, SignalService } from './server/signal/signalService';
+import { createSignalActionRouter, createSignalBrowserRouter } from './server/signal/signalRoutes';
+import { SignalCapture, SignalItem } from './src/types';
 
 const normalizeSecretValue = (value?: string | null): string =>
   typeof value === 'string' ? value.trim() : '';
@@ -131,6 +134,7 @@ try {
 if (resolvedStores) {
 const STORES = resolvedStores;
 const READING_SERVICE = new ReadingService(STORES.reading);
+let SIGNAL_SERVICE: SignalService;
 
 // Self-bootstrapping data directories
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -630,6 +634,42 @@ const startupValidationErrors: string[] = [];
 async function startServer() {
   await initializeSecrets();
 
+  const signalNotePath = (value?: string): string => {
+    const relative = (value || 'Inbox/Signal.md').replace(/\\/g, '/');
+    if (!relative.endsWith('.md') || relative.startsWith('/') || relative.includes('..') || /[<>:"|?*]/.test(relative)) throw new Error('Signal destination file must be a safe relative Markdown path.');
+    const target = path.resolve(VAULT_DIR, relative);
+    if (!target.startsWith(path.resolve(VAULT_DIR) + path.sep)) throw new Error('Signal destination path is outside the vault.');
+    return target;
+  };
+  const signalProvenance = (item: SignalItem, capture: SignalCapture): string => `Captured: ${capture.capturedAt}${capture.sourceUrl ? `\nSource: ${capture.sourceUrl}` : ''}\n\n${item.summary || item.title}`;
+  const dispatchSignalItem = async (item: SignalItem, capture: SignalCapture): Promise<{ destinationId?: string }> => {
+    if (item.type === 'task') {
+      const token = getTodoistToken(); if (!token) throw new Error('Todoist is not configured.');
+      const payload: Record<string, unknown> = { content: item.title, description: signalProvenance(item, capture) };
+      if (item.dueDate) payload.due_date = item.dueDate;
+      if (item.suggestedLabel) payload.labels = [item.suggestedLabel.replace(/^#/, '')];
+      const response = await fetch('https://api.todoist.com/api/v1/tasks', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!response.ok) throw new Error(`Todoist dispatch failed (${response.status}).`);
+      const created = await response.json() as { id?: string | number }; return { destinationId: created.id ? String(created.id) : undefined };
+    }
+    if (item.type === 'event') {
+      const startDate = item.eventStart || item.dueDate; if (!startDate) throw new Error('An event needs a supported date before it can be kept.');
+      const accessToken = await getGoogleAccessToken(); if (!accessToken) throw new Error('Google Calendar is not connected.');
+      const settings = await loadSettings(); const calendar = settings.calendar?.selectedCalendarIdsByContext?.personal?.[0] || settings.calendar?.selectedCalendarIds?.[0] || 'primary';
+      const endDate = item.eventEnd || startDate; const event: Record<string, unknown> = { summary: item.title, description: signalProvenance(item, capture) };
+      const end = new Date(`${endDate}T12:00:00`); end.setDate(end.getDate() + 1); event.start = { date: startDate }; event.end = { date: end.toISOString().slice(0, 10) };
+      const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendar)}/events`, { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(event) });
+      if (!response.ok) throw new Error(`Google Calendar dispatch failed (${response.status}).`);
+      const created = await response.json() as { id?: string }; return { destinationId: created.id };
+    }
+    const file = signalNotePath(item.destinationFile); fs.mkdirSync(path.dirname(file), { recursive: true });
+    const tag = item.suggestedTag ? ` ${item.suggestedTag.startsWith('#') ? item.suggestedTag : `#${item.suggestedTag}`}` : '';
+    const link = item.type === 'link' && item.url ? `\n\n${item.url}` : '';
+    fs.appendFileSync(file, `\n\n## ${item.title}${tag}\n\n${signalProvenance(item, capture)}${link}\n`);
+    return { destinationId: path.relative(VAULT_DIR, file).replace(/\\/g, '/') };
+  };
+  SIGNAL_SERVICE = new SignalService(STORES.signal, createOpenAIInterpreter(() => process.env.OPENAI_API_KEY || ''), dispatchSignalItem);
+
   const secretProviderName = getSecretProvider(SECRET_STORE_CONFIGURATION);
   const safeSecretConfiguration = getSafeSecretConfigurationStatus(SECRET_STORE_CONFIGURATION);
   const username = resolvedAuthConfig.ready ? resolvedAuthConfig.username : '';
@@ -700,6 +740,13 @@ async function startServer() {
       ),
     ),
   );
+  app.use(
+    '/api/actions/signal-captures',
+    createSignalActionRouter(
+      SIGNAL_SERVICE,
+      () => (isReadingCaptureApiTokenHashValid(readingCaptureApiTokenHash) ? readingCaptureApiTokenHash : ''),
+    ),
+  );
   app.use(express.json());
 
   // Simple custom cookie parser middleware
@@ -760,6 +807,7 @@ async function startServer() {
     authMiddleware,
     createReadingBrowserRouter(READING_SERVICE),
   );
+  app.use('/api/signal', authMiddleware, createSignalBrowserRouter(SIGNAL_SERVICE));
 
   // -------------------------------------------------------------
   // Public Routes

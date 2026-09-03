@@ -7,6 +7,7 @@ import {
   ReadingCaptureListFilter,
   ReadingCaptureStatus,
 } from '../../src/types';
+export type { SignalStore } from './signalStore';
 
 export interface SessionData {
   username: string;

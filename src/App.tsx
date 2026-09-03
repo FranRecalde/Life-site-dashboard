@@ -56,6 +56,7 @@ import { EntranceHallCard } from './components/layout/EntranceHallCard';
 import { EntranceHallDashboard } from './components/layout/EntranceHallDashboard';
 import { ObsidianErrorBox } from './components/feedback/ObsidianErrorBox';
 import { ReadingCaptureWorkspace } from './components/ReadingCaptureWorkspace';
+import { SignalWorkspace } from './components/SignalWorkspace';
 import { 
   DashboardSnapshot, 
   UserSettings, 
@@ -3366,6 +3367,10 @@ export default function App() {
 
           {entranceHallView === 'reading-capture' && (
             <ReadingCaptureWorkspace />
+          )}
+
+          {entranceHallView === 'signal' && (
+            <SignalWorkspace />
           )}
 
           {entranceHallView === 'settings' && (

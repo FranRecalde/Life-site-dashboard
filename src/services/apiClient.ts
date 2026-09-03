@@ -13,6 +13,9 @@ import {
   ReadingBook,
   ReadingCapture,
   ReadingCaptureListFilter,
+  SignalCapture,
+  SignalItem,
+  UpdateSignalItemInput,
   UpdateReadingBookInput,
 } from '../types';
 
@@ -338,5 +341,25 @@ export class ApiClient {
       },
       body: JSON.stringify(input),
     });
+  }
+
+  static async getSignalItems(): Promise<SignalItem[]> {
+    return this.request('/api/signal/items?limit=100');
+  }
+
+  static async getSignalCapture(captureId: string): Promise<SignalCapture> {
+    return this.request(`/api/signal/captures/${encodeURIComponent(captureId)}`);
+  }
+
+  static async updateSignalItem(itemId: string, input: UpdateSignalItemInput): Promise<SignalItem> {
+    return this.request(`/api/signal/items/${encodeURIComponent(itemId)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+  }
+
+  static async keepSignalItem(itemId: string): Promise<SignalItem> {
+    return this.request(`/api/signal/items/${encodeURIComponent(itemId)}/keep`, { method: 'POST' });
+  }
+
+  static async binSignalItem(itemId: string): Promise<SignalItem> {
+    return this.request(`/api/signal/items/${encodeURIComponent(itemId)}/bin`, { method: 'POST' });
   }
 }
