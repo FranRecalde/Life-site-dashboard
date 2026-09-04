@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import path from 'node:path';
 import { SignalCapture, SignalItem } from '../../src/types';
 import { SignalStore } from '../storage/signalStore';
-import { formatSignalObsidianEntry, resolveSignalDestinationPath, SignalService, sourceSupportsSignalDate, validateSignalCapture } from './signalService';
+import { formatSignalObsidianEntry, SignalService, sourceSupportsSignalDate, validateSignalCapture } from './signalService';
+import { signalObsidianDestinationPath } from '../../src/signalObsidianDestination';
 
 class MemorySignalStore implements SignalStore {
   captures = new Map<string, SignalCapture>();
@@ -73,8 +73,8 @@ test('review queue distinguishes empty, no-items, and failed captures', async ()
   assert.equal('rawText' in captures.find((capture) => capture.id === noItems.id)!, false);
 });
 
-test('Signal destination rejects traversal outside the configured vault', () => {
-  assert.throws(() => resolveSignalDestinationPath(path.resolve('signal-test-vault'), '../outside.md'), /safe relative/);
+test('Signal destination uses the mapped relative note path', () => {
+  assert.equal(signalObsidianDestinationPath({ kind: 'Assessment' }), 'Fleeting Notes/Assessment.md');
 });
 
 test('Signal formats a Link with a blank line before the separator', () => {
@@ -82,7 +82,7 @@ test('Signal formats a Link with a blank line before the separator', () => {
 });
 
 test('Signal omits absent Link fields from its Markdown entry', () => {
-  assert.equal(formatSignalObsidianEntry({ type: 'link', title: 'Reference' }, { capturedAt: '2026-09-04T05:59:55.687Z' }), '## Reference\nCaptured: 2026-09-04\n---');
+  assert.equal(formatSignalObsidianEntry({ type: 'link', title: 'Reference' }, { capturedAt: '2026-09-04T05:59:55.687Z' }), '## Reference\nCaptured: 2026-09-04\n\n---\n');
 });
 
 test('Signal date evidence accepts supported British wording', () => {

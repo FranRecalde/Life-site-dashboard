@@ -55,8 +55,9 @@ import {
   createReadingActionRouter,
   isReadingCaptureApiTokenHashValid,
 } from './server/reading/readingActionRoutes';
-import { createOpenAIInterpreter, formatSignalObsidianEntry, resolveSignalDestinationPath, SignalService } from './server/signal/signalService';
+import { createOpenAIInterpreter, formatSignalObsidianEntry, SignalService } from './server/signal/signalService';
 import { createSignalActionRouter, createSignalBrowserRouter } from './server/signal/signalRoutes';
+import { signalObsidianDestinationPath } from './src/signalObsidianDestination';
 import { SignalCapture, SignalItem } from './src/types';
 
 const normalizeSecretValue = (value?: string | null): string =>
@@ -656,7 +657,7 @@ async function startServer() {
       if (!response.ok) throw new Error(`Google Calendar dispatch failed (${response.status}).`);
       const created = await response.json() as { id?: string }; return { destinationId: created.id };
     }
-    const file = resolveSignalDestinationPath(SIGNAL_VAULT_ROOT, item.destinationFile); fs.mkdirSync(path.dirname(file), { recursive: true });
+    const file = path.resolve(SIGNAL_VAULT_ROOT, signalObsidianDestinationPath(item)); fs.mkdirSync(path.dirname(file), { recursive: true });
     const existing = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
     const separator = !existing || existing.endsWith('\n\n') ? '' : existing.endsWith('\n') ? '\n' : '\n\n';
     fs.appendFileSync(file, `${separator}${formatSignalObsidianEntry(item, capture)}\n`);
