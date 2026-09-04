@@ -18,7 +18,7 @@ Production:
 SECRET_PROVIDER=secretmanager
 SECRET_MANAGER_PROJECT_ID=gen-lang-client-0802447346
 SECRET_NAME_PREFIX=life-site-prod
-GOOGLE_CLOUD_PROJECT=gen-lang-client-0802447346
+GOOGLE_CLOUD_PROJECT=life-dashboard-502020
 FIRESTORE_DATABASE_ID=life-site-production
 ```
 

@@ -20,7 +20,8 @@ if not exist "dist\reading-obsidian-bridge.cjs" (
 )
 
 set "OUTPUT_FILE=%TEMP%\life-site-reading-bridge-%RANDOM%-%RANDOM%.log"
-node dist\reading-obsidian-bridge.cjs --firestore-project-id gen-lang-client-0802447346 --firestore-database-id life-site-production --vault-root "C:\Users\Admin\Documents\Vaults\Francisco's Vault" > "%OUTPUT_FILE%" 2>&1
+rem Production Firestore is separate from the Cloud Run and Secret Manager project.
+node dist\reading-obsidian-bridge.cjs --firestore-project-id life-dashboard-502020 --firestore-database-id life-site-production --vault-root "C:\Users\Admin\Documents\Vaults\Francisco's Vault" > "%OUTPUT_FILE%" 2>&1
 set "NODE_EXIT=%ERRORLEVEL%"
 
 for /f "usebackq delims=" %%L in ("%OUTPUT_FILE%") do (
