@@ -77,8 +77,8 @@ test('Signal destination rejects traversal outside the configured vault', () => 
   assert.throws(() => resolveSignalDestinationPath(path.resolve('signal-test-vault'), '../outside.md'), /safe relative/);
 });
 
-test('Signal formats a Link with every optional field', () => {
-  assert.equal(formatSignalObsidianEntry({ type: 'link', title: 'Ofqual guidance', summary: 'Read the new grade boundaries.', url: 'https://example.test/ofqual', role: 'Teacher', kind: 'Assessment', project: 'Year 11' }, { capturedAt: '2026-09-04T05:59:55.687Z', sourceUrl: 'https://www.facebook.com/' }), '## Ofqual guidance\nRead the new grade boundaries.\n[Ofqual guidance](https://example.test/ofqual)\nRole: Teacher | Kind: Assessment | Project: Year 11\nCaptured: 2026-09-04 from https://www.facebook.com/\n---');
+test('Signal formats a Link with a blank line before the separator', () => {
+  assert.equal(formatSignalObsidianEntry({ type: 'link', title: 'Ofqual guidance', summary: 'Read the new grade boundaries.', url: 'https://example.test/ofqual', role: 'Teacher', kind: 'Assessment', project: 'Year 11' }, { capturedAt: '2026-09-04T05:59:55.687Z', sourceUrl: 'https://www.facebook.com/' }), '## Ofqual guidance\nRead the new grade boundaries.\n[Ofqual guidance](https://example.test/ofqual)\nRole: Teacher | Kind: Assessment | Project: Year 11\nCaptured: 2026-09-04 from https://www.facebook.com/\n\n---\n');
 });
 
 test('Signal omits absent Link fields from its Markdown entry', () => {
