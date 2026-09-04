@@ -3,6 +3,7 @@ import path from 'node:path';
 import { ReadingService } from '../../server/reading/readingService';
 import { getFirestoreClient } from '../../server/storage/firestoreClient';
 import { FirestoreReadingStore } from '../../server/storage/firestoreReadingStore';
+import { LocalReadingStore } from '../../server/storage/localReadingStore';
 import {
   BridgeCycleResult,
   BridgeDrainResult,
@@ -27,6 +28,7 @@ interface BridgeRunner {
 
 export interface BridgeLauncherDependencies {
   createService?: (projectId: string, databaseId: string) => ReadingService;
+  createLocalService?: (stateFile: string) => ReadingService;
   createBridge?: (service: ReadingService, vaultRoot: string, markerBasePath: string) => BridgeRunner;
   getMarkerBasePath?: (projectId: string, databaseId: string) => string;
 }
@@ -58,25 +60,29 @@ function getDefaultMarkerBasePath(projectId: string, databaseId: string): string
 }
 
 export async function runReadingBridgeRehearsal(
-  projectId: string,
-  databaseId: string,
+  projectId: string | undefined,
+  databaseId: string | undefined,
   vaultRoot: string,
   expectedCaptureId: string | undefined,
   dependencies: BridgeLauncherDependencies = {},
+  localStorePath?: string,
 ): Promise<BridgeCycleResult | BridgeDrainResult> {
   if (expectedCaptureId !== undefined && !CAPTURE_ID_PATTERN.test(expectedCaptureId)) {
     throw new BridgeLauncherError('INVALID_ARGUMENTS');
   }
-  const resolvedProjectId = requireIdentifier(projectId);
-  const resolvedDatabaseId = requireIdentifier(databaseId);
   const resolvedVaultRoot = requireAbsolutePath(vaultRoot);
-  const markerBasePath = requireAbsolutePath((dependencies.getMarkerBasePath ?? getDefaultMarkerBasePath)(
-    resolvedProjectId,
-    resolvedDatabaseId,
+  const resolvedLocalStorePath = localStorePath === undefined ? undefined : requireAbsolutePath(localStorePath);
+  const resolvedProjectId = resolvedLocalStorePath ? undefined : requireIdentifier(projectId ?? '');
+  const resolvedDatabaseId = resolvedLocalStorePath ? undefined : requireIdentifier(databaseId ?? '');
+  const markerBasePath = resolvedLocalStorePath ?? requireAbsolutePath((dependencies.getMarkerBasePath ?? getDefaultMarkerBasePath)(
+    resolvedProjectId!,
+    resolvedDatabaseId!,
   ));
-  const service = (dependencies.createService ?? ((configuredProjectId, configuredDatabaseId) => new ReadingService(
-    new FirestoreReadingStore(getFirestoreClient(configuredProjectId, configuredDatabaseId)),
-  )))(resolvedProjectId, resolvedDatabaseId);
+  const service = resolvedLocalStorePath
+    ? (dependencies.createLocalService ?? ((stateFile) => new ReadingService(new LocalReadingStore(stateFile))))(resolvedLocalStorePath)
+    : (dependencies.createService ?? ((configuredProjectId, configuredDatabaseId) => new ReadingService(
+      new FirestoreReadingStore(getFirestoreClient(configuredProjectId, configuredDatabaseId)),
+    )))(resolvedProjectId!, resolvedDatabaseId!);
   const bridge = (dependencies.createBridge ?? ((candidate, root, file) => (
     new ReadingObsidianBridge(candidate, root, file)
   )))(service, resolvedVaultRoot, markerBasePath);
@@ -88,25 +94,28 @@ export async function runReadingBridgeRehearsal(
 }
 
 function parseArguments(args: string[]): {
-  projectId: string;
-  databaseId: string;
+  projectId?: string;
+  databaseId?: string;
   vaultRoot: string;
   expectedCaptureId?: string;
+  localStorePath?: string;
 } {
-  if (
-    (args.length !== 6 && args.length !== 8) ||
-    args[0] !== '--firestore-project-id' ||
-    args[2] !== '--firestore-database-id' ||
-    args[4] !== '--vault-root' ||
-    (args.length === 8 && args[6] !== '--expected-capture-id')
-  ) {
-    throw new BridgeLauncherError('INVALID_ARGUMENTS');
+  const allowed = new Set(['--firestore-project-id', '--firestore-database-id', '--vault-root', '--expected-capture-id', '--local-store']);
+  const values = new Map<string, string>();
+  if (args.length % 2 !== 0) throw new BridgeLauncherError('INVALID_ARGUMENTS');
+  for (let index = 0; index < args.length; index += 2) {
+    const flag = args[index]; const value = args[index + 1];
+    if (!allowed.has(flag) || !value || values.has(flag)) throw new BridgeLauncherError('INVALID_ARGUMENTS');
+    values.set(flag, value);
   }
+  const localStorePath = values.get('--local-store');
+  if (!values.get('--vault-root') || (!localStorePath && (!values.get('--firestore-project-id') || !values.get('--firestore-database-id')))) throw new BridgeLauncherError('INVALID_ARGUMENTS');
   return {
-    projectId: args[1],
-    databaseId: args[3],
-    vaultRoot: args[5],
-    expectedCaptureId: args.length === 8 ? args[7] : undefined,
+    projectId: values.get('--firestore-project-id'),
+    databaseId: values.get('--firestore-database-id'),
+    vaultRoot: values.get('--vault-root')!,
+    expectedCaptureId: values.get('--expected-capture-id'),
+    localStorePath,
   };
 }
 
@@ -134,6 +143,7 @@ export async function main(
       parsed.vaultRoot,
       parsed.expectedCaptureId,
       dependencies,
+      parsed.localStorePath,
     );
     const deliveredCaptureIds = 'deliveredCaptureIds' in result
       ? result.deliveredCaptureIds

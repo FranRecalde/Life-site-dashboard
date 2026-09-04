@@ -1,5 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { GenericDelivery } from '../../src/types';
 import { main, runReadingBridgeRehearsal } from './runReadingObsidianBridge';
 
 test('launcher opens the configured Firestore store and local vault paths', async () => {
@@ -79,8 +83,31 @@ test('launcher keeps the expected-capture-id one-shot path', async () => {
   assert.deepStrictEqual(events, [expectedCaptureId]);
 });
 
-test('launcher requires Firestore and vault arguments and sanitizes errors', async () => {
-  const stderr: string[] = [];
-  assert.strictEqual(await main([], { stderr: (line) => stderr.push(line) }), 1);
-  assert.deepStrictEqual(stderr, ['{"outcome":"failed","errorCode":"INVALID_ARGUMENTS"}']);
+test('launcher without local-store still requires both Firestore arguments', async () => {
+  for (const args of [
+    ['--vault-root', 'C:\\vault'],
+    ['--firestore-project-id', 'project', '--vault-root', 'C:\\vault'],
+    ['--firestore-database-id', 'database', '--vault-root', 'C:\\vault'],
+  ]) {
+    const stderr: string[] = [];
+    assert.strictEqual(await main(args, { stderr: (line) => stderr.push(line) }), 1);
+    assert.deepStrictEqual(stderr, ['{"outcome":"failed","errorCode":"INVALID_ARGUMENTS"}']);
+  }
+});
+
+test('local-store launcher delivers a generic entry to the local vault', async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'life-site-local-bridge-'));
+  const stateFile = path.join(directory, 'reading.json'); const vaultRoot = path.join(directory, 'vault');
+  const entry: GenericDelivery = {
+    deliveryKind: 'generic', id: `reading_${'a'.repeat(32)}`,
+    destinationNotePath: 'Fleeting Notes/Signal.md', renderedMarkdown: '## Signal\n---\n',
+    receivedAt: '2026-09-04T16:00:00.000Z', status: 'pending', deliveryAttempts: { count: 0 }, updatedAt: '2026-09-04T16:00:00.000Z',
+  };
+  try {
+    await fs.mkdir(vaultRoot, { recursive: true });
+    await fs.writeFile(stateFile, JSON.stringify({ version: 1, books: [], captures: [entry] }), 'utf8');
+    assert.strictEqual(await main(['--local-store', stateFile, '--vault-root', vaultRoot], { stdout: () => undefined }), 0);
+    assert.strictEqual(await fs.readFile(path.join(vaultRoot, 'Fleeting Notes', 'Signal.md'), 'utf8'), entry.renderedMarkdown);
+    assert.strictEqual(JSON.parse(await fs.readFile(stateFile, 'utf8')).captures[0].status, 'done');
+  } finally { await fs.rm(directory, { recursive: true, force: true }); }
 });

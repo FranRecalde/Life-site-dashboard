@@ -272,6 +272,7 @@ export interface ReadingDeliveryAttempts {
 }
 
 export interface ReadingCapture {
+  deliveryKind: 'reading';
   id: string;
   bookId: string;
   bookRevision: number;
@@ -320,6 +321,11 @@ export interface CreateReadingCaptureInput {
   locator?: ReadingCaptureLocator;
 }
 
+export interface CreateGenericDeliveryInput {
+  destinationNotePath: string;
+  renderedMarkdown: string;
+}
+
 export interface ReadingCaptureListFilter {
   bookId?: string;
   status?: ReadingCaptureStatus;
@@ -350,9 +356,25 @@ export interface SignalCapture {
   processingStatus: SignalProcessingStatus;
   processingError?: string;
   modelResponse?: string;
+  reviewAcknowledgedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
+
+export interface GenericDelivery {
+  deliveryKind: 'generic';
+  id: string;
+  destinationNotePath: string;
+  renderedMarkdown: string;
+  receivedAt: string;
+  status: ReadingCaptureStatus;
+  deliveryAttempts: ReadingDeliveryAttempts;
+  claimedAt?: string;
+  doneAt?: string;
+  updatedAt: string;
+}
+
+export type ReadingQueueEntry = ReadingCapture | GenericDelivery;
 
 export type SignalCaptureSummary = Omit<SignalCapture, 'rawText' | 'modelResponse'>;
 export type SignalReviewQueueEntry =

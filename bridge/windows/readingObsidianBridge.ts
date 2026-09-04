@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import net from 'node:net';
 import path from 'node:path';
-import { ReadingCapture } from '../../src/types';
+import { GenericDelivery, ReadingCapture, ReadingQueueEntry } from '../../src/types';
 import { formatReadingCaptureMarkdown } from '../../server/reading/readingFormatter';
 import { ReadingService } from '../../server/reading/readingService';
 import {
@@ -24,7 +24,8 @@ export type BridgeFailureCode =
   | 'DESTINATION_CONFLICTED'
   | 'DESTINATION_TOO_LARGE'
   | 'PARTIAL_CAPTURE_BLOCK'
-  | 'UNSAFE_DESTINATION';
+  | 'UNSAFE_DESTINATION'
+  | 'UNRECOGNISED_DELIVERY_KIND';
 
 export type BridgeCycleResult =
   | { outcome: 'idle' }
@@ -97,9 +98,34 @@ function validateDestinationPath(value: string): string[] {
   return segments;
 }
 
+const GENERIC_DESTINATION_ROOTS = [
+  ['Academic Year 2026', 'School Notes'],
+  ['Fleeting Notes'],
+] as const;
+
+function validateGenericDestinationPath(value: string): string[] {
+  if (
+    typeof value !== 'string' || !value || value !== value.trim() ||
+    value.includes('\\') || value.startsWith('/') || value.startsWith('//') ||
+    /^[A-Za-z]:/.test(value) || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(value) ||
+    value.includes('..') || /[\u0000-\u001f\u007f]/.test(value)
+  ) throw new BridgeLocalError('UNSAFE_DESTINATION');
+  const segments = value.split('/');
+  if (
+    !segments.at(-1)?.endsWith('.md') ||
+    segments.some((segment) => !segment || /[<>:"|?*]/.test(segment) || /[. ]$/.test(segment)) ||
+    !GENERIC_DESTINATION_ROOTS.some((root) => root.every((segment, index) => segments[index] === segment) && segments.length > root.length)
+  ) throw new BridgeLocalError('UNSAFE_DESTINATION');
+  return segments;
+}
+
 function isWithinRoot(root: string, candidate: string): boolean {
   const relative = path.relative(root, candidate);
   return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative);
+}
+
+function isWithinOrEqualRoot(root: string, candidate: string): boolean {
+  return root === candidate || isWithinRoot(root, candidate);
 }
 
 async function readOpenFile(handle: fs.FileHandle, size: number): Promise<string> {
@@ -276,6 +302,45 @@ export async function appendCaptureToExistingNote(
   }
 }
 
+export async function appendGenericDeliveryToNote(
+  vaultRoot: string,
+  entry: GenericDelivery,
+): Promise<'appended'> {
+  try {
+    if (!CAPTURE_ID_PATTERN.test(entry.id)) throw new BridgeLocalError('UNSAFE_DESTINATION');
+    const segments = validateGenericDestinationPath(entry.destinationNotePath);
+    const canonicalVault = await fs.realpath(vaultRoot);
+    const allowedSegments = GENERIC_DESTINATION_ROOTS.find((root) => root.every((segment, index) => segments[index] === segment));
+    if (!allowedSegments) throw new BridgeLocalError('UNSAFE_DESTINATION');
+    const allowedRoot = path.resolve(canonicalVault, ...allowedSegments);
+    await fs.mkdir(allowedRoot, { recursive: true });
+    const canonicalAllowedRoot = await fs.realpath(allowedRoot);
+    if (!isWithinRoot(canonicalVault, canonicalAllowedRoot)) throw new BridgeLocalError('UNSAFE_DESTINATION');
+    const requestedPath = path.resolve(canonicalVault, ...segments);
+    if (!isWithinRoot(canonicalAllowedRoot, requestedPath)) throw new BridgeLocalError('UNSAFE_DESTINATION');
+    await fs.mkdir(path.dirname(requestedPath), { recursive: true });
+    const canonicalParent = await fs.realpath(path.dirname(requestedPath));
+    if (!isWithinOrEqualRoot(canonicalAllowedRoot, canonicalParent)) throw new BridgeLocalError('UNSAFE_DESTINATION');
+    const target = path.join(canonicalParent, path.basename(requestedPath));
+    try {
+      const canonicalTarget = await fs.realpath(target);
+      if (!isWithinRoot(canonicalAllowedRoot, canonicalTarget)) throw new BridgeLocalError('UNSAFE_DESTINATION');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    const handle = await fs.open(target, 'a');
+    try {
+      await handle.appendFile(entry.renderedMarkdown, 'utf8');
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    return 'appended';
+  } catch (error) {
+    throw normalizeLocalError(error);
+  }
+}
+
 export class ReadingObsidianBridge {
   constructor(
     private readonly service: ReadingService,
@@ -290,7 +355,7 @@ export class ReadingObsidianBridge {
     }
     const reconciliationResult = await this.reconcileDeliveryMarkers();
     if (reconciliationResult) return reconciliationResult;
-    const captures = await this.service.listPendingCapturesForBridge();
+    const captures = await this.service.listPendingDeliveriesForBridge();
     const capture = await this.findFirstUndeliveredCapture(captures);
     if (!capture) return { outcome: 'idle' };
     if (options.expectedCaptureId !== undefined && capture.id !== options.expectedCaptureId) {
@@ -305,7 +370,7 @@ export class ReadingObsidianBridge {
     if (reconciliationResult) {
       return { ...reconciliationResult, deliveredCaptureIds: [] };
     }
-    const captures = await this.service.listPendingCapturesForBridge();
+    const captures = await this.service.listPendingDeliveriesForBridge();
     const deliveredCaptureIds: string[] = [];
     for (const capture of captures) {
       if (await hasReadingDeliveryMarker(this.markerBasePath, capture.id)) continue;
@@ -321,10 +386,14 @@ export class ReadingObsidianBridge {
     };
   }
 
-  private async deliverCapture(capture: ReadingCapture): Promise<BridgeCycleResult> {
+  private async deliverCapture(capture: ReadingQueueEntry): Promise<BridgeCycleResult> {
     let appendOutcome: 'appended' | 'already_present';
     try {
-      appendOutcome = await this.appendCapture(this.vaultRoot, capture);
+      appendOutcome = capture.deliveryKind === 'generic'
+        ? await appendGenericDeliveryToNote(this.vaultRoot, capture)
+        : capture.deliveryKind === 'reading'
+          ? await this.appendCapture(this.vaultRoot, capture)
+          : (() => { throw new BridgeLocalError('UNRECOGNISED_DELIVERY_KIND'); })();
     } catch (error) {
       const localError = normalizeLocalError(error);
       return { outcome: 'needs_attention', captureId: capture.id, errorCode: localError.code };
@@ -357,6 +426,16 @@ export class ReadingObsidianBridge {
   }
 
   private async confirmMarkedCapture(captureId: string): Promise<void> {
+    const generic = await this.service.getDeliveryEntry(captureId);
+    if (generic?.deliveryKind === 'generic') {
+      if (generic.status === 'done') {
+        await this.service.confirmDeliveryEntry(captureId);
+        return;
+      }
+      if (generic.status === 'pending') await this.service.claimDelivery(captureId);
+      await this.service.confirmDeliveryEntry(captureId);
+      return;
+    }
     const capture = await this.service.getCapture(captureId);
     if (!capture) throw new Error('Reading delivery marker references an unknown capture.');
     if (capture.status === 'done') {
@@ -370,8 +449,8 @@ export class ReadingObsidianBridge {
   }
 
   private async findFirstUndeliveredCapture(
-    captures: ReadingCapture[],
-  ): Promise<ReadingCapture | null> {
+    captures: ReadingQueueEntry[],
+  ): Promise<ReadingQueueEntry | null> {
     for (const capture of captures) {
       if (!await hasReadingDeliveryMarker(this.markerBasePath, capture.id)) return capture;
     }

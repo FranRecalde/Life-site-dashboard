@@ -352,6 +352,10 @@ export class ApiClient {
     return this.request(`/api/signal/captures/${encodeURIComponent(captureId)}`);
   }
 
+  static async dismissSignalCapture(captureId: string): Promise<SignalCapture> {
+    return this.request(`/api/signal/captures/${encodeURIComponent(captureId)}/dismiss`, { method: 'POST' });
+  }
+
   static async updateSignalItem(itemId: string, input: UpdateSignalItemInput): Promise<SignalItem> {
     return this.request(`/api/signal/items/${encodeURIComponent(itemId)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
   }
@@ -362,5 +366,9 @@ export class ApiClient {
 
   static async binSignalItem(itemId: string): Promise<SignalItem> {
     return this.request(`/api/signal/items/${encodeURIComponent(itemId)}/bin`, { method: 'POST' });
+  }
+
+  static async undoBinSignalItem(itemId: string): Promise<SignalItem> {
+    return this.request(`/api/signal/items/${encodeURIComponent(itemId)}/undo-bin`, { method: 'POST' });
   }
 }

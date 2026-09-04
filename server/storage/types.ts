@@ -6,6 +6,8 @@ import {
   ReadingCapture,
   ReadingCaptureListFilter,
   ReadingCaptureStatus,
+  GenericDelivery,
+  ReadingQueueEntry,
 } from '../../src/types';
 export type { SignalStore } from './signalStore';
 
@@ -56,11 +58,11 @@ export interface CaptureTransitionCommand {
   captureId: string;
   expectedStatus: ReadingCaptureStatus;
   expectedUpdatedAt: string;
-  capture: ReadingCapture;
+  capture: ReadingQueueEntry;
 }
 
 export type CaptureTransitionResult =
-  | { outcome: 'updated'; capture: ReadingCapture }
+  | { outcome: 'updated'; capture: ReadingQueueEntry }
   | { outcome: 'not_found' }
   | { outcome: 'state_conflict' };
 
@@ -76,9 +78,10 @@ export interface ReadingStore {
   listCaptures(filter?: ReadingCaptureListFilter): Promise<ReadingCapture[]>;
   listCapturesForDelivery(
     status: 'pending' | 'claimed',
-  ): Promise<ReadingCapture[]>;
-  getCapture(id: string): Promise<ReadingCapture | null>;
+  ): Promise<ReadingQueueEntry[]>;
+  getCapture(id: string): Promise<ReadingQueueEntry | null>;
   createCapture(command: CaptureCreateCommand): Promise<CaptureCreateResult>;
+  createGenericDelivery(entry: GenericDelivery): Promise<GenericDelivery>;
   transitionCapture(command: CaptureTransitionCommand): Promise<CaptureTransitionResult>;
 }
 

@@ -1,4 +1,4 @@
-import { ReadingCapture } from '../../src/types';
+import { ReadingCapture, ReadingQueueEntry } from '../../src/types';
 
 type LegacyReadingCapture = Omit<ReadingCapture, 'status'> & {
   status: ReadingCapture['status'] | 'in_progress' | 'delivered' | 'needs_attention';
@@ -23,6 +23,7 @@ export function normalizeReadingCaptureState(
   if (legacy.status === 'in_progress') {
     return {
       ...current,
+      deliveryKind: 'reading',
       status: 'claimed',
       claimedAt: deliveryLease?.acquiredAt ?? legacy.updatedAt,
     };
@@ -30,6 +31,7 @@ export function normalizeReadingCaptureState(
   if (legacy.status === 'delivered') {
     return {
       ...current,
+      deliveryKind: 'reading',
       status: 'done',
       claimedAt: undefined,
       doneAt: deliveredAt ?? legacy.updatedAt,
@@ -38,10 +40,19 @@ export function normalizeReadingCaptureState(
   if (legacy.status === 'needs_attention') {
     return {
       ...current,
+      deliveryKind: 'reading',
       status: 'done',
       claimedAt: undefined,
       doneAt: legacy.updatedAt,
     };
   }
-  return current as ReadingCapture;
+  return { ...current, deliveryKind: 'reading' } as ReadingCapture;
+}
+
+export function normalizeReadingQueueEntryState(
+  entry: ReadingQueueEntry,
+): ReadingQueueEntry {
+  return entry.deliveryKind === 'generic'
+    ? entry
+    : normalizeReadingCaptureState(entry);
 }

@@ -11,6 +11,7 @@ function tagsLineFor(tag: string): string | undefined {
 
 function makeCapture(bookTags: string[]): ReadingCapture {
   return {
+    deliveryKind: 'reading',
     id: `reading_${'a'.repeat(32)}`,
     bookId: 'book_1',
     bookRevision: 1,

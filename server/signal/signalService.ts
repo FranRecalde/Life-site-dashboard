@@ -55,7 +55,7 @@ export function formatSignalObsidianEntry(item: Pick<SignalItem, 'type' | 'title
   if (item.type === 'link' && item.url) lines.push(`[${item.title}](${item.url})`);
   const metadata = [item.role && `Role: ${item.role}`, item.kind && `Kind: ${item.kind}`, item.project && `Project: ${item.project}`].filter(Boolean);
   if (metadata.length) lines.push(metadata.join(' | '));
-  lines.push(`Captured: ${capture.capturedAt.slice(0, 10)}${capture.sourceUrl ? ` from ${capture.sourceUrl}` : ''}`, '---');
+  lines.push(`Captured: ${capture.capturedAt.slice(0, 10)}${capture.sourceUrl ? ` from ${capture.sourceUrl}` : ''}`, '', '---');
   return `${lines.join('\n')}\n`;
 }
 

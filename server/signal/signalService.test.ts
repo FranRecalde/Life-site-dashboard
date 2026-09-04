@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import path from 'node:path';
-import { SignalCapture, SignalItem } from '../../src/types';
+import { SIGNAL_ROLES, SignalCapture, SignalItem } from '../../src/types';
 import { SignalStore } from '../storage/signalStore';
-import { formatSignalObsidianEntry, resolveSignalDestinationPath, SignalService, sourceSupportsSignalDate, validateSignalCapture } from './signalService';
+import { formatSignalObsidianEntry, queueSignalObsidianDelivery, SignalService, signalObsidianDestinationPath, sourceSupportsSignalDate, validateSignalCapture } from './signalService';
 
 class MemorySignalStore implements SignalStore {
   captures = new Map<string, SignalCapture>();
@@ -15,7 +14,7 @@ class MemorySignalStore implements SignalStore {
   async getItem(id: string) { const item = this.items.get(id); return item ? structuredClone(item) : null; }
   async updateItem(item: SignalItem) { this.items.set(item.id, structuredClone(item)); }
   async listPendingItems(limit: number): Promise<SignalItem[]> { return [...this.items.values()].filter((x) => x.reviewStatus === 'pending').sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit).map((item) => structuredClone(item)); }
-  async listReviewCaptures(limit: number): Promise<SignalCapture[]> { return [...this.captures.values()].filter((x) => x.processingStatus === 'failed' || x.processingStatus === 'no_items').sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit).map((capture) => structuredClone(capture)); }
+  async listReviewCaptures(limit: number): Promise<SignalCapture[]> { return [...this.captures.values()].filter((x) => x.processingStatus === 'failed' || (x.processingStatus === 'no_items' && !x.reviewAcknowledgedAt)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit).map((capture) => structuredClone(capture)); }
 }
 
 test('Signal stores zero-or-many model items and never dispatches while processing', async () => {
@@ -47,6 +46,40 @@ test('Bin cannot call a destination and Keep dispatches only the edited item', a
   assert.equal(dispatchedTitle, 'Corrected reference');
 });
 
+test('dismissing a zero-result capture keeps its record but removes it after refresh', async () => {
+  const store = new MemorySignalStore(); let dispatches = 0;
+  const service = new SignalService(store, async () => ({ items: [] }), async () => { dispatches += 1; return {}; }, () => '2026-09-01T09:00:00.000Z');
+  const capture = await service.createCapture({ rawText: 'Nothing useful.' }); await service.processCapture(capture.id);
+  assert.equal((await service.listReviewQueue()).length, 1);
+  await service.dismissNoItemsCapture(capture.id);
+  assert.equal((await service.getCapture(capture.id)).rawText, 'Nothing useful.');
+  assert.ok((await service.getCapture(capture.id)).reviewAcknowledgedAt);
+  const refreshedService = new SignalService(store, async () => ({ items: [] }), async () => { dispatches += 1; return {}; });
+  assert.equal((await refreshedService.listReviewQueue()).length, 0);
+  assert.equal(dispatches, 0);
+});
+
+test('undoing Bin restores edited pending items without dispatching, while after five seconds no Undo leaves them binned', async () => {
+  const store = new MemorySignalStore(); let dispatches = 0;
+  let now = Date.parse('2026-09-01T09:00:00.000Z');
+  const service = new SignalService(store, async () => ({ items: [{ type: 'information', title: 'Original', summary: 'Before edit', sourceExcerpt: 'Original' }] }), async () => { dispatches += 1; return {}; }, () => new Date(now).toISOString());
+  const capture = await service.createCapture({ rawText: 'Original' }); await service.processCapture(capture.id);
+  const [item] = await service.listPending();
+  await service.updateItem(item.id, { title: 'Edited title', summary: 'Edited summary' });
+  await service.discardItem(item.id);
+  assert.equal((await service.listPending()).length, 0);
+  const restored = await service.undoDiscardItem(item.id);
+  assert.equal(restored.reviewStatus, 'pending');
+  assert.equal(restored.title, 'Edited title');
+  assert.equal(restored.summary, 'Edited summary');
+  assert.equal(dispatches, 0);
+  await service.discardItem(item.id);
+  now += 5_001;
+  assert.equal((await service.getCapture(capture.id)).id, capture.id);
+  assert.equal((await store.getItem(item.id))?.reviewStatus, 'discarded');
+  assert.equal(dispatches, 0);
+});
+
 test('capture validation rejects malformed browser payloads', () => {
   assert.throws(() => validateSignalCapture({ rawText: '' }), /rawText/);
   assert.throws(() => validateSignalCapture({ rawText: 'ok', unexpected: true }), /unsupported/);
@@ -73,16 +106,44 @@ test('review queue distinguishes empty, no-items, and failed captures', async ()
   assert.equal('rawText' in captures.find((capture) => capture.id === noItems.id)!, false);
 });
 
-test('Signal destination rejects traversal outside the configured vault', () => {
-  assert.throws(() => resolveSignalDestinationPath(path.resolve('signal-test-vault'), '../outside.md'), /safe relative/);
+test('Signal role and kind select one permitted queue destination', () => {
+  const expectedRoots: Record<(typeof SIGNAL_ROLES)[number], string> = {
+    Father: 'Fleeting Notes', Husband: 'Fleeting Notes', Christian: 'Fleeting Notes',
+    'Head of Department': 'Academic Year 2026/School Notes', Teacher: 'Academic Year 2026/School Notes',
+    'Business Owner': 'Fleeting Notes', Writer: 'Fleeting Notes', Reader: 'Fleeting Notes',
+    'Aspiring School Leader': 'Academic Year 2026/School Notes',
+  };
+  for (const role of SIGNAL_ROLES) assert.equal(signalObsidianDestinationPath({ role, kind: 'Assessment' }), `${expectedRoots[role]}/Assessment.md`);
+  assert.equal(signalObsidianDestinationPath({ kind: 'Assessment' }), 'Fleeting Notes/Assessment.md');
+  assert.equal(signalObsidianDestinationPath({}), 'Fleeting Notes/Uncategorised.md');
 });
 
-test('Signal formats a Link with every optional field', () => {
-  assert.equal(formatSignalObsidianEntry({ type: 'link', title: 'Ofqual guidance', summary: 'Read the new grade boundaries.', url: 'https://example.test/ofqual', role: 'Teacher', kind: 'Assessment', project: 'Year 11' }, { capturedAt: '2026-09-04T05:59:55.687Z', sourceUrl: 'https://www.facebook.com/' }), '## Ofqual guidance\nRead the new grade boundaries.\n[Ofqual guidance](https://example.test/ofqual)\nRole: Teacher | Kind: Assessment | Project: Year 11\nCaptured: 2026-09-04 from https://www.facebook.com/\n---');
+test('Signal formats a Link with a blank line before the separator', () => {
+  assert.equal(formatSignalObsidianEntry({ type: 'link', title: 'Ofqual guidance', summary: 'Read the new grade boundaries.', url: 'https://example.test/ofqual', role: 'Teacher', kind: 'Assessment', project: 'Year 11' }, { capturedAt: '2026-09-04T05:59:55.687Z', sourceUrl: 'https://www.facebook.com/' }), '## Ofqual guidance\nRead the new grade boundaries.\n[Ofqual guidance](https://example.test/ofqual)\nRole: Teacher | Kind: Assessment | Project: Year 11\nCaptured: 2026-09-04 from https://www.facebook.com/\n\n---\n');
 });
 
 test('Signal omits absent Link fields from its Markdown entry', () => {
-  assert.equal(formatSignalObsidianEntry({ type: 'link', title: 'Reference' }, { capturedAt: '2026-09-04T05:59:55.687Z' }), '## Reference\nCaptured: 2026-09-04\n---');
+  assert.equal(formatSignalObsidianEntry({ type: 'link', title: 'Reference' }, { capturedAt: '2026-09-04T05:59:55.687Z' }), '## Reference\nCaptured: 2026-09-04\n\n---\n');
+});
+
+test('Signal Keep queues one generic delivery and consecutive bodies remain separate', async () => {
+  const store = new MemorySignalStore(); const queued: Array<{ destinationNotePath: string; renderedMarkdown: string }> = [];
+  const queue = { async createGenericDelivery(input: { destinationNotePath: string; renderedMarkdown: string }) { queued.push(input); return { id: `reading_${queued.length}` }; } };
+  const service = new SignalService(store, async () => ({ items: [{ type: 'link', title: 'First', summary: 'Summary', url: 'https://example.test/first', role: 'Teacher', kind: 'Assessment', sourceExcerpt: 'First' }, { type: 'information', title: 'Second', role: 'Teacher', kind: 'Assessment', sourceExcerpt: 'Second' }] }), (item, capture) => queueSignalObsidianDelivery(queue, item, capture), () => '2026-09-04T05:59:55.687Z');
+  const capture = await service.createCapture({ rawText: 'First and Second', sourceUrl: 'https://example.test' }); await service.processCapture(capture.id);
+  for (const item of await service.listPending()) await service.approveItem(item.id);
+  assert.deepEqual(queued[0], { destinationNotePath: 'Academic Year 2026/School Notes/Assessment.md', renderedMarkdown: '## First\nSummary\n[First](https://example.test/first)\nRole: Teacher | Kind: Assessment\nCaptured: 2026-09-04 from https://example.test\n\n---\n' });
+  assert.equal(queued[1].destinationNotePath, queued[0].destinationNotePath);
+  assert.match(queued.map((entry) => entry.renderedMarkdown).join(''), /---\n## /);
+  assert.ok(queued.every((entry) => entry.renderedMarkdown.endsWith('\n')));
+});
+
+test('Signal Bin never queues an Obsidian delivery', async () => {
+  const store = new MemorySignalStore(); let queued = 0;
+  const service = new SignalService(store, async () => ({ items: [{ type: 'information', title: 'Reference', sourceExcerpt: 'Reference' }] }), async () => { queued += 1; return { destinationId: 'reading_1' }; });
+  const capture = await service.createCapture({ rawText: 'Reference' }); await service.processCapture(capture.id);
+  await service.discardItem((await service.listPending())[0].id);
+  assert.equal(queued, 0);
 });
 
 test('Signal date evidence accepts supported British wording', () => {
