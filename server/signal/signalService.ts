@@ -23,6 +23,16 @@ export function resolveSignalDestinationPath(vaultRoot: string, value?: string):
   return target;
 }
 
+export function formatSignalObsidianEntry(item: Pick<SignalItem, 'type' | 'title' | 'summary' | 'url' | 'role' | 'kind' | 'project'>, capture: Pick<SignalCapture, 'capturedAt' | 'sourceUrl'>): string {
+  const lines = [`## ${item.title}`];
+  if (item.summary && item.summary !== item.title) lines.push(item.summary);
+  if (item.type === 'link' && item.url) lines.push(`[${item.title}](${item.url})`);
+  const metadata = [item.role && `Role: ${item.role}`, item.kind && `Kind: ${item.kind}`, item.project && `Project: ${item.project}`].filter(Boolean);
+  if (metadata.length) lines.push(metadata.join(' | '));
+  lines.push(`Captured: ${capture.capturedAt.slice(0, 10)}${capture.sourceUrl ? ` from ${capture.sourceUrl}` : ''}`, '---');
+  return lines.join('\n');
+}
+
 export class SignalError extends Error {
   constructor(readonly code: string, message: string, readonly status = 400) { super(message); }
 }

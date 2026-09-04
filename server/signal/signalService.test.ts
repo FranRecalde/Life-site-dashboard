@@ -3,7 +3,7 @@ import test from 'node:test';
 import path from 'node:path';
 import { SignalCapture, SignalItem } from '../../src/types';
 import { SignalStore } from '../storage/signalStore';
-import { resolveSignalDestinationPath, SignalService, validateSignalCapture } from './signalService';
+import { formatSignalObsidianEntry, resolveSignalDestinationPath, SignalService, validateSignalCapture } from './signalService';
 
 class MemorySignalStore implements SignalStore {
   captures = new Map<string, SignalCapture>();
@@ -75,4 +75,12 @@ test('review queue distinguishes empty, no-items, and failed captures', async ()
 
 test('Signal destination rejects traversal outside the configured vault', () => {
   assert.throws(() => resolveSignalDestinationPath(path.resolve('signal-test-vault'), '../outside.md'), /safe relative/);
+});
+
+test('Signal formats a Link with every optional field', () => {
+  assert.equal(formatSignalObsidianEntry({ type: 'link', title: 'Ofqual guidance', summary: 'Read the new grade boundaries.', url: 'https://example.test/ofqual', role: 'Teacher', kind: 'Assessment', project: 'Year 11' }, { capturedAt: '2026-09-04T05:59:55.687Z', sourceUrl: 'https://www.facebook.com/' }), '## Ofqual guidance\nRead the new grade boundaries.\n[Ofqual guidance](https://example.test/ofqual)\nRole: Teacher | Kind: Assessment | Project: Year 11\nCaptured: 2026-09-04 from https://www.facebook.com/\n---');
+});
+
+test('Signal omits absent Link fields from its Markdown entry', () => {
+  assert.equal(formatSignalObsidianEntry({ type: 'link', title: 'Reference' }, { capturedAt: '2026-09-04T05:59:55.687Z' }), '## Reference\nCaptured: 2026-09-04\n---');
 });

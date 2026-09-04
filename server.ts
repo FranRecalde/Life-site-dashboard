@@ -55,7 +55,7 @@ import {
   createReadingActionRouter,
   isReadingCaptureApiTokenHashValid,
 } from './server/reading/readingActionRoutes';
-import { createOpenAIInterpreter, resolveSignalDestinationPath, SignalService } from './server/signal/signalService';
+import { createOpenAIInterpreter, formatSignalObsidianEntry, resolveSignalDestinationPath, SignalService } from './server/signal/signalService';
 import { createSignalActionRouter, createSignalBrowserRouter } from './server/signal/signalRoutes';
 import { SignalCapture, SignalItem } from './src/types';
 
@@ -657,10 +657,10 @@ async function startServer() {
       const created = await response.json() as { id?: string }; return { destinationId: created.id };
     }
     const file = resolveSignalDestinationPath(SIGNAL_VAULT_ROOT, item.destinationFile); fs.mkdirSync(path.dirname(file), { recursive: true });
-    const tag = item.suggestedTag ? ` ${item.suggestedTag.startsWith('#') ? item.suggestedTag : `#${item.suggestedTag}`}` : '';
-    const link = item.type === 'link' && item.url ? `\n\n${item.url}` : '';
-    fs.appendFileSync(file, `\n\n## ${item.title}${tag}\n\n${signalProvenance(item, capture)}${link}\n`);
-    return { destinationId: path.relative(VAULT_DIR, file).replace(/\\/g, '/') };
+    const existing = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+    const separator = !existing || existing.endsWith('\n\n') ? '' : existing.endsWith('\n') ? '\n' : '\n\n';
+    fs.appendFileSync(file, `${separator}${formatSignalObsidianEntry(item, capture)}\n`);
+    return { destinationId: path.relative(SIGNAL_VAULT_ROOT, file).replace(/\\/g, '/') };
   };
   SIGNAL_SERVICE = new SignalService(STORES.signal, createOpenAIInterpreter(() => process.env.OPENAI_API_KEY || ''), dispatchSignalItem);
 
