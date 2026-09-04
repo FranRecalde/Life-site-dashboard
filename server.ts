@@ -207,6 +207,7 @@ const defaultSettings: UserSettings = {
 
 // Default Secrets values
 type Secrets = {
+  openaiApiKey: string;
   todoistToken: string;
   googleClientId: string;
   googleClientSecret: string;
@@ -217,6 +218,7 @@ type Secrets = {
 };
 
 const defaultSecrets: Secrets = {
+  openaiApiKey: '',
   todoistToken: '',
   googleClientId: '',
   googleClientSecret: '',
@@ -281,6 +283,7 @@ async function initializeSecrets() {
   const username = normalizeSecretValue(await getSafeSecret('LIFE_SITE_USERNAME'));
   const passwordHash = normalizeSecretValue(await getSafeSecret('LIFE_SITE_PASSWORD_HASH'));
   const sessionSecret = normalizeSecretValue(await getSafeSecret('SESSION_SECRET'));
+  const openaiApiKey = normalizeSecretValue(await getSafeSecret('OPENAI_API_KEY'));
   const todoistToken = normalizeSecretValue(await getSafeSecret('TODOIST_API_TOKEN'));
   const googleClientId = normalizeSecretValue(await getSafeSecret('GOOGLE_CLIENT_ID'));
   const googleClientSecret = normalizeSecretValue(await getSafeSecret('GOOGLE_CLIENT_SECRET'));
@@ -290,6 +293,7 @@ async function initializeSecrets() {
     await getSafeSecret('READING_CAPTURE_API_TOKEN_HASH'),
   );
 
+  cachedSecrets.openaiApiKey = openaiApiKey;
   cachedSecrets.todoistToken = todoistToken;
   cachedSecrets.googleClientId = googleClientId;
   cachedSecrets.googleClientSecret = googleClientSecret;
@@ -657,7 +661,7 @@ async function startServer() {
     }
     return queueSignalObsidianDelivery(READING_SERVICE, item, capture);
   };
-  SIGNAL_SERVICE = new SignalService(STORES.signal, createOpenAIInterpreter(() => process.env.OPENAI_API_KEY || ''), dispatchSignalItem);
+  SIGNAL_SERVICE = new SignalService(STORES.signal, createOpenAIInterpreter(() => loadSecrets().openaiApiKey), dispatchSignalItem);
 
   const secretProviderName = getSecretProvider(SECRET_STORE_CONFIGURATION);
   const safeSecretConfiguration = getSafeSecretConfigurationStatus(SECRET_STORE_CONFIGURATION);
