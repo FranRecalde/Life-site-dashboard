@@ -30,7 +30,7 @@ traffic is missing, unsafe, or ambiguous.
   `life-site-dashboard-prod@gen-lang-client-0802447346.iam.gserviceaccount.com`
 - Staging Firestore project: `gen-lang-client-0802447346`
 - Required staging Firestore database ID: `life-site-staging`
-- Production Firestore project: `gen-lang-client-0802447346`
+- Production Firestore project: `life-dashboard-502020`
 - Required production Firestore database ID: `life-site-production`
 - Secret Manager project: `gen-lang-client-0802447346`
 - Staging secret prefix: `life-site-staging`
@@ -170,7 +170,7 @@ revision configuration.
    `FIRESTORE_DATABASE_ID=life-site-staging`, and
    `SECRET_NAME_PREFIX=life-site-staging` exactly.
    Set `STAGING_FIRESTORE_ADDRESS` to its explicit project/database pair.
-4. Require production `GOOGLE_CLOUD_PROJECT=gen-lang-client-0802447346`,
+4. Require production `GOOGLE_CLOUD_PROJECT=life-dashboard-502020`,
    `FIRESTORE_DATABASE_ID=life-site-production`, and
    `SECRET_NAME_PREFIX=life-site-prod` exactly. Set
    `PRODUCTION_FIRESTORE_ADDRESS` to that explicit pair. Require the complete
