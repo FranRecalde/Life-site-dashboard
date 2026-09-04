@@ -1,5 +1,5 @@
 import { Firestore } from '@google-cloud/firestore';
-import { ReadingBook, ReadingCapture, ReadingCaptureListFilter } from '../../src/types';
+import { GenericDelivery, ReadingBook, ReadingCapture, ReadingCaptureListFilter, ReadingQueueEntry } from '../../src/types';
 import {
   CaptureCreateCommand,
   CaptureCreateResult,
@@ -8,7 +8,7 @@ import {
   ReadingBookUpdateResult,
   ReadingStore,
 } from './types';
-import { normalizeReadingCaptureState } from './readingCaptureState';
+import { normalizeReadingQueueEntryState } from './readingCaptureState';
 
 function cleanFirestoreRecord<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -76,7 +76,8 @@ export class FirestoreReadingStore implements ReadingStore {
     const snapshot = await this.db.collection(this.capturesCollection).get();
     let captures: ReadingCapture[] = [];
     snapshot.forEach((document) => {
-      captures.push(normalizeReadingCaptureState(document.data() as ReadingCapture));
+      const capture = normalizeReadingQueueEntryState(document.data() as ReadingQueueEntry);
+      if (capture.deliveryKind === 'reading') captures.push(capture);
     });
     if (filter?.bookId) {
       captures = captures.filter((capture) => capture.bookId === filter.bookId);
@@ -90,22 +91,22 @@ export class FirestoreReadingStore implements ReadingStore {
 
   async listCapturesForDelivery(
     status: 'pending' | 'claimed',
-  ): Promise<ReadingCapture[]> {
+  ): Promise<ReadingQueueEntry[]> {
     const snapshot = await this.db.collection(this.capturesCollection).get();
-    const captures: ReadingCapture[] = [];
+    const captures: ReadingQueueEntry[] = [];
     snapshot.forEach((document) => {
-      const capture = normalizeReadingCaptureState(
-        document.data() as ReadingCapture,
+      const capture = normalizeReadingQueueEntryState(
+        document.data() as ReadingQueueEntry,
       );
       if (capture.status === status) captures.push(capture);
     });
     return captures.sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
   }
 
-  async getCapture(id: string): Promise<ReadingCapture | null> {
+  async getCapture(id: string): Promise<ReadingQueueEntry | null> {
     const snapshot = await this.db.collection(this.capturesCollection).doc(id).get();
     return snapshot.exists
-      ? normalizeReadingCaptureState(snapshot.data() as ReadingCapture)
+      ? normalizeReadingQueueEntryState(snapshot.data() as ReadingQueueEntry)
       : null;
   }
 
@@ -140,6 +141,17 @@ export class FirestoreReadingStore implements ReadingStore {
     });
   }
 
+  async createGenericDelivery(entry: GenericDelivery): Promise<GenericDelivery> {
+    const reference = this.db.collection(this.capturesCollection).doc(entry.id);
+    await this.db.runTransaction(async (transaction) => {
+      if ((await transaction.get(reference)).exists) {
+        throw new Error('Reading delivery ID already exists.');
+      }
+      transaction.create(reference, cleanFirestoreRecord(entry));
+    });
+    return entry;
+  }
+
   async transitionCapture(
     command: CaptureTransitionCommand,
   ): Promise<CaptureTransitionResult> {
@@ -149,8 +161,8 @@ export class FirestoreReadingStore implements ReadingStore {
     return this.db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(reference);
       if (!snapshot.exists) return { outcome: 'not_found' };
-      const current = normalizeReadingCaptureState(
-        snapshot.data() as ReadingCapture,
+      const current = normalizeReadingQueueEntryState(
+        snapshot.data() as ReadingQueueEntry,
       );
       if (
         current.status !== command.expectedStatus ||

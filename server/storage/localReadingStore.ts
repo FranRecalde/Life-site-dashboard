@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { ReadingBook, ReadingCapture, ReadingCaptureListFilter } from '../../src/types';
+import { GenericDelivery, ReadingBook, ReadingCapture, ReadingCaptureListFilter, ReadingQueueEntry } from '../../src/types';
 import {
   CaptureCreateCommand,
   CaptureCreateResult,
@@ -9,7 +9,7 @@ import {
   ReadingBookUpdateResult,
   ReadingStore,
 } from './types';
-import { normalizeReadingCaptureState } from './readingCaptureState';
+import { normalizeReadingQueueEntryState } from './readingCaptureState';
 import {
   deleteReadingDeliveryMarker,
   listReadingDeliveryMarkerIds,
@@ -18,7 +18,7 @@ import {
 interface LocalReadingState {
   version: 1;
   books: ReadingBook[];
-  captures: ReadingCapture[];
+  captures: ReadingQueueEntry[];
 }
 
 const emptyState = (): LocalReadingState => ({
@@ -74,7 +74,7 @@ export class LocalReadingStore implements ReadingStore {
     const state: LocalReadingState = {
       version: 1,
       books: parsed.books,
-      captures: parsed.captures.map(normalizeReadingCaptureState),
+      captures: parsed.captures.map((capture) => normalizeReadingQueueEntryState(capture as ReadingQueueEntry)),
     };
     if (this.options.reconcileDeliveryMarkers !== false) {
       this.reconcileDeliveryMarkers(state);
@@ -178,7 +178,7 @@ export class LocalReadingStore implements ReadingStore {
 
   async listCaptures(filter?: ReadingCaptureListFilter): Promise<ReadingCapture[]> {
     return this.withLock(() => {
-      let captures = this.readState().captures;
+      let captures = this.readState().captures.filter((capture): capture is ReadingCapture => capture.deliveryKind === 'reading');
       if (filter?.bookId) {
         captures = captures.filter((capture) => capture.bookId === filter.bookId);
       }
@@ -192,7 +192,7 @@ export class LocalReadingStore implements ReadingStore {
 
   async listCapturesForDelivery(
     status: 'pending' | 'claimed',
-  ): Promise<ReadingCapture[]> {
+  ): Promise<ReadingQueueEntry[]> {
     return this.withLock(() => (
       this.readState().captures
         .filter((capture) => capture.status === status)
@@ -200,7 +200,7 @@ export class LocalReadingStore implements ReadingStore {
     ));
   }
 
-  async getCapture(id: string): Promise<ReadingCapture | null> {
+  async getCapture(id: string): Promise<ReadingQueueEntry | null> {
     return this.withLock(() => (
       this.readState().captures.find((capture) => capture.id === id) ?? null
     ));
@@ -228,6 +228,18 @@ export class LocalReadingStore implements ReadingStore {
       state.captures.push(command.capture);
       this.writeState(state);
       return { outcome: 'created', capture: command.capture };
+    });
+  }
+
+  async createGenericDelivery(entry: GenericDelivery): Promise<GenericDelivery> {
+    return this.withLock(() => {
+      const state = this.readState();
+      if (state.captures.some((capture) => capture.id === entry.id)) {
+        throw new Error('Reading delivery ID already exists.');
+      }
+      state.captures.push(entry);
+      this.writeState(state);
+      return entry;
     });
   }
 

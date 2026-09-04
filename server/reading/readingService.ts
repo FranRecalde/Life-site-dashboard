@@ -1,10 +1,13 @@
 import crypto from 'crypto';
 import {
   CreateReadingCaptureInput,
+  CreateGenericDeliveryInput,
+  GenericDelivery,
   ReadingBook,
   ReadingCapture,
   ReadingCaptureCreatorType,
   ReadingCaptureListFilter,
+  ReadingQueueEntry,
 } from '../../src/types';
 import {
   CaptureTransitionResult,
@@ -126,13 +129,18 @@ export class ReadingService {
     return this.store.listCaptures(filter);
   }
 
-  async listPendingCapturesForBridge(): Promise<ReadingCapture[]> {
+  async listPendingDeliveriesForBridge(): Promise<ReadingQueueEntry[]> {
     return this.store.listCapturesForDelivery('pending');
+  }
+
+  async listPendingCapturesForBridge(): Promise<ReadingCapture[]> {
+    return (await this.listPendingDeliveriesForBridge())
+      .filter((entry): entry is ReadingCapture => entry.deliveryKind === 'reading');
   }
 
   async getCapture(captureId: string): Promise<ReadingCapture | null> {
     try {
-      return await this.requireCapture(captureId);
+      return await this.requireReadingCapture(captureId);
     } catch (error) {
       if (
         error instanceof ReadingServiceError &&
@@ -140,6 +148,15 @@ export class ReadingService {
       ) {
         return null;
       }
+      throw error;
+    }
+  }
+
+  async getDeliveryEntry(id: string): Promise<ReadingQueueEntry | null> {
+    try {
+      return await this.requireDeliveryEntry(id);
+    } catch (error) {
+      if (error instanceof ReadingServiceError && error.code === 'capture_not_found') return null;
       throw error;
     }
   }
@@ -208,6 +225,7 @@ export class ReadingService {
       }
       const timestamp = this.now();
       const capture: ReadingCapture = {
+        deliveryKind: 'reading',
         id: this.createCaptureId(),
         bookId: book.id,
         bookRevision: book.revision,
@@ -245,10 +263,30 @@ export class ReadingService {
     );
   }
 
+  async createGenericDelivery(input: CreateGenericDeliveryInput): Promise<GenericDelivery> {
+    if (
+      typeof input.destinationNotePath !== 'string' || !input.destinationNotePath ||
+      typeof input.renderedMarkdown !== 'string' || !input.renderedMarkdown
+    ) {
+      throw new ReadingServiceError('invalid_delivery_metadata', 'A destination path and rendered Markdown body are required.');
+    }
+    const timestamp = this.now();
+    return this.store.createGenericDelivery({
+      deliveryKind: 'generic', id: this.createCaptureId(),
+      destinationNotePath: input.destinationNotePath,
+      renderedMarkdown: input.renderedMarkdown,
+      receivedAt: timestamp, status: 'pending', deliveryAttempts: { count: 0 }, updatedAt: timestamp,
+    });
+  }
+
   async claimCapture(
     captureId: string,
   ): Promise<ReadingCapture> {
-    const current = await this.requireCapture(captureId);
+    return this.requireReadingEntry(await this.claimDelivery(captureId));
+  }
+
+  async claimDelivery(id: string): Promise<ReadingQueueEntry> {
+    const current = await this.requireDeliveryEntry(id);
     const timestamp = this.now();
     const observedAtMs = Date.parse(timestamp);
     if (!Number.isFinite(observedAtMs)) {
@@ -271,7 +309,7 @@ export class ReadingService {
     } else {
       this.requireCaptureStatus(current, 'pending');
     }
-    const capture: ReadingCapture = {
+    const capture: ReadingQueueEntry = {
       ...current,
       status: 'claimed',
       deliveryAttempts: {
@@ -286,8 +324,8 @@ export class ReadingService {
 
   async claimNextCapture(): Promise<ReadingCapture | null> {
     const candidates = [
-      ...await this.store.listCapturesForDelivery('pending'),
-      ...await this.store.listCapturesForDelivery('claimed'),
+      ...(await this.store.listCapturesForDelivery('pending')).filter((entry): entry is ReadingCapture => entry.deliveryKind === 'reading'),
+      ...(await this.store.listCapturesForDelivery('claimed')).filter((entry): entry is ReadingCapture => entry.deliveryKind === 'reading'),
     ].sort((left, right) => left.receivedAt.localeCompare(right.receivedAt));
     for (const capture of candidates) {
       try {
@@ -309,11 +347,15 @@ export class ReadingService {
   }
 
   async confirmDelivery(captureId: string): Promise<ReadingCapture> {
-    const current = await this.requireCapture(captureId);
+    return this.requireReadingEntry(await this.confirmDeliveryEntry(captureId));
+  }
+
+  async confirmDeliveryEntry(id: string): Promise<ReadingQueueEntry> {
+    const current = await this.requireDeliveryEntry(id);
     if (current.status === 'done') return current;
     this.requireCaptureStatus(current, 'claimed');
     const observedAt = this.now();
-    const capture: ReadingCapture = {
+    const capture: ReadingQueueEntry = {
       ...current,
       status: 'done',
       deliveryAttempts: {
@@ -337,7 +379,7 @@ export class ReadingService {
         'A sanitized delivery error code is required.',
       );
     }
-    const current = await this.requireCapture(captureId);
+    const current = await this.requireReadingCapture(captureId);
     if (
       current.status === 'claimed' &&
       current.deliveryAttempts.lastErrorCode === errorCode
@@ -354,19 +396,30 @@ export class ReadingService {
       },
       updatedAt: observedAt,
     };
-    return this.executeTransition(current, capture);
+    return this.requireReadingEntry(await this.executeTransition(current, capture));
   }
 
-  private async requireCapture(captureId: string): Promise<ReadingCapture> {
-    const current = await this.store.getCapture(captureId);
+  private async requireReadingCapture(captureId: string): Promise<ReadingCapture> {
+    return this.requireReadingEntry(await this.requireDeliveryEntry(captureId));
+  }
+
+  private async requireDeliveryEntry(id: string): Promise<ReadingQueueEntry> {
+    const current = await this.store.getCapture(id);
     if (!current) {
       throw new ReadingServiceError('capture_not_found', 'Capture not found.');
     }
     return current;
   }
 
+  private requireReadingEntry(entry: ReadingQueueEntry): ReadingCapture {
+    if (entry.deliveryKind !== 'reading') {
+      throw new ReadingServiceError('capture_not_found', 'Capture not found.');
+    }
+    return entry;
+  }
+
   private requireCaptureStatus(
-    capture: ReadingCapture,
+    capture: ReadingQueueEntry,
     expectedStatus: ReadingCapture['status'],
   ): void {
     if (capture.status !== expectedStatus) {
@@ -378,9 +431,9 @@ export class ReadingService {
   }
 
   private async executeTransition(
-    current: ReadingCapture,
-    capture: ReadingCapture,
-  ): Promise<ReadingCapture> {
+    current: ReadingQueueEntry,
+    capture: ReadingQueueEntry,
+  ): Promise<ReadingQueueEntry> {
     const result = await this.store.transitionCapture({
       captureId: current.id,
       expectedStatus: current.status,

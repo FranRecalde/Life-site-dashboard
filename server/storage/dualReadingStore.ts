@@ -1,4 +1,4 @@
-import { ReadingBook, ReadingCapture, ReadingCaptureListFilter } from '../../src/types';
+import { GenericDelivery, ReadingBook, ReadingCapture, ReadingCaptureListFilter, ReadingQueueEntry } from '../../src/types';
 import {
   CaptureCreateCommand,
   CaptureCreateResult,
@@ -134,7 +134,7 @@ export class DualReadingStore implements ReadingStore {
 
   async listCapturesForDelivery(
     status: 'pending' | 'claimed',
-  ): Promise<ReadingCapture[]> {
+  ): Promise<ReadingQueueEntry[]> {
     const results = await Promise.allSettled([
       this.local.listCapturesForDelivery(status),
       this.firestore.listCapturesForDelivery(status),
@@ -147,7 +147,7 @@ export class DualReadingStore implements ReadingStore {
       .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
   }
 
-  async getCapture(id: string): Promise<ReadingCapture | null> {
+  async getCapture(id: string): Promise<ReadingQueueEntry | null> {
     const [localResult, firestoreResult] = await Promise.allSettled([
       this.local.getCapture(id),
       this.firestore.getCapture(id),
@@ -179,6 +179,18 @@ export class DualReadingStore implements ReadingStore {
     const values = requireBothProviderResults(results, 'capture creation');
     if (!sameRecord(values[0], values[1])) {
       throw new Error('DualReadingStore capture creation divergence detected.');
+    }
+    return values[0];
+  }
+
+  async createGenericDelivery(entry: GenericDelivery): Promise<GenericDelivery> {
+    const results = await Promise.allSettled([
+      this.local.createGenericDelivery(entry),
+      this.firestore.createGenericDelivery(entry),
+    ]);
+    const values = requireBothProviderResults(results, 'generic delivery creation');
+    if (!sameRecord(values[0], values[1])) {
+      throw new Error('DualReadingStore generic delivery creation divergence detected.');
     }
     return values[0];
   }

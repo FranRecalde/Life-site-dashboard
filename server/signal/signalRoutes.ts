@@ -9,9 +9,11 @@ export function createSignalBrowserRouter(service: SignalService): express.Route
   const router = express.Router();
   router.get('/items', asyncRoute(async (req, res) => { const limit = req.query.limit === undefined ? 100 : Number(req.query.limit); if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new SignalError('invalid_limit', 'limit must be between 1 and 100.'); res.json({ success: true, data: await service.listReviewQueue(limit) }); }));
   router.get('/captures/:captureId', asyncRoute(async (req, res) => { const capture = await service.getCapture(req.params.captureId); res.json({ success: true, data: capture }); }));
+  router.post('/captures/:captureId/dismiss', asyncRoute(async (req, res) => { res.json({ success: true, data: await service.dismissNoItemsCapture(req.params.captureId) }); }));
   router.patch('/items/:itemId', asyncRoute(async (req, res) => { res.json({ success: true, data: await service.updateItem(req.params.itemId, req.body) }); }));
   router.post('/items/:itemId/keep', asyncRoute(async (req, res) => { res.json({ success: true, data: await service.approveItem(req.params.itemId) }); }));
   router.post('/items/:itemId/bin', asyncRoute(async (req, res) => { res.json({ success: true, data: await service.discardItem(req.params.itemId) }); }));
+  router.post('/items/:itemId/undo-bin', asyncRoute(async (req, res) => { res.json({ success: true, data: await service.undoDiscardItem(req.params.itemId) }); }));
   router.post('/captures/:captureId/process', asyncRoute(async (req, res) => { await service.processCapture(req.params.captureId); res.json({ success: true }); }));
   router.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => sendError(error, res));
   return router;

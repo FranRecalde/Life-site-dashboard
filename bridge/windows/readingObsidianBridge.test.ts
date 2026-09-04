@@ -6,7 +6,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ReadingBook, ReadingCapture, ReadingCaptureListFilter } from '../../src/types';
+import { GenericDelivery, ReadingBook, ReadingCapture, ReadingCaptureListFilter, ReadingQueueEntry } from '../../src/types';
 import { formatReadingCaptureMarkdown } from '../../server/reading/readingFormatter';
 import { ReadingService } from '../../server/reading/readingService';
 import {
@@ -20,6 +20,7 @@ import {
 import { createReadingDeliveryMarker } from '../../server/storage/readingDeliveryMarkers';
 import {
   appendCaptureToExistingNote,
+  appendGenericDeliveryToNote,
   BridgeLocalError,
   BridgeProtocolError,
   ReadingObsidianBridge,
@@ -31,7 +32,7 @@ const capturedAt = '2026-07-28T12:01:00.000Z';
 
 class InMemoryReadingStore implements ReadingStore {
   readonly books: ReadingBook[] = [];
-  readonly captures: ReadingCapture[] = [];
+  readonly captures: ReadingQueueEntry[] = [];
 
   async listBooks(options?: { includeArchived?: boolean }): Promise<ReadingBook[]> {
     return this.books
@@ -57,20 +58,20 @@ class InMemoryReadingStore implements ReadingStore {
   }
 
   async listCaptures(filter?: ReadingCaptureListFilter): Promise<ReadingCapture[]> {
-    return this.captures
+    return this.captures.filter((capture): capture is ReadingCapture => capture.deliveryKind === 'reading')
       .filter((capture) => !filter?.bookId || capture.bookId === filter.bookId)
       .filter((capture) => !filter?.status || capture.status === filter.status)
       .sort((left, right) => right.receivedAt.localeCompare(left.receivedAt))
       .slice(0, filter?.limit ?? 100);
   }
 
-  async listCapturesForDelivery(status: 'pending' | 'claimed'): Promise<ReadingCapture[]> {
+  async listCapturesForDelivery(status: 'pending' | 'claimed'): Promise<ReadingQueueEntry[]> {
     return this.captures
       .filter((capture) => capture.status === status)
       .sort((left, right) => left.receivedAt.localeCompare(right.receivedAt));
   }
 
-  async getCapture(id: string): Promise<ReadingCapture | null> {
+  async getCapture(id: string): Promise<ReadingQueueEntry | null> {
     return this.captures.find((capture) => capture.id === id) ?? null;
   }
 
@@ -80,6 +81,11 @@ class InMemoryReadingStore implements ReadingStore {
     if (book.status !== 'active') return { outcome: 'book_inactive' };
     this.captures.push(command.capture);
     return { outcome: 'created', capture: command.capture };
+  }
+
+  async createGenericDelivery(entry: GenericDelivery): Promise<GenericDelivery> {
+    this.captures.push(entry);
+    return entry;
   }
 
   async transitionCapture(command: CaptureTransitionCommand): Promise<CaptureTransitionResult> {
@@ -96,6 +102,7 @@ class InMemoryReadingStore implements ReadingStore {
 
 function makeCapture(overrides: Partial<ReadingCapture> = {}): ReadingCapture {
   return {
+    deliveryKind: 'reading',
     id: captureId,
     bookId: 'book_1', bookRevision: 1, bookTitle: 'Book', bookAuthor: 'Author',
     bookTags: [], destinationNotePath: 'Literature notes/Book.md',
@@ -161,6 +168,68 @@ test('the first capture in an empty note has no separator', async () => {
   try {
     assert.strictEqual(await appendCaptureToExistingNote(fixture.directory, capture), 'appended');
     assert.strictEqual(await fs.readFile(fixture.note, 'utf8'), formatReadingCaptureMarkdown(capture));
+  } finally { await fixture.cleanup(); }
+});
+
+test('generic deliveries append verbatim to existing notes in each permitted root', async () => {
+  for (const destinationNotePath of [
+    'Academic Year 2026/School Notes/Signal.md',
+    'Fleeting Notes/Signal.md',
+  ]) {
+    const fixture = await createFixture();
+    try {
+      fixture.store.captures[0] = { ...fixture.store.captures[0], status: 'done', doneAt: capturedAt };
+      const note = path.join(fixture.directory, ...destinationNotePath.split('/'));
+      await fs.mkdir(path.dirname(note), { recursive: true });
+      await fs.writeFile(note, 'Existing note\n', 'utf8');
+      const generic = await fixture.service.createGenericDelivery({ destinationNotePath, renderedMarkdown: '## Signal\nVerbatim body\n' });
+      const bridge = new ReadingObsidianBridge(fixture.service, fixture.directory, fixture.markerBasePath);
+      assert.deepStrictEqual(await bridge.runOnce(), { outcome: 'delivered', captureId: generic.id, appendOutcome: 'appended' });
+      assert.strictEqual(await fs.readFile(note, 'utf8'), 'Existing note\n## Signal\nVerbatim body\n');
+      assert.strictEqual((await fixture.service.getDeliveryEntry(generic.id))?.status, 'done');
+    } finally { await fixture.cleanup(); }
+  }
+});
+
+test('generic delivery creates a missing permitted parent directory and note', async () => {
+  const fixture = await createFixture();
+  try {
+    fixture.store.captures[0] = { ...fixture.store.captures[0], status: 'done', doneAt: capturedAt };
+    const generic = await fixture.service.createGenericDelivery({
+      destinationNotePath: 'Academic Year 2026/School Notes/Signals/New.md',
+      renderedMarkdown: '## New signal\n',
+    });
+    const bridge = new ReadingObsidianBridge(fixture.service, fixture.directory, fixture.markerBasePath);
+    assert.deepStrictEqual(await bridge.runOnce(), { outcome: 'delivered', captureId: generic.id, appendOutcome: 'appended' });
+    assert.strictEqual(await fs.readFile(path.join(fixture.directory, 'Academic Year 2026', 'School Notes', 'Signals', 'New.md'), 'utf8'), '## New signal\n');
+  } finally { await fixture.cleanup(); }
+});
+
+test('generic delivery rejects escaped and non-permitted destinations', async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'life-site-generic-delivery-'));
+  try {
+    for (const destinationNotePath of ['Fleeting Notes/../escape.md', 'Inbox/Signal.md']) {
+      await assert.rejects(
+        () => appendGenericDeliveryToNote(directory, {
+          deliveryKind: 'generic', id: captureId, destinationNotePath, renderedMarkdown: 'Body',
+          receivedAt: capturedAt, status: 'pending', deliveryAttempts: { count: 0 }, updatedAt: capturedAt,
+        }),
+        (error: unknown) => error instanceof BridgeLocalError && error.code === 'UNSAFE_DESTINATION',
+      );
+    }
+  } finally { await fs.rm(directory, { recursive: true, force: true }); }
+});
+
+test('an unrecognised delivery kind remains pending without using the reading formatter', async () => {
+  const fixture = await createFixture(); let readingAppendCalled = false;
+  try {
+    fixture.store.captures[0] = { ...fixture.store.captures[0], deliveryKind: 'unknown' } as unknown as ReadingQueueEntry;
+    const bridge = new ReadingObsidianBridge(fixture.service, fixture.directory, fixture.markerBasePath, async () => {
+      readingAppendCalled = true; return 'appended';
+    });
+    assert.deepStrictEqual(await bridge.runOnce(), { outcome: 'needs_attention', captureId, errorCode: 'UNRECOGNISED_DELIVERY_KIND' });
+    assert.strictEqual(readingAppendCalled, false);
+    assert.strictEqual((await fixture.store.getCapture(captureId))?.status, 'pending');
   } finally { await fixture.cleanup(); }
 });
 

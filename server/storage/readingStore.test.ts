@@ -205,6 +205,7 @@ const makeBook = (overrides: Partial<ReadingBook> = {}): ReadingBook => ({
 const makeCapture = (
   overrides: Partial<ReadingCapture> = {},
 ): ReadingCapture => ({
+  deliveryKind: 'reading',
   id: 'reading_1234567890abcdef1234567890abcdef',
   bookId: 'book_1',
   bookRevision: 1,
