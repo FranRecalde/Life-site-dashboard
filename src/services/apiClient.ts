@@ -15,6 +15,7 @@ import {
   ReadingCaptureListFilter,
   SignalCapture,
   SignalItem,
+  SignalReviewQueueEntry,
   UpdateSignalItemInput,
   UpdateReadingBookInput,
 } from '../types';
@@ -343,7 +344,7 @@ export class ApiClient {
     });
   }
 
-  static async getSignalItems(): Promise<SignalItem[]> {
+  static async getSignalItems(): Promise<SignalReviewQueueEntry[]> {
     return this.request('/api/signal/items?limit=100');
   }
 

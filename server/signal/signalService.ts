@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import {
-  CreateSignalCaptureInput, SIGNAL_KINDS, SIGNAL_ROLES, SignalCapture, SignalItem,
+  CreateSignalCaptureInput, SIGNAL_KINDS, SIGNAL_ROLES, SignalCapture, SignalCaptureSummary, SignalItem, SignalReviewQueueEntry,
   SignalItemType, SignalRole, SignalKind, UpdateSignalItemInput,
 } from '../../src/types';
 import { SignalStore } from '../storage/signalStore';
@@ -11,6 +11,7 @@ const types = new Set<SignalItemType>(['task', 'event', 'information', 'link']);
 const destinationFor = (type: SignalItemType): SignalItem['destination'] => type === 'task' ? 'todoist' : type === 'event' ? 'google_calendar' : 'obsidian';
 const optionalText = (value: unknown, max = 2000): string | undefined => typeof value === 'string' && value.trim() && value.trim().length <= max ? value.trim() : undefined;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+const captureSummary = ({ rawText: _rawText, modelResponse: _modelResponse, ...capture }: SignalCapture): SignalCaptureSummary => capture;
 
 export class SignalError extends Error {
   constructor(readonly code: string, message: string, readonly status = 400) { super(message); }
@@ -133,6 +134,14 @@ export class SignalService {
     }
   }
   async listPending(limit = 100): Promise<SignalItem[]> { return this.store.listPendingItems(Math.min(Math.max(limit, 1), 100)); }
+  async listReviewQueue(limit = 100): Promise<SignalReviewQueueEntry[]> {
+    const bounded = Math.min(Math.max(limit, 1), 100);
+    const [items, captures] = await Promise.all([this.store.listPendingItems(bounded), this.store.listReviewCaptures(bounded)]);
+    return [
+      ...items.map((item) => ({ entryType: 'item' as const, createdAt: item.createdAt, item })),
+      ...captures.map((capture) => ({ entryType: 'capture' as const, createdAt: capture.createdAt, capture: captureSummary(capture) })),
+    ].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, bounded);
+  }
   async getCapture(id: string): Promise<SignalCapture> { return this.requireCapture(id); }
   async updateItem(id: string, value: unknown): Promise<SignalItem> { const current = await this.requireItem(id); if (current.reviewStatus === 'discarded' || current.dispatchStatus === 'succeeded') throw new SignalError('item_locked', 'This item can no longer be edited.', 409); const changes = validateSignalItemUpdate(value); const type = changes.type ?? current.type; const item = { ...current, ...changes, type, destination: destinationFor(type), updatedAt: this.now() }; await this.store.updateItem(item); return item; }
   async discardItem(id: string): Promise<SignalItem> { const current = await this.requireItem(id); if (current.dispatchStatus === 'succeeded') throw new SignalError('item_dispatched', 'Dispatched items cannot be binned.', 409); const item = { ...current, reviewStatus: 'discarded' as const, updatedAt: this.now() }; await this.store.updateItem(item); return item; }

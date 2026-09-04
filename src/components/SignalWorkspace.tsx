@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Check, Loader2, Pencil, RefreshCw, Trash2 } from 'lucide-react';
 import { ApiClient } from '../services/apiClient';
-import { SIGNAL_KINDS, SIGNAL_ROLES, SignalCapture, SignalItem, SignalItemType, UpdateSignalItemInput } from '../types';
+import { SIGNAL_KINDS, SIGNAL_ROLES, SignalCapture, SignalItem, SignalItemType, SignalReviewQueueEntry, UpdateSignalItemInput } from '../types';
 
 const destination = (type: SignalItemType) => type === 'task' ? 'Todoist' : type === 'event' ? 'Google Calendar' : 'Obsidian';
 
 export const SignalWorkspace: React.FC = () => {
-  const [items, setItems] = useState<SignalItem[]>([]);
+  const [entries, setEntries] = useState<SignalReviewQueueEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -14,13 +14,13 @@ export const SignalWorkspace: React.FC = () => {
   const [draft, setDraft] = useState<UpdateSignalItemInput>({});
   const [source, setSource] = useState<Record<string, SignalCapture>>({});
 
-  const load = async () => { setLoading(true); setError(null); try { setItems(await ApiClient.getSignalItems()); } catch (e: any) { setError(e.message || 'Unable to load Signal.'); } finally { setLoading(false); } };
+  const load = async () => { setLoading(true); setError(null); try { setEntries(await ApiClient.getSignalItems()); } catch (e: any) { setError(e.message || 'Unable to load Signal.'); } finally { setLoading(false); } };
   useEffect(() => { void load(); }, []);
-  const replace = (item: SignalItem) => setItems((current) => current.map((value) => value.id === item.id ? item : value));
+  const replace = (item: SignalItem) => setEntries((current) => current.map((entry) => entry.entryType === 'item' && entry.item.id === item.id ? { ...entry, item } : entry));
   const edit = (item: SignalItem) => { setEditing(item.id); setDraft({ type: item.type, title: item.title, summary: item.summary, role: item.role, project: item.project, kind: item.kind, dueDate: item.dueDate, eventStart: item.eventStart, eventEnd: item.eventEnd, allDay: item.allDay, url: item.url, destinationFile: item.destinationFile, suggestedLabel: item.suggestedLabel, suggestedTag: item.suggestedTag }); };
   const save = async (id: string) => { setBusy(id); try { replace(await ApiClient.updateSignalItem(id, draft)); setEditing(null); } catch (e: any) { setError(e.message || 'Unable to save item.'); } finally { setBusy(null); } };
-  const keep = async (id: string) => { setBusy(id); try { const item = await ApiClient.keepSignalItem(id); item.dispatchStatus === 'succeeded' ? setItems((all) => all.filter((x) => x.id !== id)) : replace(item); if (item.dispatchStatus === 'failed') setError('Dispatch failed; the approved item remains recoverable.'); } catch (e: any) { setError(e.message || 'Unable to keep item.'); } finally { setBusy(null); } };
-  const bin = async (id: string) => { setBusy(id); try { await ApiClient.binSignalItem(id); setItems((all) => all.filter((x) => x.id !== id)); } catch (e: any) { setError(e.message || 'Unable to bin item.'); } finally { setBusy(null); } };
+  const keep = async (id: string) => { setBusy(id); try { const item = await ApiClient.keepSignalItem(id); item.dispatchStatus === 'succeeded' ? setEntries((all) => all.filter((entry) => entry.entryType !== 'item' || entry.item.id !== id)) : replace(item); if (item.dispatchStatus === 'failed') setError('Dispatch failed; the approved item remains recoverable.'); } catch (e: any) { setError(e.message || 'Unable to keep item.'); } finally { setBusy(null); } };
+  const bin = async (id: string) => { setBusy(id); try { await ApiClient.binSignalItem(id); setEntries((all) => all.filter((entry) => entry.entryType !== 'item' || entry.item.id !== id)); } catch (e: any) { setError(e.message || 'Unable to bin item.'); } finally { setBusy(null); } };
   const toggleSource = async (item: SignalItem) => { if (source[item.captureId]) { setSource((all) => { const copy = { ...all }; delete copy[item.captureId]; return copy; }); return; } try { const capture = await ApiClient.getSignalCapture(item.captureId); setSource((all) => ({ ...all, [item.captureId]: capture })); } catch (e: any) { setError(e.message || 'Unable to load source.'); } };
 
   return <div className="mx-auto max-w-5xl space-y-5 text-left">
@@ -29,7 +29,15 @@ export const SignalWorkspace: React.FC = () => {
       <button onClick={() => void load()} className="flex items-center gap-2 rounded-lg border border-[#28344a] px-3 py-2 text-xs text-slate-300"><RefreshCw className="h-4 w-4" />Refresh</button>
     </div>
     {error && <p className="rounded-lg border border-red-900/60 bg-red-950/30 p-3 text-sm text-red-200">{error}</p>}
-    {loading ? <div className="py-20 text-center text-slate-400"><Loader2 className="mx-auto h-6 w-6 animate-spin" /></div> : items.length === 0 ? <div className="rounded-xl border border-dashed border-[#28344a] p-12 text-center text-slate-500">Nothing waiting for review.</div> : items.map((item) => {
+    {loading ? <div className="py-20 text-center text-slate-400"><Loader2 className="mx-auto h-6 w-6 animate-spin" /></div> : entries.length === 0 ? <div className="rounded-xl border border-dashed border-[#28344a] p-12 text-center text-slate-500">Nothing waiting for review.</div> : entries.map((entry) => {
+      if (entry.entryType === 'capture') {
+        const { capture } = entry; const failed = capture.processingStatus === 'failed';
+        return <article key={capture.id} className={`rounded-xl border p-5 ${failed ? 'border-red-900/60 bg-red-950/20' : 'border-[#28344a] bg-[#111a2b]'}`}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><span className={`rounded border px-2 py-1 text-[10px] font-bold uppercase ${failed ? 'border-red-900/60 text-red-300' : 'border-[#c5a86a]/40 text-[#e4cb93]'}`}>{failed ? 'Processing failed' : 'No review items'}</span><h2 className="mt-3 text-lg font-bold text-white">{failed ? 'Capture needs attention' : 'Nothing useful found'}</h2><p className="mt-1 text-sm text-slate-400">{failed ? 'Signal could not process this capture. It remains visible for review.' : 'Signal processed this capture but found nothing to review.'}</p></div><span className="text-xs text-slate-500">{capture.sourceType === 'selection' ? 'Browser selection' : 'Pasted text'}</span></div>
+          <div className="mt-4 rounded bg-[#0a0f1d] p-3 text-xs text-slate-400"><span className="font-semibold text-slate-300">Source:</span> {capture.sourceTitle || capture.sourceUrl || (capture.sourceType === 'selection' ? 'Browser selection' : 'Pasted text')}<span className="ml-3">Captured: {new Date(capture.capturedAt).toLocaleString('en-GB')}</span>{capture.sourceUrl && capture.sourceTitle && <span className="ml-3">{capture.sourceUrl}</span>}{failed && <span className="ml-3 text-red-300">Error: {capture.processingError || 'processing_failed'}</span>}</div>
+        </article>;
+      }
+      const item = entry.item;
       const isEditing = editing === item.id; const current = isEditing ? { ...item, ...draft } : item; const isBusy = busy === item.id;
       return <article key={item.id} className="rounded-xl border border-[#28344a] bg-[#111a2b] p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><span className="rounded border border-[#c5a86a]/40 px-2 py-1 text-[10px] font-bold uppercase text-[#e4cb93]">{current.type}</span><h2 className="mt-3 text-lg font-bold text-white">{current.title}</h2><p className="mt-1 text-sm text-slate-400">{current.summary || 'No summary supplied.'}</p></div><span className="text-xs text-slate-500">{destination(current.type)}</span></div>

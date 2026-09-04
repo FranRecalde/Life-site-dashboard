@@ -11,6 +11,7 @@ export interface SignalStore {
   getItem(id: string): Promise<SignalItem | null>;
   updateItem(item: SignalItem): Promise<void>;
   listPendingItems(limit: number): Promise<SignalItem[]>;
+  listReviewCaptures(limit: number): Promise<SignalCapture[]>;
 }
 
 interface LocalSignalState { version: 1; captures: SignalCapture[]; items: SignalItem[]; }
@@ -47,6 +48,7 @@ export class LocalSignalStore implements SignalStore {
   async getItem(id: string): Promise<SignalItem | null> { return this.locked(() => clone(this.read().items.find((x) => x.id === id) ?? null)); }
   async updateItem(item: SignalItem): Promise<void> { await this.locked(() => { const s = this.read(); const i = s.items.findIndex((x) => x.id === item.id); if (i < 0) throw new Error('Signal item not found.'); s.items[i] = clone(item); this.write(s); }); }
   async listPendingItems(limit: number): Promise<SignalItem[]> { return this.locked(() => clone(this.read().items.filter((x) => x.reviewStatus === 'pending').sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit))); }
+  async listReviewCaptures(limit: number): Promise<SignalCapture[]> { return this.locked(() => clone(this.read().captures.filter((x) => x.processingStatus === 'failed' || x.processingStatus === 'no_items').sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit))); }
 }
 
 export class FirestoreSignalStore implements SignalStore {
@@ -60,6 +62,10 @@ export class FirestoreSignalStore implements SignalStore {
   async getItem(id: string): Promise<SignalItem | null> { const s = await this.db.collection(this.items).doc(id).get(); return s.exists ? s.data() as SignalItem : null; }
   async updateItem(item: SignalItem): Promise<void> { await this.db.collection(this.items).doc(item.id).set(clone(item)); }
   async listPendingItems(limit: number): Promise<SignalItem[]> { const s = await this.db.collection(this.items).where('reviewStatus', '==', 'pending').orderBy('createdAt', 'desc').limit(limit).get(); return s.docs.map((d) => d.data() as SignalItem); }
+  async listReviewCaptures(limit: number): Promise<SignalCapture[]> {
+    const read = async (status: 'failed' | 'no_items') => (await this.db.collection(this.captures).where('processingStatus', '==', status).orderBy('createdAt', 'desc').limit(limit).get()).docs.map((d) => d.data() as SignalCapture);
+    return (await Promise.all([read('failed'), read('no_items')])).flat().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit);
+  }
 }
 
 export class DualSignalStore implements SignalStore {
@@ -72,4 +78,5 @@ export class DualSignalStore implements SignalStore {
   getItem(id: string) { return this.firestore.getItem(id).catch(() => this.local.getItem(id)); }
   updateItem(item: SignalItem) { return this.both((s) => s.updateItem(item)); }
   listPendingItems(limit: number) { return this.firestore.listPendingItems(limit).catch(() => this.local.listPendingItems(limit)); }
+  listReviewCaptures(limit: number) { return this.firestore.listReviewCaptures(limit).catch(() => this.local.listReviewCaptures(limit)); }
 }

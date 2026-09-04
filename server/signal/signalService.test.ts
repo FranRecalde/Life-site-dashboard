@@ -14,6 +14,7 @@ class MemorySignalStore implements SignalStore {
   async getItem(id: string) { const item = this.items.get(id); return item ? structuredClone(item) : null; }
   async updateItem(item: SignalItem) { this.items.set(item.id, structuredClone(item)); }
   async listPendingItems(limit: number): Promise<SignalItem[]> { return [...this.items.values()].filter((x) => x.reviewStatus === 'pending').sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit).map((item) => structuredClone(item)); }
+  async listReviewCaptures(limit: number): Promise<SignalCapture[]> { return [...this.captures.values()].filter((x) => x.processingStatus === 'failed' || x.processingStatus === 'no_items').sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit).map((capture) => structuredClone(capture)); }
 }
 
 test('Signal stores zero-or-many model items and never dispatches while processing', async () => {
@@ -56,4 +57,17 @@ test('an exact source date survives on an event item', async () => {
   const capture = await service.createCapture({ rawText: 'Staff briefing on 2026-09-12 in the main hall.' });
   await service.processCapture(capture.id);
   assert.equal((await service.listPending())[0].eventStart, '2026-09-12');
+});
+
+test('review queue distinguishes empty, no-items, and failed captures', async () => {
+  const store = new MemorySignalStore(); let fail = false;
+  const service = new SignalService(store, async () => { if (fail) throw new Error('model unavailable'); return { items: [] }; }, async () => ({}), () => '2026-09-01T09:00:00.000Z');
+  assert.deepEqual(await service.listReviewQueue(), []);
+  const noItems = await service.createCapture({ rawText: 'Nothing to keep here.', sourceType: 'paste' }); await service.processCapture(noItems.id);
+  fail = true;
+  const failed = await service.createCapture({ rawText: 'This processing fails.', sourceType: 'selection', sourceTitle: 'Example page' }); await service.processCapture(failed.id);
+  const captures = (await service.listReviewQueue()).flatMap((entry) => entry.entryType === 'capture' ? [entry.capture] : []);
+  assert.deepEqual(new Set(captures.map((capture) => capture.processingStatus)), new Set(['no_items', 'failed']));
+  assert.equal(captures.find((capture) => capture.id === failed.id)?.processingError, 'processing_failed');
+  assert.equal('rawText' in captures.find((capture) => capture.id === noItems.id)!, false);
 });

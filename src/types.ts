@@ -354,6 +354,11 @@ export interface SignalCapture {
   updatedAt: string;
 }
 
+export type SignalCaptureSummary = Omit<SignalCapture, 'rawText' | 'modelResponse'>;
+export type SignalReviewQueueEntry =
+  | { entryType: 'item'; createdAt: string; item: SignalItem }
+  | { entryType: 'capture'; createdAt: string; capture: SignalCaptureSummary };
+
 export interface SignalItem {
   id: string;
   captureId: string;

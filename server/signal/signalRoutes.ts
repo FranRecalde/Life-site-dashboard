@@ -7,7 +7,7 @@ const sendError = (error: unknown, response: Response) => { if (error instanceof
 
 export function createSignalBrowserRouter(service: SignalService): express.Router {
   const router = express.Router();
-  router.get('/items', asyncRoute(async (req, res) => { const limit = req.query.limit === undefined ? 100 : Number(req.query.limit); if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new SignalError('invalid_limit', 'limit must be between 1 and 100.'); res.json({ success: true, data: await service.listPending(limit) }); }));
+  router.get('/items', asyncRoute(async (req, res) => { const limit = req.query.limit === undefined ? 100 : Number(req.query.limit); if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new SignalError('invalid_limit', 'limit must be between 1 and 100.'); res.json({ success: true, data: await service.listReviewQueue(limit) }); }));
   router.get('/captures/:captureId', asyncRoute(async (req, res) => { const capture = await service.getCapture(req.params.captureId); res.json({ success: true, data: capture }); }));
   router.patch('/items/:itemId', asyncRoute(async (req, res) => { res.json({ success: true, data: await service.updateItem(req.params.itemId, req.body) }); }));
   router.post('/items/:itemId/keep', asyncRoute(async (req, res) => { res.json({ success: true, data: await service.approveItem(req.params.itemId) }); }));
