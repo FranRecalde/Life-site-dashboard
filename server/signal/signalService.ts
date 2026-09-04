@@ -1,10 +1,12 @@
 import crypto from 'crypto';
-import path from 'path';
 import {
-  CreateSignalCaptureInput, SIGNAL_KINDS, SIGNAL_ROLES, SignalCapture, SignalCaptureSummary, SignalItem, SignalReviewQueueEntry,
+  CreateGenericDeliveryInput, CreateSignalCaptureInput, SIGNAL_KINDS, SIGNAL_ROLES, SignalCapture, SignalCaptureSummary, SignalItem, SignalReviewQueueEntry,
   SignalItemType, SignalRole, SignalKind, UpdateSignalItemInput,
 } from '../../src/types';
+import { signalObsidianDestinationPath } from '../../src/signalObsidianDestination';
 import { SignalStore } from '../storage/signalStore';
+
+export { signalObsidianDestinationPath } from '../../src/signalObsidianDestination';
 
 const roles = new Set<string>(SIGNAL_ROLES);
 const kinds = new Set<string>(SIGNAL_KINDS);
@@ -47,15 +49,6 @@ export function sourceSupportsSignalDate(source: string, proposedDate: string, c
   return relevant.length > 0 && relevant.every((match) => match.valid);
 }
 
-export function resolveSignalDestinationPath(vaultRoot: string, value?: string): string {
-  const root = path.resolve(vaultRoot);
-  const relative = (value || 'Inbox/Signal.md').replace(/\\/g, '/');
-  if (!relative.endsWith('.md') || relative.startsWith('/') || relative.includes('..') || /[<>:"|?*]/.test(relative)) throw new Error('Signal destination file must be a safe relative Markdown path.');
-  const target = path.resolve(root, relative);
-  if (!target.startsWith(root + path.sep)) throw new Error('Signal destination path is outside the vault.');
-  return target;
-}
-
 export function formatSignalObsidianEntry(item: Pick<SignalItem, 'type' | 'title' | 'summary' | 'url' | 'role' | 'kind' | 'project'>, capture: Pick<SignalCapture, 'capturedAt' | 'sourceUrl'>): string {
   const lines = [`## ${item.title}`];
   if (item.summary && item.summary !== item.title) lines.push(item.summary);
@@ -63,7 +56,23 @@ export function formatSignalObsidianEntry(item: Pick<SignalItem, 'type' | 'title
   const metadata = [item.role && `Role: ${item.role}`, item.kind && `Kind: ${item.kind}`, item.project && `Project: ${item.project}`].filter(Boolean);
   if (metadata.length) lines.push(metadata.join(' | '));
   lines.push(`Captured: ${capture.capturedAt.slice(0, 10)}${capture.sourceUrl ? ` from ${capture.sourceUrl}` : ''}`, '---');
-  return lines.join('\n');
+  return `${lines.join('\n')}\n`;
+}
+
+export interface SignalObsidianDeliveryQueue {
+  createGenericDelivery(input: CreateGenericDeliveryInput): Promise<{ id: string }>;
+}
+
+export async function queueSignalObsidianDelivery(
+  queue: SignalObsidianDeliveryQueue,
+  item: Pick<SignalItem, 'type' | 'title' | 'summary' | 'url' | 'role' | 'kind' | 'project'>,
+  capture: Pick<SignalCapture, 'capturedAt' | 'sourceUrl'>,
+): Promise<{ destinationId: string }> {
+  const delivery = await queue.createGenericDelivery({
+    destinationNotePath: signalObsidianDestinationPath(item),
+    renderedMarkdown: formatSignalObsidianEntry(item, capture),
+  });
+  return { destinationId: delivery.id };
 }
 
 export class SignalError extends Error {
@@ -200,8 +209,10 @@ export class SignalService {
     ].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, bounded);
   }
   async getCapture(id: string): Promise<SignalCapture> { return this.requireCapture(id); }
+  async dismissNoItemsCapture(id: string): Promise<SignalCapture> { const current = await this.requireCapture(id); if (current.processingStatus !== 'no_items') throw new SignalError('capture_not_dismissible', 'Only zero-result captures can be dismissed.', 409); const capture = { ...current, reviewAcknowledgedAt: current.reviewAcknowledgedAt ?? this.now(), updatedAt: this.now() }; await this.store.updateCapture(capture); return capture; }
   async updateItem(id: string, value: unknown): Promise<SignalItem> { const current = await this.requireItem(id); if (current.reviewStatus === 'discarded' || current.dispatchStatus === 'succeeded') throw new SignalError('item_locked', 'This item can no longer be edited.', 409); const changes = validateSignalItemUpdate(value); const type = changes.type ?? current.type; const item = { ...current, ...changes, type, destination: destinationFor(type), updatedAt: this.now() }; await this.store.updateItem(item); return item; }
   async discardItem(id: string): Promise<SignalItem> { const current = await this.requireItem(id); if (current.dispatchStatus === 'succeeded') throw new SignalError('item_dispatched', 'Dispatched items cannot be binned.', 409); const item = { ...current, reviewStatus: 'discarded' as const, updatedAt: this.now() }; await this.store.updateItem(item); return item; }
+  async undoDiscardItem(id: string): Promise<SignalItem> { const current = await this.requireItem(id); if (current.reviewStatus !== 'discarded') throw new SignalError('item_not_binned', 'Only binned items can be restored.', 409); const item = { ...current, reviewStatus: 'pending' as const, updatedAt: this.now() }; await this.store.updateItem(item); return item; }
   async approveItem(id: string): Promise<SignalItem> { const current = await this.requireItem(id); if (current.reviewStatus === 'discarded') throw new SignalError('item_discarded', 'Discarded items cannot be dispatched.', 409); if (current.dispatchStatus === 'succeeded') return current; if (current.dispatchStatus === 'dispatching') throw new SignalError('dispatch_in_progress', 'This item is already dispatching.', 409); const dispatching = { ...current, reviewStatus: 'approved' as const, dispatchStatus: 'dispatching' as const, approvedAt: current.approvedAt ?? this.now(), dispatchError: undefined, updatedAt: this.now() }; await this.store.updateItem(dispatching); try { const result = await this.dispatch(dispatching, await this.requireCapture(dispatching.captureId)); const done = { ...dispatching, dispatchStatus: 'succeeded' as const, destinationId: result.destinationId, updatedAt: this.now() }; await this.store.updateItem(done); return done; } catch (error) { const failed = { ...dispatching, dispatchStatus: 'failed' as const, dispatchError: 'dispatch_failed', updatedAt: this.now() }; await this.store.updateItem(failed); console.error('Signal dispatch failed safely.', dispatching.type); return failed; } }
   private async requireCapture(id: string): Promise<SignalCapture> { const value = await this.store.getCapture(id); if (!value) throw new SignalError('capture_not_found', 'Signal capture not found.', 404); return value; }
   private async requireItem(id: string): Promise<SignalItem> { const value = await this.store.getItem(id); if (!value) throw new SignalError('item_not_found', 'Signal item not found.', 404); return value; }
