@@ -88,6 +88,7 @@ prior release or invent a missing value:
 - `STAGING_FIRESTORE_ADDRESS`
 - `PRODUCTION_FIRESTORE_ADDRESS`
 - `PRODUCTION_SAFE_CONFIG_FINGERPRINT`
+- `TARGET_ENVIRONMENT`
 
 `IMMUTABLE_IMAGE` must be a registry reference ending in `@sha256:...`, never a
 mutable tag. The commit-provenance label key is `life_site_commit` and its value
@@ -151,6 +152,11 @@ extracting it into the repository. Do not build a cloud image yet.
 Inspect only narrowly selected safe fields. Never print complete service or
 revision configuration.
 
+Set `TARGET_ENVIRONMENT` explicitly to `staging` or `production` before this
+preflight; stop on any other value. The secret and IAM checks in step 5 are
+scoped by this input: staging checks only the staging family, while production
+checks both families. All other Phase 3 checks remain required for both targets.
+
 1. Require both exact service names to exist in the fixed project and region:
    `life-site-dashboard-staging` and `life-site-dashboard`. Require two distinct
    service resources and two distinct permanent service URLs. Stop if either is
@@ -176,10 +182,10 @@ revision configuration.
    `PRODUCTION_FIRESTORE_ADDRESS` to that explicit pair. Require the complete
    staging and production project/database pairs and secret prefixes to differ.
 5. Require each service to use its exact fixed runtime identity. From the
-   verified source's explicit logical-key mapping, derive the nine exact
+   verified source's explicit logical-key mapping, derive the ten exact
    environment-prefixed secret identifiers. Inspect metadata only and never
    access a payload.
-   - Before staging deployment, require all nine exact staging-prefixed secret
+   - For either target, require all ten exact staging-prefixed secret
      resources, an enabled version of each, and exact secret-resource
      `roles/secretmanager.secretAccessor` for the staging runtime identity.
    - Require exact secret-resource
@@ -190,15 +196,16 @@ revision configuration.
      `life-site-staging-google-refresh-token`, and
      `life-site-staging-google-write-authorized`.
    - Forbid every write, administrative, or version-adding permission on these
-     four read-only staging secrets: `life-site-staging-username`,
+     five read-only staging secrets: `life-site-staging-username`,
      `life-site-staging-password-hash`, `life-site-staging-session-secret`,
+     `life-site-staging-openai-api-key`,
      and `life-site-staging-reading-capture-api-token-hash`.
    - Stop on a project-wide, production-family, cross-environment, broader,
      inherited, conditional, unexpected-identity, or ambiguous staging grant.
-   - Before staging acceptance, inspect the eight non-deferred production-family
+   - Only when `TARGET_ENVIRONMENT=production`, inspect the nine non-deferred production-family
      secrets. Require each resource, an enabled version, and exact
      secret-resource `roles/secretmanager.secretAccessor` for the production
-     runtime identity. For the three read-only login secrets, continue to reject
+     runtime identity. For the four read-only login and OpenAI secrets, continue to reject
      every write, administrative, or version-adding permission. For the five
      mutable Todoist and Google secrets, record whether exact secret-resource
      `roles/secretmanager.secretVersionAdder` is present, but do not make its
@@ -258,7 +265,7 @@ revision configuration.
    `PREVIOUS_PRODUCTION_IMAGE`.
 10. Record a safe production baseline containing traffic, revision, the seven
     approved environment values, service-account identifier, required secret
-    resource identifiers, the eight non-deferred production secrets'
+    resource identifiers, the nine non-deferred production secrets'
     metadata-only resource IAM policies (role names, members, and condition
     presence), and permanent URL. Hash or compare that safe set as
     `PRODUCTION_SAFE_CONFIG_FINGERPRINT` without including secret values.
@@ -380,13 +387,13 @@ staging test report pass, and before displaying or accepting either production
 approval phrase.
 
 1. Reconfirm the exact production runtime identity. From the verified source
-   mapping, derive all nine exact `life-site-prod` secret identifiers in Secret
+   mapping, derive all ten exact `life-site-prod` secret identifiers in Secret
    Manager project `gen-lang-client-0802447346`.
-2. Inspect metadata only. Require all nine exact secret resources and an enabled
+2. Inspect metadata only. Require all ten exact secret resources and an enabled
    version of each to exist. Never access or display their payloads.
 3. Require
    `life-site-dashboard-prod@gen-lang-client-0802447346.iam.gserviceaccount.com`
-   to have exact secret-resource `roles/secretmanager.secretAccessor` on all nine
+   to have exact secret-resource `roles/secretmanager.secretAccessor` on all ten
    production secrets.
    - Require exact secret-resource
      `roles/secretmanager.secretVersionAdder` on only these five mutable
@@ -396,8 +403,9 @@ approval phrase.
      `life-site-prod-google-refresh-token`, and
      `life-site-prod-google-write-authorized`.
    - Forbid every write, administrative, or version-adding permission on these
-     four read-only production secrets: `life-site-prod-username`,
+     five read-only production secrets: `life-site-prod-username`,
      `life-site-prod-password-hash`, `life-site-prod-session-secret`,
+     `life-site-prod-openai-api-key`,
      and `life-site-prod-reading-capture-api-token-hash`.
    - Stop on a project-wide, staging-family, cross-environment, broader,
      inherited, conditional, unexpected-identity, or ambiguous grant.
