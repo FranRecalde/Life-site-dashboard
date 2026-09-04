@@ -59,6 +59,7 @@ test('logical secret keys map to exact, environment-specific secret IDs', () => 
     LIFE_SITE_USERNAME: 'username',
     LIFE_SITE_PASSWORD_HASH: 'password-hash',
     SESSION_SECRET: 'session-secret',
+    OPENAI_API_KEY: 'openai-api-key',
     TODOIST_API_TOKEN: 'todoist-token',
     GOOGLE_CLIENT_ID: 'google-client-id',
     GOOGLE_CLIENT_SECRET: 'google-client-secret',
