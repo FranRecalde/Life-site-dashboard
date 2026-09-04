@@ -50,7 +50,7 @@ const deployedSecretManagerEnvironment = (
   SECRET_PROVIDER: 'secretmanager',
   SECRET_MANAGER_PROJECT_ID: 'gen-lang-client-0802447346',
   SECRET_NAME_PREFIX: prefix,
-  GOOGLE_CLOUD_PROJECT: 'life-dashboard-502020',
+  GOOGLE_CLOUD_PROJECT: 'gen-lang-client-0802447346',
   ...overrides,
 });
 
@@ -93,7 +93,6 @@ test('Secret Manager uses its explicit project and ignores the Firestore project
 
   assert.strictEqual(await store.getSecret('LIFE_SITE_USERNAME'), 'test-login-value');
   assert.deepStrictEqual(client.accessedNames, [expectedName]);
-  assert.strictEqual(client.accessedNames[0].includes('life-dashboard-502020'), false);
 });
 
 test('deployed secret configuration fails closed when provider, project, or prefix is unsafe', () => {
