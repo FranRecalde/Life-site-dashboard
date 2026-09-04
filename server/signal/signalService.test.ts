@@ -3,7 +3,7 @@ import test from 'node:test';
 import path from 'node:path';
 import { SignalCapture, SignalItem } from '../../src/types';
 import { SignalStore } from '../storage/signalStore';
-import { formatSignalObsidianEntry, resolveSignalDestinationPath, SignalService, validateSignalCapture } from './signalService';
+import { formatSignalObsidianEntry, resolveSignalDestinationPath, SignalService, sourceSupportsSignalDate, validateSignalCapture } from './signalService';
 
 class MemorySignalStore implements SignalStore {
   captures = new Map<string, SignalCapture>();
@@ -83,4 +83,30 @@ test('Signal formats a Link with every optional field', () => {
 
 test('Signal omits absent Link fields from its Markdown entry', () => {
   assert.equal(formatSignalObsidianEntry({ type: 'link', title: 'Reference' }, { capturedAt: '2026-09-04T05:59:55.687Z' }), '## Reference\nCaptured: 2026-09-04\n---');
+});
+
+test('Signal date evidence accepts supported British wording', () => {
+  assert.equal(sourceSupportsSignalDate('Staff briefing on 12 Sept 2026.', '2026-09-12', '2026-09-01T09:00:00.000Z'), true);
+});
+
+test('Signal drops a date with no source wording and marks it uncertain', async () => {
+  const store = new MemorySignalStore();
+  const service = new SignalService(store, async () => ({ items: [{ type: 'task', title: 'Staff briefing', dueDate: '2026-09-12', confidence: 0.9, sourceExcerpt: 'Staff briefing next week.' }] }), async () => ({}));
+  const capture = await service.createCapture({ rawText: 'Staff briefing next week.' }); await service.processCapture(capture.id);
+  const [item] = await service.listPending();
+  assert.equal(item.dueDate, undefined);
+  assert.equal(item.confidence, 0.49);
+});
+
+test('Signal date evidence rejects a mismatched weekday and date', () => {
+  assert.equal(sourceSupportsSignalDate('Friday 12 September 2026.', '2026-09-12', '2026-09-01T09:00:00.000Z'), false);
+});
+
+test('Signal date evidence resolves relative wording from London capture time', () => {
+  assert.equal(sourceSupportsSignalDate('Meet next Tuesday.', '2026-09-08', '2026-09-07T09:00:00.000Z'), true);
+});
+
+test('Signal date evidence uses British day-first numeric dates', () => {
+  assert.equal(sourceSupportsSignalDate('Review on 12/09/2026.', '2026-09-12', '2026-09-01T09:00:00.000Z'), true);
+  assert.equal(sourceSupportsSignalDate('Review on 12/09/2026.', '2026-12-09', '2026-09-01T09:00:00.000Z'), false);
 });

@@ -13,6 +13,39 @@ const destinationFor = (type: SignalItemType): SignalItem['destination'] => type
 const optionalText = (value: unknown, max = 2000): string | undefined => typeof value === 'string' && value.trim() && value.trim().length <= max ? value.trim() : undefined;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const captureSummary = ({ rawText: _rawText, modelResponse: _modelResponse, ...capture }: SignalCapture): SignalCaptureSummary => capture;
+const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const months: Record<string, number> = { january: 1, jan: 1, february: 2, feb: 2, march: 3, mar: 3, april: 4, apr: 4, may: 5, june: 6, jun: 6, july: 7, jul: 7, august: 8, aug: 8, september: 9, sept: 9, sep: 9, october: 10, oct: 10, november: 11, nov: 11, december: 12, dec: 12 };
+const weekdayPattern = weekdays.join('|');
+const monthPattern = Object.keys(months).join('|');
+
+const dateString = (year: number, month: number, day: number): string | undefined => {
+  const value = new Date(Date.UTC(year, month - 1, day));
+  return value.getUTCFullYear() === year && value.getUTCMonth() === month - 1 && value.getUTCDate() === day ? `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` : undefined;
+};
+const londonDate = (timestamp: string): { year: number; month: number; day: number; weekday: number } => {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' }).formatToParts(new Date(timestamp));
+  const part = (type: string) => parts.find((value) => value.type === type)?.value || '';
+  return { year: Number(part('year')), month: Number(part('month')), day: Number(part('day')), weekday: weekdays.indexOf(part('weekday').toLowerCase()) };
+};
+
+export function sourceSupportsSignalDate(source: string, proposedDate: string, capturedAt: string): boolean {
+  if (!datePattern.test(proposedDate)) return false;
+  const reference = londonDate(capturedAt); const matches: Array<{ date: string; valid: boolean }> = [];
+  const add = (year: number, month: number, day: number, weekday?: string) => {
+    const date = dateString(year, month, day); if (!date) return;
+    matches.push({ date, valid: !weekday || new Date(`${date}T00:00:00Z`).getUTCDay() === weekdays.indexOf(weekday.toLowerCase()) });
+  };
+  const collect = (pattern: RegExp, values: (match: RegExpExecArray) => [number, number, number, string | undefined]) => { let match: RegExpExecArray | null; while ((match = pattern.exec(source))) { const [year, month, day, weekday] = values(match); add(year, month, day, weekday); } };
+  collect(new RegExp(`(?:(\\b${weekdayPattern}\\b)\\s+)?(\\d{4})-(\\d{1,2})-(\\d{1,2})`, 'gi'), (m) => [Number(m[2]), Number(m[3]), Number(m[4]), m[1]]);
+  collect(new RegExp(`(?:(\\b${weekdayPattern}\\b)\\s+)?(\\d{1,2})/(\\d{1,2})/(\\d{4})`, 'gi'), (m) => [Number(m[4]), Number(m[3]), Number(m[2]), m[1]]);
+  collect(new RegExp(`(?:(\\b${weekdayPattern}\\b)\\s+)?(\\d{1,2})\\s+(${monthPattern})(?:\\s+(\\d{4}))?`, 'gi'), (m) => [m[4] ? Number(m[4]) : reference.year, months[m[3].toLowerCase()], Number(m[2]), m[1]]);
+  const addRelative = (days: number) => { const date = new Date(Date.UTC(reference.year, reference.month - 1, reference.day + days)); matches.push({ date: date.toISOString().slice(0, 10), valid: true }); };
+  if (/\btomorrow\b/i.test(source)) addRelative(1);
+  const relative = new RegExp(`\\b(next|this)\\s+(${weekdayPattern})\\b`, 'gi'); let match: RegExpExecArray | null;
+  while ((match = relative.exec(source))) { const target = weekdays.indexOf(match[2].toLowerCase()); const offset = (target - reference.weekday + 7) % 7; addRelative(match[1].toLowerCase() === 'next' && offset === 0 ? 7 : offset); }
+  const relevant = matches.filter((match) => match.date === proposedDate);
+  return relevant.length > 0 && relevant.every((match) => match.valid);
+}
 
 export function resolveSignalDestinationPath(vaultRoot: string, value?: string): string {
   const root = path.resolve(vaultRoot);
@@ -98,19 +131,23 @@ export function validateSignalItemUpdate(value: unknown): UpdateSignalItemInput 
   return clean;
 }
 
-function candidateFromModel(value: unknown, source: string): SignalCandidate {
+function candidateFromModel(value: unknown, source: string, capturedAt: string): SignalCandidate {
   const item = record(value);
   if (typeof item.type !== 'string' || !types.has(item.type as SignalItemType)) throw new SignalError('invalid_model_output', 'Model returned an invalid type.', 502);
   const title = optionalText(item.title, 300); if (!title) throw new SignalError('invalid_model_output', 'Model returned an empty title.', 502);
   const role = item.role === null || item.role === undefined ? undefined : roles.has(String(item.role)) ? item.role as SignalRole : undefined;
   const kind = item.kind === null || item.kind === undefined ? undefined : kinds.has(String(item.kind)) ? item.kind as SignalKind : undefined;
+  let rejectedDate = false;
   const supportedDate = (field: 'dueDate' | 'eventStart' | 'eventEnd'): string | undefined => {
     const value = item[field];
-    return typeof value === 'string' && datePattern.test(value) && source.includes(value) ? value : undefined;
+    if (value === null || value === undefined) return undefined;
+    if (typeof value === 'string' && sourceSupportsSignalDate(source, value, capturedAt)) return value;
+    rejectedDate = true; return undefined;
   };
   const excerpt = optionalText(item.sourceExcerpt, 500) ?? source.slice(0, 500);
   const dueDate = supportedDate('dueDate');
-  return { type: item.type as SignalItemType, title, summary: optionalText(item.summary, 2000), role, kind, project: optionalText(item.project, 300), relevance: optionalText(item.relevance, 500), dueDate: item.type === 'event' ? undefined : dueDate, eventStart: supportedDate('eventStart') ?? (item.type === 'event' ? dueDate : undefined), eventEnd: supportedDate('eventEnd'), allDay: item.type === 'event' ? true : item.allDay === true, url: optionalText(item.url, 4000), destinationFile: optionalText(item.destinationFile, 500), suggestedLabel: optionalText(item.suggestedLabel, 100), suggestedTag: optionalText(item.suggestedTag, 100), confidence: typeof item.confidence === 'number' && item.confidence >= 0 && item.confidence <= 1 ? item.confidence : undefined, sourceExcerpt: excerpt };
+  const confidence = typeof item.confidence === 'number' && item.confidence >= 0 && item.confidence <= 1 ? item.confidence : undefined;
+  return { type: item.type as SignalItemType, title, summary: optionalText(item.summary, 2000), role, kind, project: optionalText(item.project, 300), relevance: optionalText(item.relevance, 500), dueDate: item.type === 'event' ? undefined : dueDate, eventStart: supportedDate('eventStart') ?? (item.type === 'event' ? dueDate : undefined), eventEnd: supportedDate('eventEnd'), allDay: item.type === 'event' ? true : item.allDay === true, url: optionalText(item.url, 4000), destinationFile: optionalText(item.destinationFile, 500), suggestedLabel: optionalText(item.suggestedLabel, 100), suggestedTag: optionalText(item.suggestedTag, 100), confidence: rejectedDate ? Math.min(confidence ?? 1, 0.49) : confidence, sourceExcerpt: excerpt };
 }
 
 export function createOpenAIInterpreter(apiKey: () => string): SignalInterpreter {
@@ -118,7 +155,7 @@ export function createOpenAIInterpreter(apiKey: () => string): SignalInterpreter
     const key = apiKey();
     if (!key) throw new SignalError('model_unavailable', 'Signal interpretation is not configured.', 503);
     const schema = { type: 'object', additionalProperties: false, required: ['items'], properties: { items: { type: 'array', maxItems: 12, items: { type: 'object', additionalProperties: false, required: ['type', 'title', 'summary', 'role', 'project', 'kind', 'relevance', 'dueDate', 'eventStart', 'eventEnd', 'allDay', 'url', 'destinationFile', 'suggestedLabel', 'suggestedTag', 'confidence', 'sourceExcerpt'], properties: { type: { type: 'string', enum: ['task', 'event', 'information', 'link'] }, title: { type: 'string' }, summary: { type: ['string', 'null'] }, role: { type: ['string', 'null'], enum: [...SIGNAL_ROLES, null] }, project: { type: ['string', 'null'] }, kind: { type: ['string', 'null'], enum: [...SIGNAL_KINDS, null] }, relevance: { type: ['string', 'null'] }, dueDate: { type: ['string', 'null'] }, eventStart: { type: ['string', 'null'] }, eventEnd: { type: ['string', 'null'] }, allDay: { type: 'boolean' }, url: { type: ['string', 'null'] }, destinationFile: { type: ['string', 'null'] }, suggestedLabel: { type: ['string', 'null'] }, suggestedTag: { type: ['string', 'null'] }, confidence: { type: ['number', 'null'] }, sourceExcerpt: { type: 'string' } } } } } };
-    const prompt = `Extract zero or more useful Signal items from deliberately captured source text. Never invent actions, dates, people, projects, facts, deadlines, or times. Roles must be from the provided list or null. Kinds must be from the provided list or null. A date field may be non-null ONLY when the exact YYYY-MM-DD text appears verbatim in the source; otherwise use null. For events, place an exact source date in eventStart, not dueDate. Preserve ambiguity with null fields. Source:\n${capture.rawText}`;
+    const prompt = `Extract zero or more useful Signal items from deliberately captured source text. Never invent actions, dates, people, projects, facts, deadlines, or times. Roles must be from the provided list or null. Kinds must be from the provided list or null. A date field may be non-null ONLY when source wording supports that exact calendar date; otherwise use null. The server verifies every date against the source. For events, place a supported date in eventStart, not dueDate. Preserve ambiguity with null fields. Source:\n${capture.rawText}`;
     const response = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'gpt-5.4-nano', messages: [{ role: 'system', content: 'Return only the requested JSON schema.' }, { role: 'user', content: prompt }], response_format: { type: 'json_schema', json_schema: { name: 'signal_items', strict: true, schema } } }) });
     if (!response.ok) throw new SignalError('model_failed', 'Signal interpretation failed.', 502);
     const body = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
@@ -144,7 +181,7 @@ export class SignalService {
     try {
       const current = await this.requireCapture(id); const interpretation = await this.interpret(current); const diagnosed = { ...current, modelResponse: interpretation.modelResponse ? redactSignalModelResponse(interpretation.modelResponse) : undefined, updatedAt: this.now() };
       await this.store.updateCapture(diagnosed);
-      const candidates = interpretation.items.map((item) => candidateFromModel(item, current.rawText)); const now = this.now();
+      const candidates = interpretation.items.map((item) => candidateFromModel(item, current.rawText, current.capturedAt)); const now = this.now();
       const items: SignalItem[] = candidates.map((candidate) => ({ id: `signal_item_${crypto.randomBytes(16).toString('hex')}`, captureId: id, ...candidate, destination: destinationFor(candidate.type), reviewStatus: 'pending', dispatchStatus: 'not_started', createdAt: now, updatedAt: now }));
       if (items.length) await this.store.createItems(items);
       await this.store.updateCapture({ ...diagnosed, processingStatus: items.length ? 'complete' : 'no_items', processingError: undefined, updatedAt: this.now() });
