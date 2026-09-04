@@ -55,7 +55,7 @@ import {
   createReadingActionRouter,
   isReadingCaptureApiTokenHashValid,
 } from './server/reading/readingActionRoutes';
-import { createOpenAIInterpreter, SignalService } from './server/signal/signalService';
+import { createOpenAIInterpreter, resolveSignalDestinationPath, SignalService } from './server/signal/signalService';
 import { createSignalActionRouter, createSignalBrowserRouter } from './server/signal/signalRoutes';
 import { SignalCapture, SignalItem } from './src/types';
 
@@ -139,6 +139,7 @@ let SIGNAL_SERVICE: SignalService;
 // Self-bootstrapping data directories
 const DATA_DIR = path.join(process.cwd(), 'data');
 const VAULT_DIR = path.join(DATA_DIR, 'vault');
+const SIGNAL_VAULT_ROOT = path.resolve(process.env.SIGNAL_VAULT_ROOT || VAULT_DIR);
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 
 // Ensure directories exist
@@ -634,13 +635,6 @@ const startupValidationErrors: string[] = [];
 async function startServer() {
   await initializeSecrets();
 
-  const signalNotePath = (value?: string): string => {
-    const relative = (value || 'Inbox/Signal.md').replace(/\\/g, '/');
-    if (!relative.endsWith('.md') || relative.startsWith('/') || relative.includes('..') || /[<>:"|?*]/.test(relative)) throw new Error('Signal destination file must be a safe relative Markdown path.');
-    const target = path.resolve(VAULT_DIR, relative);
-    if (!target.startsWith(path.resolve(VAULT_DIR) + path.sep)) throw new Error('Signal destination path is outside the vault.');
-    return target;
-  };
   const signalProvenance = (item: SignalItem, capture: SignalCapture): string => `Captured: ${capture.capturedAt}${capture.sourceUrl ? `\nSource: ${capture.sourceUrl}` : ''}\n\n${item.summary || item.title}`;
   const dispatchSignalItem = async (item: SignalItem, capture: SignalCapture): Promise<{ destinationId?: string }> => {
     if (item.type === 'task') {
@@ -662,7 +656,7 @@ async function startServer() {
       if (!response.ok) throw new Error(`Google Calendar dispatch failed (${response.status}).`);
       const created = await response.json() as { id?: string }; return { destinationId: created.id };
     }
-    const file = signalNotePath(item.destinationFile); fs.mkdirSync(path.dirname(file), { recursive: true });
+    const file = resolveSignalDestinationPath(SIGNAL_VAULT_ROOT, item.destinationFile); fs.mkdirSync(path.dirname(file), { recursive: true });
     const tag = item.suggestedTag ? ` ${item.suggestedTag.startsWith('#') ? item.suggestedTag : `#${item.suggestedTag}`}` : '';
     const link = item.type === 'link' && item.url ? `\n\n${item.url}` : '';
     fs.appendFileSync(file, `\n\n## ${item.title}${tag}\n\n${signalProvenance(item, capture)}${link}\n`);

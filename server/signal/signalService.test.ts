@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import path from 'node:path';
 import { SignalCapture, SignalItem } from '../../src/types';
 import { SignalStore } from '../storage/signalStore';
-import { SignalService, validateSignalCapture } from './signalService';
+import { resolveSignalDestinationPath, SignalService, validateSignalCapture } from './signalService';
 
 class MemorySignalStore implements SignalStore {
   captures = new Map<string, SignalCapture>();
@@ -70,4 +71,8 @@ test('review queue distinguishes empty, no-items, and failed captures', async ()
   assert.deepEqual(new Set(captures.map((capture) => capture.processingStatus)), new Set(['no_items', 'failed']));
   assert.equal(captures.find((capture) => capture.id === failed.id)?.processingError, 'processing_failed');
   assert.equal('rawText' in captures.find((capture) => capture.id === noItems.id)!, false);
+});
+
+test('Signal destination rejects traversal outside the configured vault', () => {
+  assert.throws(() => resolveSignalDestinationPath(path.resolve('signal-test-vault'), '../outside.md'), /safe relative/);
 });

@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import path from 'path';
 import {
   CreateSignalCaptureInput, SIGNAL_KINDS, SIGNAL_ROLES, SignalCapture, SignalCaptureSummary, SignalItem, SignalReviewQueueEntry,
   SignalItemType, SignalRole, SignalKind, UpdateSignalItemInput,
@@ -12,6 +13,15 @@ const destinationFor = (type: SignalItemType): SignalItem['destination'] => type
 const optionalText = (value: unknown, max = 2000): string | undefined => typeof value === 'string' && value.trim() && value.trim().length <= max ? value.trim() : undefined;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const captureSummary = ({ rawText: _rawText, modelResponse: _modelResponse, ...capture }: SignalCapture): SignalCaptureSummary => capture;
+
+export function resolveSignalDestinationPath(vaultRoot: string, value?: string): string {
+  const root = path.resolve(vaultRoot);
+  const relative = (value || 'Inbox/Signal.md').replace(/\\/g, '/');
+  if (!relative.endsWith('.md') || relative.startsWith('/') || relative.includes('..') || /[<>:"|?*]/.test(relative)) throw new Error('Signal destination file must be a safe relative Markdown path.');
+  const target = path.resolve(root, relative);
+  if (!target.startsWith(root + path.sep)) throw new Error('Signal destination path is outside the vault.');
+  return target;
+}
 
 export class SignalError extends Error {
   constructor(readonly code: string, message: string, readonly status = 400) { super(message); }
