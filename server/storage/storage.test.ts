@@ -12,6 +12,19 @@ import { ExistingSecretStore } from './secretStore';
 import { calculateSevenDaySummary, getPastNDays } from '../../src/services/habitEngine';
 import { resolvePersistentStorageConfiguration } from './storageConfig';
 
+function withoutLocalGoogleClientId(store: ExistingSecretStore): () => void {
+  const testStore = store as unknown as { loadLocalFile: () => Record<string, unknown> };
+  const originalGoogle = process.env.GOOGLE_CLIENT_ID;
+  const originalLoadLocalFile = testStore.loadLocalFile;
+  delete process.env.GOOGLE_CLIENT_ID;
+  testStore.loadLocalFile = () => ({});
+  return () => {
+    if (originalGoogle === undefined) delete process.env.GOOGLE_CLIENT_ID;
+    else process.env.GOOGLE_CLIENT_ID = originalGoogle;
+    testStore.loadLocalFile = originalLoadLocalFile;
+  };
+}
+
 // Helper to simulate pbkdf2 verification (login logic from server.ts)
 function verifyPassword(password: string, storedHash: string, isProduction = false): boolean {
   try {
@@ -189,8 +202,7 @@ test('ExistingSecretStore reads LIFE_SITE_PASSWORD_HASH from the environment', a
 
 test('Optional missing integration secrets do not prevent login secrets loading', async () => {
   const store = new ExistingSecretStore();
-  const originalGoogle = process.env.GOOGLE_CLIENT_ID;
-  delete process.env.GOOGLE_CLIENT_ID;
+  const restore = withoutLocalGoogleClientId(store);
 
   try {
     // Missing GOOGLE_CLIENT_ID should return null, not throw/fail
@@ -202,7 +214,7 @@ test('Optional missing integration secrets do not prevent login secrets loading'
     const username = await store.getSecret('LIFE_SITE_USERNAME');
     assert.strictEqual(username, 'env_user_test');
   } finally {
-    process.env.GOOGLE_CLIENT_ID = originalGoogle;
+    restore();
   }
 });
 
@@ -401,8 +413,7 @@ test('1. ExistingSecretStore reads username and password from environment variab
 
 test('2. Missing optional Todoist and Google secrets do not block login', async () => {
   const store = new ExistingSecretStore();
-  const origGoogle = process.env.GOOGLE_CLIENT_ID;
-  delete process.env.GOOGLE_CLIENT_ID;
+  const restore = withoutLocalGoogleClientId(store);
 
   try {
     const googleId = await store.getSecret('GOOGLE_CLIENT_ID');
@@ -413,7 +424,7 @@ test('2. Missing optional Todoist and Google secrets do not block login', async 
     const username = await store.getSecret('LIFE_SITE_USERNAME');
     assert.strictEqual(username, 'env_user_test');
   } finally {
-    process.env.GOOGLE_CLIENT_ID = origGoogle;
+    restore();
   }
 });
 
