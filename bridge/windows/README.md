@@ -46,7 +46,7 @@ For staging, use project `gen-lang-client-0802447346` and database
 `life-site-staging`:
 
 ```text
-node dist/reading-obsidian-bridge.cjs --firestore-project-id gen-lang-client-0802447346 --firestore-database-id life-site-staging --vault-root C:\absolute\disposable-rehearsal-vault
+node bridge/windows/dist/reading-obsidian-bridge.cjs --firestore-project-id gen-lang-client-0802447346 --firestore-database-id life-site-staging --vault-root C:\absolute\disposable-rehearsal-vault
 ```
 
 The runner derives a local marker base path beneath
