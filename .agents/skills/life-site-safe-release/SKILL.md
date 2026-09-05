@@ -155,13 +155,16 @@ revision configuration.
 Set `TARGET_ENVIRONMENT` explicitly to `staging` or `production` before this
 preflight; stop on any other value. The secret and IAM checks in step 5 are
 scoped by this input: staging checks only the staging family, while production
-checks both families. All other Phase 3 checks remain required for both targets.
+checks both families. Production-specific branches in steps 1, 2, 4, 6, 7, 8,
+and 9 run only when `TARGET_ENVIRONMENT=production`; staging never stops for a
+production value that is missing, unreadable, unhealthy, or unexpected.
 
-1. Require both exact service names to exist in the fixed project and region:
-   `life-site-dashboard-staging` and `life-site-dashboard`. Require two distinct
-   service resources and two distinct permanent service URLs. Stop if either is
-   missing or one is substituted for the other.
-2. For each service, select only these literal environment values:
+1. Require the exact staging service name `life-site-dashboard-staging` to exist
+   in the fixed project and region. Only when `TARGET_ENVIRONMENT=production`,
+   require the exact production service name `life-site-dashboard`, two distinct
+   service resources, and two distinct permanent service URLs. Stop if a required
+   service is missing or substituted.
+2. For the staging service, select only these literal environment values:
    `NODE_ENV`, `STORAGE_PROVIDER`, `GOOGLE_CLOUD_PROJECT`,
    `FIRESTORE_DATABASE_ID`, `SECRET_PROVIDER`, `SECRET_MANAGER_PROJECT_ID`, and
    `SECRET_NAME_PREFIX`. Report only those seven approved values. Require:
@@ -172,11 +175,13 @@ checks both families. All other Phase 3 checks remain required for both targets.
    - `SECRET_PROVIDER=secretmanager`
    - `SECRET_MANAGER_PROJECT_ID=gen-lang-client-0802447346`
    - nonblank `SECRET_NAME_PREFIX`
+   Only when `TARGET_ENVIRONMENT=production`, select these same seven values
+   from the production service and require them too.
 3. Require staging `GOOGLE_CLOUD_PROJECT=gen-lang-client-0802447346`,
    `FIRESTORE_DATABASE_ID=life-site-staging`, and
    `SECRET_NAME_PREFIX=life-site-staging` exactly.
    Set `STAGING_FIRESTORE_ADDRESS` to its explicit project/database pair.
-4. Require production `GOOGLE_CLOUD_PROJECT=life-dashboard-502020`,
+4. Only when `TARGET_ENVIRONMENT=production`, require production `GOOGLE_CLOUD_PROJECT=life-dashboard-502020`,
    `FIRESTORE_DATABASE_ID=life-site-production`, and
    `SECRET_NAME_PREFIX=life-site-prod` exactly. Set
    `PRODUCTION_FIRESTORE_ADDRESS` to that explicit pair. Require the complete
@@ -223,9 +228,10 @@ checks both families. All other Phase 3 checks remain required for both targets.
    bypasses the native provider, missing resource/version required at the
    current gate, mixed prefix, unexpected identity, broader secret role,
    cross-environment access, or ambiguous result.
-6. Retrieve each permanent service URL from Cloud Run; never construct or guess
-   it. Set `STAGING_SERVICE_URL` and `PRODUCTION_SERVICE_URL`.
-7. Request each service's `/api/health` and `/api/readiness` using safe GETs.
+6. Retrieve the staging permanent service URL from Cloud Run; never construct or
+   guess it. Set `STAGING_SERVICE_URL`. Only when `TARGET_ENVIRONMENT=production`,
+   retrieve and set `PRODUCTION_SERVICE_URL`.
+7. Request the staging service's `/api/health` and `/api/readiness` using safe GETs.
    Require health HTTP 200. Require readiness HTTP 200 and root `status=ready`.
    In the readiness `details` object, require `details.firestoreReachable=true`,
    `details.persistentStorageReady=true`, `details.persistentStorageConfigurationValid=true`,
@@ -243,26 +249,28 @@ checks both families. All other Phase 3 checks remain required for both targets.
      The Reading bridge has no API token by design and authenticates to Firestore
      using Application Default Credentials, so no bridge credential readiness
      field exists or should be expected.
-   - Before staging acceptance, apply the same paired-field rule to the currently
+   - Only when `TARGET_ENVIRONMENT=production`, apply the same paired-field rule to the currently
      deployed production revision. Do not treat omitted credential-readiness
      fields as evidence that deferred production secrets or IAM bindings exist.
    Stop if any other required safe field is absent, false, or ambiguous. Do not
    print other response content.
-8. Inspect the verified OAuth origin allowlist in application source. Read each
-   service's complete URL set from its `run.googleapis.com/urls` annotation.
-   Require the exact production origin to be a member of the production service's
-   URL set and the exact staging origin to be a member of the staging service's
-   URL set. Cloud Run assigns more than one hostname per service and `status.url`
-   reports only one of them, so equality against `status.url` produces a false
-   mismatch. Require the corresponding callback URLs to use the fixed callback
-   path. Stop if either origin is stale,
-   tagged, ambiguous, or points to the wrong service. Require read-only evidence
-   or explicit operator confirmation that both exact callbacks are registered in
-   Google OAuth. Never open or modify OAuth settings automatically.
-9. Identify the exact production revision receiving normal traffic. Require one
-   revision at 100 percent; stop on split or ambiguous traffic. Set it as
-   `PREVIOUS_PRODUCTION_REVISION` and record its immutable image digest as
-   `PREVIOUS_PRODUCTION_IMAGE`.
+8. Inspect the verified staging OAuth origin allowlist in application source and
+   the staging service's complete URL set from its `run.googleapis.com/urls`
+   annotation. Require the exact staging origin to be a member of that URL set.
+   Cloud Run assigns more than one hostname per service and `status.url` reports
+   only one of them, so equality against `status.url` produces a false mismatch.
+   Require the staging callback URL to use the fixed callback path. Stop if the
+   staging origin is stale, tagged, ambiguous, or points to the wrong service.
+   Require read-only evidence or explicit operator confirmation that the staging
+   callback is registered in Google OAuth. Only when `TARGET_ENVIRONMENT=production`,
+   apply these same checks to the exact production origin and callback. Never open
+   or modify OAuth settings automatically.
+9. Only when `TARGET_ENVIRONMENT=production`, identify the exact production
+   revision receiving normal traffic. Require one revision at 100 percent; stop
+   on split or ambiguous traffic. Set it as `PREVIOUS_PRODUCTION_REVISION` and
+   record its immutable image digest as `PREVIOUS_PRODUCTION_IMAGE`. During a
+   staging deploy, record production traffic, revision, and image for the safe
+   baseline without requiring a single revision or a particular allocation.
 10. Record a safe production baseline containing traffic, revision, the seven
     approved environment values, service-account identifier, required secret
     resource identifiers, the nine non-deferred production secrets'
