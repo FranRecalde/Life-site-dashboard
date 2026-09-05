@@ -6,7 +6,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 async function settings() {
   const value = await chrome.storage.local.get(['signalApiOrigin', 'signalCaptureToken']);
-  return { origin: (value.signalApiOrigin || 'http://localhost:3000').replace(/\/$/, ''), token: value.signalCaptureToken || '' };
+  return { origin: (value.signalApiOrigin || 'https://life-site-dashboard-708819606972.europe-west2.run.app').replace(/\/$/, ''), token: value.signalCaptureToken || '' };
 }
 
 async function send(payload) {
