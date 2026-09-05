@@ -1,9 +1,13 @@
 import express, { NextFunction, Request, Response } from 'express';
 import { createReadingBearerAuthenticator } from '../reading/readingBearerAuth';
-import { SignalError, SignalService } from './signalService';
+import { redactSignalModelResponse, SignalError, SignalService } from './signalService';
 
 const asyncRoute = (fn: (req: Request, res: Response) => Promise<void>) => (req: Request, res: Response, next: NextFunction) => { fn(req, res).catch(next); };
-const sendError = (error: unknown, response: Response) => { if (error instanceof SignalError) return response.status(error.status).json({ success: false, code: error.code, error: error.message }); console.error('Signal request failed safely.'); return response.status(500).json({ success: false, code: 'signal_unavailable', error: 'Signal is temporarily unavailable.' }); };
+const redactSignalErrorText = (value: string) => redactSignalModelResponse(value).replace(/(["']?(?:rawText|sourceTitle|sourceUrl)["']?\s*[:=]\s*)(?:"(?:\\.|[^"])*"|'(?:\\.|[^'])*'|[^,}\n]+)/gi, '$1[REDACTED_CAPTURE]');
+const signalErrorDetails = (error: unknown) => error instanceof Error
+  ? { name: error.name, message: redactSignalErrorText(error.message), stack: redactSignalErrorText(error.stack ?? '') }
+  : { name: 'UnknownError', message: 'non_error_throw', stack: '' };
+const sendError = (error: unknown, response: Response) => { if (error instanceof SignalError) return response.status(error.status).json({ success: false, code: error.code, error: error.message }); console.error('Signal request failed safely.', signalErrorDetails(error)); return response.status(500).json({ success: false, code: 'signal_unavailable', error: 'Signal is temporarily unavailable.' }); };
 
 export function createSignalBrowserRouter(service: SignalService): express.Router {
   const router = express.Router();
