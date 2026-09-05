@@ -13,6 +13,7 @@ import {
   ReadingBook,
   ReadingCapture,
   ReadingCaptureListFilter,
+  CreateSignalCaptureInput,
   SignalCapture,
   SignalItem,
   SignalReviewQueueEntry,
@@ -346,6 +347,10 @@ export class ApiClient {
 
   static async getSignalItems(): Promise<SignalReviewQueueEntry[]> {
     return this.request('/api/signal/items?limit=100');
+  }
+
+  static async createSignalCapture(input: Pick<CreateSignalCaptureInput, 'rawText'>): Promise<{ captureId: string; receivedAt: string; processingStatus: string }> {
+    return this.request('/api/signal/captures', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
   }
 
   static async getSignalCapture(captureId: string): Promise<SignalCapture> {
