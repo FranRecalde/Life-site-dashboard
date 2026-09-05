@@ -16,6 +16,9 @@ export const SignalWorkspace: React.FC = () => {
   const [draft, setDraft] = useState<UpdateSignalItemInput>({});
   const [source, setSource] = useState<Record<string, SignalCapture>>({});
   const [binUndoItem, setBinUndoItem] = useState<string | null>(null);
+  const [pasteText, setPasteText] = useState('');
+  const [sendingPaste, setSendingPaste] = useState(false);
+  const [pasteSuccess, setPasteSuccess] = useState<string | null>(null);
   const binUndoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = async () => { setLoading(true); setError(null); try { setEntries(await ApiClient.getSignalItems()); } catch (e: any) { setError(e.message || 'Unable to load Signal.'); } finally { setLoading(false); } };
@@ -28,13 +31,20 @@ export const SignalWorkspace: React.FC = () => {
   const undoBin = async () => { if (!binUndoItem) return; const id = binUndoItem; setBusy(id); try { const item = await ApiClient.undoBinSignalItem(id); if (binUndoTimer.current) clearTimeout(binUndoTimer.current); binUndoTimer.current = null; setBinUndoItem(null); setEntries((all) => [...all, { entryType: 'item' as const, createdAt: item.createdAt, item }].sort((left, right) => right.createdAt.localeCompare(left.createdAt))); } catch (e: any) { setError(e.message || 'Unable to undo bin.'); } finally { setBusy(null); } };
   const dismiss = async (id: string) => { setBusy(id); try { await ApiClient.dismissSignalCapture(id); setEntries((all) => all.filter((entry) => entry.entryType !== 'capture' || entry.capture.id !== id)); } catch (e: any) { setError(e.message || 'Unable to dismiss capture.'); } finally { setBusy(null); } };
   const toggleSource = async (item: SignalItem) => { if (source[item.captureId]) { setSource((all) => { const copy = { ...all }; delete copy[item.captureId]; return copy; }); return; } try { const capture = await ApiClient.getSignalCapture(item.captureId); setSource((all) => ({ ...all, [item.captureId]: capture })); } catch (e: any) { setError(e.message || 'Unable to load source.'); } };
+  const sendPaste = async () => { setSendingPaste(true); setError(null); setPasteSuccess(null); try { await ApiClient.createSignalCapture({ rawText: pasteText }); setPasteText(''); setPasteSuccess('Capture sent to Signal for review.'); await load(); } catch (e: any) { setError(e.message || 'Unable to send capture.'); } finally { setSendingPaste(false); } };
 
   return <div className="mx-auto max-w-5xl space-y-5 text-left">
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#1e293b] bg-[#0a0f1d]/70 p-5">
       <div><p className="text-[10px] font-mono tracking-widest text-[#c5a86a] uppercase">Review first</p><h1 className="text-2xl font-black text-white">Signal</h1><p className="text-sm text-slate-400">Nothing reaches a destination until you Keep it.</p></div>
       <button onClick={() => void load()} className="flex items-center gap-2 rounded-lg border border-[#28344a] px-3 py-2 text-xs text-slate-300"><RefreshCw className="h-4 w-4" />Refresh</button>
     </div>
+    <form onSubmit={(event) => { event.preventDefault(); void sendPaste(); }} className="rounded-xl border border-[#28344a] bg-[#111a2b] p-5">
+      <label htmlFor="signal-paste" className="text-sm font-bold text-white">Paste a capture</label>
+      <textarea id="signal-paste" value={pasteText} onChange={(event) => setPasteText(event.target.value)} onKeyDown={(event) => { if (event.ctrlKey && event.key === 'Enter' && !sendingPaste) { event.preventDefault(); void sendPaste(); } }} placeholder="Paste text to classify for review" className="mt-3 min-h-28 w-full rounded border border-[#28344a] bg-[#070b13] p-3 text-sm text-white" />
+      <div className="mt-3 flex items-center justify-between gap-3"><span className="text-xs text-slate-500">Ctrl+Enter to send</span><button type="submit" disabled={sendingPaste} className="rounded bg-[#c5a86a] px-3 py-2 text-xs font-bold text-[#07101a] disabled:opacity-50">{sendingPaste ? 'Sending…' : 'Send'}</button></div>
+    </form>
     {error && <p className="rounded-lg border border-red-900/60 bg-red-950/30 p-3 text-sm text-red-200">{error}</p>}
+    {pasteSuccess && <p className="rounded-lg border border-[#c5a86a]/40 bg-[#17130b] p-3 text-sm text-[#e4cb93]">{pasteSuccess}</p>}
     {binUndoItem && <div className="flex items-center justify-between gap-3 rounded-lg border border-[#c5a86a]/40 bg-[#17130b] p-3 text-sm text-[#e4cb93]"><span>Item binned.</span><button disabled={busy === binUndoItem} onClick={() => void undoBin()} className="rounded border border-[#c5a86a]/60 px-3 py-1 text-xs font-bold">Undo</button></div>}
     {loading ? <div className="py-20 text-center text-slate-400"><Loader2 className="mx-auto h-6 w-6 animate-spin" /></div> : entries.length === 0 ? <div className="rounded-xl border border-dashed border-[#28344a] p-12 text-center text-slate-500">Nothing waiting for review.</div> : entries.map((entry) => {
       if (entry.entryType === 'capture') {
