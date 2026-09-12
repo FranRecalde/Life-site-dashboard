@@ -56,17 +56,6 @@ export interface AppOverlaysProps {
   selectedNote: ObsidianNote | null;
   onCloseSelectedNote: () => void;
 
-  // Startup Summary Overlay
-  showStartupSummary: boolean;
-  onCloseStartupSummary: () => void;
-  startupStats: {
-    eventsToday: number;
-    tasksDue: number;
-    overdueTasks: number;
-    favModifiedSince: number;
-  } | null;
-  username: string;
-
   // Classic Settings Modal
   showSettings: boolean;
   onCloseSettings: () => void;
@@ -138,11 +127,6 @@ export const AppOverlays: React.FC<AppOverlaysProps> = ({
 
   selectedNote,
   onCloseSelectedNote,
-
-  showStartupSummary,
-  onCloseStartupSummary,
-  startupStats,
-  username,
 
   showSettings,
   onCloseSettings,
@@ -302,54 +286,6 @@ export const AppOverlays: React.FC<AppOverlaysProps> = ({
                 )}
                 <span className="text-[9px] text-[#757684] italic">Editing is disabled inside dashboard.</span>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Startup Summary Overlay */}
-      {showStartupSummary && startupStats && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50">
-          <div className="bg-white dark:bg-[#131b2e] border border-[#eaedff] dark:border-[#283044] rounded-xl w-[calc(100vw-16px)] max-w-md shadow-2xl p-4 sm:p-6 relative overflow-y-auto max-h-[calc(100vh-16px)] max-h-[calc(100dvh-16px)]">
-            <button 
-               onClick={onCloseStartupSummary}
-               className="absolute right-4 top-4 text-[#757684] hover:text-[#ba1a1a] p-1.5"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            
-            <div className="text-center space-y-6">
-              <div className="space-y-1">
-                <p className="text-[10px] font-extrabold text-[#00288e] dark:text-[#a8b8ff] tracking-widest uppercase">Overview Summary</p>
-                <h3 className="font-display text-2xl font-black tracking-tight text-[#131b2e] dark:text-white">WELCOME BACK, {username.toUpperCase()}!</h3>
-                <p className="text-xs text-[#757684]">Here is a snapshot of your dashboard state</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div className="bg-[#faf8ff] dark:bg-[#0c1322]/40 p-3 sm:p-4 rounded-lg border border-[#eaedff] dark:border-[#283044]/60 text-center">
-                  <p className="text-2xl font-bold font-mono text-[#00288e] dark:text-[#a8b8ff]">{startupStats.eventsToday}</p>
-                  <p className="text-[10px] font-semibold text-[#757684] uppercase tracking-wide mt-1">Events Today</p>
-                </div>
-                <div className="bg-[#faf8ff] dark:bg-[#0c1322]/40 p-3 sm:p-4 rounded-lg border border-[#eaedff] dark:border-[#283044]/60 text-center">
-                  <p className="text-2xl font-bold font-mono text-[#00288e] dark:text-[#a8b8ff]">{startupStats.tasksDue}</p>
-                  <p className="text-[10px] font-semibold text-[#757684] uppercase tracking-wide mt-1">Tasks Due Today</p>
-                </div>
-                <div className="bg-[#faf8ff] dark:bg-[#0c1322]/40 p-3 sm:p-4 rounded-lg border border-[#eaedff] dark:border-[#283044]/60 text-center">
-                  <p className="text-2xl font-bold font-mono text-[#ba1a1a]">{startupStats.overdueTasks}</p>
-                  <p className="text-[10px] font-semibold text-[#ba1a1a] uppercase tracking-wide mt-1">Overdue Tasks</p>
-                </div>
-                <div className="bg-[#faf8ff] dark:bg-[#0c1322]/40 p-3 sm:p-4 rounded-lg border border-[#eaedff] dark:border-[#283044]/60 text-center">
-                  <p className="text-2xl font-bold font-mono text-[#00288e] dark:text-[#a8b8ff]">{startupStats.favModifiedSince}</p>
-                  <p className="text-[10px] font-semibold text-[#757684] uppercase tracking-wide mt-1">Favs Updated</p>
-                </div>
-              </div>
-
-              <button
-                onClick={onCloseStartupSummary}
-                className="w-full bg-[#00288e] hover:bg-[#1e40af] text-white font-display text-xs font-semibold tracking-wider uppercase py-3 rounded-lg transition-colors"
-              >
-                Go To Dashboard (Esc)
-              </button>
             </div>
           </div>
         </div>

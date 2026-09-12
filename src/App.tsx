@@ -863,13 +863,6 @@ export default function App() {
 
   const [selectedNote, setSelectedNote] = useState<ObsidianNote | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [showStartupSummary, setShowStartupSummary] = useState(false);
-  const [startupStats, setStartupStats] = useState<{
-    eventsToday: number;
-    tasksDue: number;
-    overdueTasks: number;
-    favModifiedSince: number;
-  } | null>(null);
 
   // Settings active section
   const [settingsSection, setSettingsSection] = useState<'general' | 'notes' | 'tasks' | 'calendar' | 'weather' | 'connections' | 'shortcuts'>('general');
@@ -948,8 +941,6 @@ export default function App() {
     setRecentNotesError(null);
     setIsSearching(false);
     setShowSettings(false);
-    setShowStartupSummary(false);
-    setStartupStats(null);
     setShowAddEventForm(false);
 
     // Reset other loading / error / comments states
@@ -1284,7 +1275,7 @@ export default function App() {
         setUsername(res.username);
         setLoginUsername('');
         setLoginPassword('');
-        await loadDashboard(true); // Trigger startup summary on fresh login!
+        await loadDashboard();
       }
     } catch (err: any) {
       if (err.code === 'AUTH_CONFIGURATION_UNAVAILABLE') {
@@ -1305,44 +1296,6 @@ export default function App() {
       // ignore
     }
   };
-
-  // Calculate Startup Stats (Phase 18)
-  const calculateAndShowStartupSummary = useCallback((data: DashboardSnapshot, isFreshLogin: boolean) => {
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-
-    // Events today
-    const eventsToday = data.calendarEvents.filter(e => {
-      return e.start.startsWith(todayStr);
-    }).length;
-
-    // Tasks due today
-    const tasksDue = data.tasks.filter(t => {
-      return t.dueDate === todayStr && !t.completed;
-    }).length;
-
-    // Overdue tasks
-    const overdueTasks = data.tasks.filter(t => t.isOverdue).length;
-
-    // Favourites modified since previous login (compare with a stored last logout timestamp)
-    const lastSessionTime = localStorage.getItem('last_session_timestamp') || new Date(Date.now() - 24*60*60*1000).toISOString();
-    const favModifiedSince = ((data as any).favouriteProjects || []).filter((n: any) => {
-      return new Date(n.modifiedAt).getTime() > new Date(lastSessionTime).getTime();
-    }).length;
-
-    setStartupStats({ eventsToday, tasksDue, overdueTasks, favModifiedSince });
-
-    // Store current login time for next time
-    localStorage.setItem('last_session_timestamp', new Date().toISOString());
-
-    // Only display startup summary once on login, or if they haven't seen it in 1 hour
-    const lastSeenSummary = localStorage.getItem('last_seen_summary_time');
-    const oneHour = 60 * 60 * 1000;
-    if (isFreshLogin || !lastSeenSummary || Date.now() - parseInt(lastSeenSummary, 10) > oneHour) {
-      setShowStartupSummary(true);
-      localStorage.setItem('last_seen_summary_time', Date.now().toString());
-    }
-  }, []);
 
   const lastFetchedProjectsContextRef = useRef<string | null>(null);
   const inFlightTodoistProjectsContextRef = useRef<string | null>(null);
@@ -1418,7 +1371,7 @@ export default function App() {
     await loadTodoistProjects(context);
   }, [loadTodoistProjects]);
 
-  const loadDashboard = useCallback(async (isFreshLogin = false) => {
+  const loadDashboard = useCallback(async () => {
     const currentGen = authGenerationRef.current;
     setLoading(true);
     setRefreshError(null);
@@ -1459,9 +1412,6 @@ export default function App() {
         // Save snapshot to local cache
         localStorage.setItem('life_site_snapshot', JSON.stringify(data));
 
-        // Calculate startup stats
-        calculateAndShowStartupSummary(data, isFreshLogin);
-
         // Also fetch projects
         await loadTodoistProjects(activeTab);
       }
@@ -1474,7 +1424,7 @@ export default function App() {
         setLoading(false);
       }
     }
-  }, [activeTab, isOffline, loadTodoistProjects, calculateAndShowStartupSummary]);
+  }, [activeTab, isOffline, loadTodoistProjects]);
 
   const triggerRefresh = useCallback(async () => {
     if (isOffline) return;
@@ -1580,10 +1530,6 @@ export default function App() {
       }
       if (showAddEventForm) {
         setShowAddEventForm(false);
-        return;
-      }
-      if (showStartupSummary) {
-        setShowStartupSummary(false);
         return;
       }
       if (showSettings) {
@@ -3795,10 +3741,6 @@ export default function App() {
         onCompleteTask={handleCompleteTask}
         selectedNote={selectedNote}
         onCloseSelectedNote={() => setSelectedNote(null)}
-        showStartupSummary={showStartupSummary}
-        onCloseStartupSummary={() => setShowStartupSummary(false)}
-        startupStats={startupStats}
-        username={username || 'Explorer'}
         showSettings={showSettings}
         onCloseSettings={() => setShowSettings(false)}
         settingsSection={settingsSection}
