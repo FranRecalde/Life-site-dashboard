@@ -41,9 +41,9 @@ const STATUS_LABELS: Record<ReadingCaptureStatus, string> = {
 };
 
 const STATUS_STYLES: Record<ReadingCaptureStatus, string> = {
-  pending: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
-  claimed: 'border-blue-500/30 bg-blue-500/10 text-blue-200',
-  done: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
+  pending: 'border-[var(--color-warning)] bg-[var(--color-warning-surface)] text-[var(--color-warning)]',
+  claimed: 'border-[var(--color-divider)] bg-[var(--color-card-raised)] text-[var(--color-secondary)]',
+  done: 'border-[var(--color-success)] bg-[var(--color-success-surface)] text-[var(--color-success)]',
 };
 
 interface BookFormState {
@@ -240,8 +240,8 @@ export const ReadingCaptureWorkspace: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-[420px] items-center justify-center text-sm text-slate-400">
-        <Loader2 className="mr-3 h-5 w-5 animate-spin text-[#c5a86a]" />
+      <div className="flex min-h-[420px] items-center justify-center text-sm text-[var(--color-secondary)]">
+        <Loader2 className="mr-3 h-5 w-5 animate-spin text-[var(--color-secondary)]" />
         Loading Reading Capture…
       </div>
     );
@@ -249,16 +249,16 @@ export const ReadingCaptureWorkspace: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-xl border border-[#1e293b]/60 bg-gradient-to-r from-[#0d1527] to-[#0a0f1d] p-6">
+      <section className="rounded-xl border border-[var(--color-divider)]/60 bg-gradient-to-r from-[var(--color-card)] to-[var(--color-page)] p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#c5a86a]">
+            <span className="text-[10px] font-mono font-semibold uppercase tracking-widest text-[var(--color-secondary)]">
               Temporary reading inbox
             </span>
-            <h1 className="mt-1 text-2xl font-black uppercase tracking-wide text-white">
+            <h1 className="mt-1 text-2xl font-semibold uppercase tracking-wide text-[var(--color-ink)]">
               Reading Capture
             </h1>
-            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-400">
+            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-[var(--color-secondary)]">
               Preserve your exact words against the correct literature note. Phase 1 queues
               captures safely; it does not write to Obsidian.
             </p>
@@ -267,7 +267,7 @@ export const ReadingCaptureWorkspace: React.FC = () => {
             type="button"
             onClick={() => void loadWorkspace(true)}
             disabled={refreshing}
-            className="flex items-center justify-center gap-2 rounded-lg border border-[#c5a86a]/30 bg-[#0a0f1d] px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-slate-300 hover:border-[#e4cb93] hover:text-white disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-lg border border-[var(--color-secondary)]/30 bg-[var(--color-page)] px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-[var(--color-secondary)] hover:border-[var(--color-secondary)] hover:text-[var(--color-ink)] disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -279,8 +279,8 @@ export const ReadingCaptureWorkspace: React.FC = () => {
         <div
           className={`flex items-start gap-3 rounded-lg border p-4 text-sm ${
             error
-              ? 'border-red-500/30 bg-red-500/10 text-red-100'
-              : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
+              ? 'border-[var(--color-warning)] bg-[var(--color-warning-surface)] text-[var(--color-warning)]'
+              : 'border-[var(--color-success)] bg-[var(--color-success-surface)] text-[var(--color-success)]'
           }`}
           role={error ? 'alert' : 'status'}
         >
@@ -292,58 +292,58 @@ export const ReadingCaptureWorkspace: React.FC = () => {
       )}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-        <section className="rounded-xl border border-[#1e293b]/60 bg-[#0a0f1d]/70 p-5 xl:col-span-5">
+        <section className="rounded-xl border border-[var(--color-divider)]/60 bg-[var(--color-page)]/70 p-5 xl:col-span-5">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
-              <h2 className="font-bold text-white">Books</h2>
-              <p className="text-xs text-slate-500">One exact literature-note path per book.</p>
+              <h2 className="font-semibold text-[var(--color-ink)]">Books</h2>
+              <p className="text-xs text-[var(--color-secondary)]">One exact literature-note path per book.</p>
             </div>
             <button
               type="button"
               onClick={openCreateBook}
-              className="flex items-center gap-2 rounded-lg bg-[#c5a86a] px-3 py-2 text-xs font-bold text-[#0a0f1d] hover:bg-[#e4cb93]"
+              className="flex items-center gap-2 rounded-lg bg-[var(--color-card-raised)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] hover:bg-[var(--color-card-raised)]"
             >
               <Plus className="h-4 w-4" />
               Add book
             </button>
           </div>
 
-          <label className="mb-4 flex items-center gap-2 text-xs text-slate-400">
+          <label className="mb-4 flex items-center gap-2 text-xs text-[var(--color-secondary)]">
             <input
               type="checkbox"
               checked={includeArchived}
               onChange={(event) => setIncludeArchived(event.target.checked)}
-              className="accent-[#c5a86a]"
+              className="accent-[var(--color-secondary)]"
             />
             Show archived books
           </label>
 
           {bookFormOpen && (
-            <form onSubmit={saveBook} className="mb-5 space-y-3 rounded-lg border border-[#c5a86a]/25 bg-[#111a2b] p-4">
-              <h3 className="text-sm font-bold text-white">
+            <form onSubmit={saveBook} className="mb-5 space-y-3 rounded-lg border border-[var(--color-secondary)]/25 bg-[var(--color-card)] p-4">
+              <h3 className="text-sm font-semibold text-[var(--color-ink)]">
                 {editingBook ? 'Edit book' : 'Create book'}
               </h3>
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="text-xs text-slate-400">
+                <label className="text-xs text-[var(--color-secondary)]">
                   Title
                   <input
                     required
                     value={bookForm.title}
                     onChange={(event) => setBookForm({ ...bookForm, title: event.target.value })}
-                    className="mt-1 w-full rounded-lg border border-[#28344a] bg-[#070b13] px-3 py-2.5 text-sm text-white outline-none focus:border-[#c5a86a]"
+                    className="mt-1 w-full rounded-lg border border-[var(--color-divider)] bg-[var(--color-page)] px-3 py-2.5 text-sm text-[var(--color-ink)] outline-none focus:border-[var(--color-secondary)]"
                   />
                 </label>
-                <label className="text-xs text-slate-400">
+                <label className="text-xs text-[var(--color-secondary)]">
                   Author
                   <input
                     required
                     value={bookForm.author}
                     onChange={(event) => setBookForm({ ...bookForm, author: event.target.value })}
-                    className="mt-1 w-full rounded-lg border border-[#28344a] bg-[#070b13] px-3 py-2.5 text-sm text-white outline-none focus:border-[#c5a86a]"
+                    className="mt-1 w-full rounded-lg border border-[var(--color-divider)] bg-[var(--color-page)] px-3 py-2.5 text-sm text-[var(--color-ink)] outline-none focus:border-[var(--color-secondary)]"
                   />
                 </label>
               </div>
-              <label className="block text-xs text-slate-400">
+              <label className="block text-xs text-[var(--color-secondary)]">
                 Exact destination path
                 <input
                   required
@@ -353,18 +353,18 @@ export const ReadingCaptureWorkspace: React.FC = () => {
                     destinationNotePath: event.target.value,
                   })}
                   placeholder="Literature notes/Book — Author.md"
-                  className="mt-1 w-full rounded-lg border border-[#28344a] bg-[#070b13] px-3 py-2.5 font-mono text-xs text-white outline-none focus:border-[#c5a86a]"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-divider)] bg-[var(--color-page)] px-3 py-2.5 font-mono text-xs text-[var(--color-ink)] outline-none focus:border-[var(--color-secondary)]"
                 />
               </label>
-              <label className="block text-xs text-slate-400">
+              <label className="block text-xs text-[var(--color-secondary)]">
                 Tags, comma separated
                 <input
                   value={bookForm.tags}
                   onChange={(event) => setBookForm({ ...bookForm, tags: event.target.value })}
-                  className="mt-1 w-full rounded-lg border border-[#28344a] bg-[#070b13] px-3 py-2.5 text-sm text-white outline-none focus:border-[#c5a86a]"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-divider)] bg-[var(--color-page)] px-3 py-2.5 text-sm text-[var(--color-ink)] outline-none focus:border-[var(--color-secondary)]"
                 />
               </label>
-              <label className="block text-xs text-slate-400">
+              <label className="block text-xs text-[var(--color-secondary)]">
                 Default source
                 <select
                   value={bookForm.defaultSource}
@@ -372,7 +372,7 @@ export const ReadingCaptureWorkspace: React.FC = () => {
                     ...bookForm,
                     defaultSource: event.target.value as '' | ReadingSource,
                   })}
-                  className="mt-1 w-full rounded-lg border border-[#28344a] bg-[#070b13] px-3 py-2.5 text-sm text-white outline-none focus:border-[#c5a86a]"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-divider)] bg-[var(--color-page)] px-3 py-2.5 text-sm text-[var(--color-ink)] outline-none focus:border-[var(--color-secondary)]"
                 >
                   <option value="">No default</option>
                   {SOURCE_OPTIONS.map((option) => (
@@ -384,14 +384,14 @@ export const ReadingCaptureWorkspace: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setBookFormOpen(false)}
-                  className="rounded-lg border border-[#28344a] px-3 py-2 text-xs text-slate-300"
+                  className="rounded-lg border border-[var(--color-divider)] px-3 py-2 text-xs text-[var(--color-secondary)]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingBook}
-                  className="flex items-center gap-2 rounded-lg bg-[#c5a86a] px-3 py-2 text-xs font-bold text-[#0a0f1d] disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-[var(--color-card-raised)] px-3 py-2 text-xs font-semibold text-[var(--color-ink)] disabled:opacity-50"
                 >
                   {savingBook ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   Save
@@ -402,7 +402,7 @@ export const ReadingCaptureWorkspace: React.FC = () => {
 
           <div className="space-y-3">
             {books.length === 0 && (
-              <div className="rounded-lg border border-dashed border-[#28344a] p-6 text-center text-sm text-slate-500">
+              <div className="rounded-lg border border-dashed border-[var(--color-divider)] p-6 text-center text-sm text-[var(--color-secondary)]">
                 No books yet.
               </div>
             )}
@@ -411,30 +411,30 @@ export const ReadingCaptureWorkspace: React.FC = () => {
                 key={book.id}
                 className={`rounded-lg border p-4 ${
                   book.status === 'archived'
-                    ? 'border-[#28344a] bg-[#0b111d] opacity-65'
-                    : 'border-[#28344a] bg-[#111a2b]'
+                    ? 'border-[var(--color-divider)] bg-[var(--color-page)] '
+                    : 'border-[var(--color-divider)] bg-[var(--color-card)]'
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="truncate font-semibold text-white">{book.title}</h3>
-                    <p className="text-xs text-slate-400">{book.author}</p>
+                    <h3 className="truncate font-semibold text-[var(--color-ink)]">{book.title}</h3>
+                    <p className="text-xs text-[var(--color-secondary)]">{book.author}</p>
                   </div>
-                  <span className="rounded border border-[#c5a86a]/20 px-2 py-1 text-[10px] uppercase text-[#c5a86a]">
+                  <span className="rounded border border-[var(--color-secondary)]/20 px-2 py-1 text-[10px] uppercase text-[var(--color-secondary)]">
                     r{book.revision}
                   </span>
                 </div>
-                <p className="mt-3 break-all font-mono text-[11px] text-slate-500">
+                <p className="mt-3 break-all font-mono text-[11px] text-[var(--color-secondary)]">
                   {book.destinationNotePath}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {book.tags.map((tag) => (
-                    <span key={tag} className="rounded bg-[#1e293b] px-2 py-1 text-[10px] text-slate-300">
+                    <span key={tag} className="rounded bg-[var(--color-divider)] px-2 py-1 text-[10px] text-[var(--color-secondary)]">
                       {tag}
                     </span>
                   ))}
                   {book.defaultSource && (
-                    <span className="rounded bg-[#c5a86a]/10 px-2 py-1 text-[10px] text-[#e4cb93]">
+                    <span className="rounded bg-[var(--color-card-raised)]/10 px-2 py-1 text-[10px] text-[var(--color-secondary)]">
                       {book.defaultSource}
                     </span>
                   )}
@@ -443,14 +443,14 @@ export const ReadingCaptureWorkspace: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => openEditBook(book)}
-                    className="rounded border border-[#28344a] px-3 py-1.5 text-xs text-slate-300 hover:text-white"
+                    className="rounded border border-[var(--color-divider)] px-3 py-1.5 text-xs text-[var(--color-secondary)] hover:text-[var(--color-ink)]"
                   >
                     Edit
                   </button>
                   <button
                     type="button"
                     onClick={() => void toggleBookArchive(book)}
-                    className="flex items-center gap-1.5 rounded border border-[#28344a] px-3 py-1.5 text-xs text-slate-300 hover:text-white"
+                    className="flex items-center gap-1.5 rounded border border-[var(--color-divider)] px-3 py-1.5 text-xs text-[var(--color-secondary)] hover:text-[var(--color-ink)]"
                   >
                     {book.status === 'active'
                       ? <Archive className="h-3.5 w-3.5" />
@@ -463,25 +463,25 @@ export const ReadingCaptureWorkspace: React.FC = () => {
           </div>
         </section>
 
-        <section className="rounded-xl border border-[#1e293b]/60 bg-[#0a0f1d]/70 p-5 xl:col-span-7">
+        <section className="rounded-xl border border-[var(--color-divider)]/60 bg-[var(--color-page)]/70 p-5 xl:col-span-7">
           <div className="mb-5 flex items-center gap-3">
-            <div className="rounded-lg bg-[#c5a86a]/10 p-2.5 text-[#e4cb93]">
+            <div className="rounded-lg bg-[var(--color-card-raised)]/10 p-2.5 text-[var(--color-secondary)]">
               <BookOpen className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="font-bold text-white">New capture</h2>
-              <p className="text-xs text-slate-500">Your original words are stored unchanged.</p>
+              <h2 className="font-semibold text-[var(--color-ink)]">New capture</h2>
+              <p className="text-xs text-[var(--color-secondary)]">Your original words are stored unchanged.</p>
             </div>
           </div>
 
           <form onSubmit={saveCapture} className="space-y-4">
-            <label className="block text-xs text-slate-400">
+            <label className="block text-xs text-[var(--color-secondary)]">
               Book
               <select
                 required
                 value={selectedBookId}
                 onChange={(event) => setSelectedBookId(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-[#28344a] bg-[#070b13] px-3 py-3 text-sm text-white outline-none focus:border-[#c5a86a]"
+                className="mt-1 w-full rounded-lg border border-[var(--color-divider)] bg-[var(--color-page)] px-3 py-3 text-sm text-[var(--color-ink)] outline-none focus:border-[var(--color-secondary)]"
               >
                 <option value="">Select a book</option>
                 {activeBooks.map((book) => (
@@ -493,15 +493,15 @@ export const ReadingCaptureWorkspace: React.FC = () => {
             </label>
 
             {selectedBook && (
-              <div className="rounded-lg border border-[#28344a] bg-[#111a2b] p-3 text-xs text-slate-400">
-                Destination: <span className="font-mono text-slate-200">{selectedBook.destinationNotePath}</span>
+              <div className="rounded-lg border border-[var(--color-divider)] bg-[var(--color-card)] p-3 text-xs text-[var(--color-secondary)]">
+                Destination: <span className="font-mono text-[var(--color-secondary)]">{selectedBook.destinationNotePath}</span>
                 {selectedBook.tags.length > 0 && (
                   <span className="mt-1 block">Inherited tags: {selectedBook.tags.join(', ')}</span>
                 )}
               </div>
             )}
 
-            <label className="block text-xs text-slate-400">
+            <label className="block text-xs text-[var(--color-secondary)]">
               Your exact words
               <textarea
                 required
@@ -509,29 +509,29 @@ export const ReadingCaptureWorkspace: React.FC = () => {
                 value={originalText}
                 onChange={(event) => setOriginalText(event.target.value)}
                 placeholder="Capture the thought exactly as you want to preserve it…"
-                className="mt-1 w-full resize-y rounded-lg border border-[#28344a] bg-[#070b13] px-3 py-3 text-sm leading-relaxed text-white outline-none focus:border-[#c5a86a]"
+                className="mt-1 w-full resize-y rounded-lg border border-[var(--color-divider)] bg-[var(--color-page)] px-3 py-3 text-sm leading-relaxed text-[var(--color-ink)] outline-none focus:border-[var(--color-secondary)]"
               />
             </label>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-xs text-slate-400">
+              <label className="text-xs text-[var(--color-secondary)]">
                 Capture type
                 <select
                   value={captureType}
                   onChange={(event) => setCaptureType(event.target.value as ReadingCaptureType)}
-                  className="mt-1 w-full rounded-lg border border-[#28344a] bg-[#070b13] px-3 py-2.5 text-sm text-white outline-none focus:border-[#c5a86a]"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-divider)] bg-[var(--color-page)] px-3 py-2.5 text-sm text-[var(--color-ink)] outline-none focus:border-[var(--color-secondary)]"
                 >
                   {CAPTURE_TYPE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
               </label>
-              <label className="text-xs text-slate-400">
+              <label className="text-xs text-[var(--color-secondary)]">
                 Source
                 <select
                   value={source}
                   onChange={(event) => setSource(event.target.value as '' | ReadingSource)}
-                  className="mt-1 w-full rounded-lg border border-[#28344a] bg-[#070b13] px-3 py-2.5 text-sm text-white outline-none focus:border-[#c5a86a]"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-divider)] bg-[var(--color-page)] px-3 py-2.5 text-sm text-[var(--color-ink)] outline-none focus:border-[var(--color-secondary)]"
                 >
                   <option value="">
                     {selectedBook?.defaultSource
@@ -543,12 +543,12 @@ export const ReadingCaptureWorkspace: React.FC = () => {
                   ))}
                 </select>
               </label>
-              <label className="text-xs text-slate-400">
+              <label className="text-xs text-[var(--color-secondary)]">
                 Locator type
                 <select
                   value={locatorKind}
                   onChange={(event) => setLocatorKind(event.target.value as typeof locatorKind)}
-                  className="mt-1 w-full rounded-lg border border-[#28344a] bg-[#070b13] px-3 py-2.5 text-sm text-white outline-none focus:border-[#c5a86a]"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-divider)] bg-[var(--color-page)] px-3 py-2.5 text-sm text-[var(--color-ink)] outline-none focus:border-[var(--color-secondary)]"
                 >
                   <option value="">None</option>
                   <option value="page">Page</option>
@@ -557,13 +557,13 @@ export const ReadingCaptureWorkspace: React.FC = () => {
                   <option value="timestamp">Timestamp</option>
                 </select>
               </label>
-              <label className="text-xs text-slate-400">
+              <label className="text-xs text-[var(--color-secondary)]">
                 Locator
                 <input
                   value={locatorValue}
                   disabled={!locatorKind}
                   onChange={(event) => setLocatorValue(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[#28344a] bg-[#070b13] px-3 py-2.5 text-sm text-white outline-none focus:border-[#c5a86a] disabled:opacity-40"
+                  className="mt-1 w-full rounded-lg border border-[var(--color-divider)] bg-[var(--color-page)] px-3 py-2.5 text-sm text-[var(--color-ink)] outline-none focus:border-[var(--color-secondary)] disabled:opacity-40"
                 />
               </label>
             </div>
@@ -571,7 +571,7 @@ export const ReadingCaptureWorkspace: React.FC = () => {
             <button
               type="submit"
               disabled={savingCapture || activeBooks.length === 0}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#9a7d44] to-[#c5a86a] px-4 py-3 text-sm font-black uppercase tracking-wider text-[#070b13] hover:from-[#c5a86a] hover:to-[#e4cb93] disabled:opacity-40"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[var(--color-secondary)] to-[var(--color-secondary)] px-4 py-3 text-sm font-semibold uppercase tracking-wider text-[var(--color-ink)] hover:from-[var(--color-secondary)] hover:to-[var(--color-secondary)] disabled:opacity-40"
             >
               {savingCapture ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               Queue capture
@@ -580,18 +580,18 @@ export const ReadingCaptureWorkspace: React.FC = () => {
         </section>
       </div>
 
-      <section className="rounded-xl border border-[#1e293b]/60 bg-[#0a0f1d]/70 p-5">
+      <section className="rounded-xl border border-[var(--color-divider)]/60 bg-[var(--color-page)]/70 p-5">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="font-bold text-white">Pending and recent captures</h2>
-            <p className="text-xs text-slate-500">Firestore remains a temporary delivery queue, not the permanent notes vault.</p>
+            <h2 className="font-semibold text-[var(--color-ink)]">Pending and recent captures</h2>
+            <p className="text-xs text-[var(--color-secondary)]">Firestore remains a temporary delivery queue, not the permanent notes vault.</p>
           </div>
-          <label className="text-xs text-slate-400">
+          <label className="text-xs text-[var(--color-secondary)]">
             Status
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as '' | ReadingCaptureStatus)}
-              className="ml-2 rounded-lg border border-[#28344a] bg-[#070b13] px-3 py-2 text-xs text-white"
+              className="ml-2 rounded-lg border border-[var(--color-divider)] bg-[var(--color-page)] px-3 py-2 text-xs text-[var(--color-ink)]"
             >
               <option value="">All statuses</option>
               {Object.entries(STATUS_LABELS).map(([value, label]) => (
@@ -603,33 +603,33 @@ export const ReadingCaptureWorkspace: React.FC = () => {
 
         <div className="space-y-3">
           {captures.length === 0 && (
-            <div className="rounded-lg border border-dashed border-[#28344a] p-8 text-center text-sm text-slate-500">
+            <div className="rounded-lg border border-dashed border-[var(--color-divider)] p-8 text-center text-sm text-[var(--color-secondary)]">
               No captures in this view.
             </div>
           )}
           {captures.map((capture) => (
-            <article key={capture.id} className="rounded-lg border border-[#28344a] bg-[#111a2b] p-4">
+            <article key={capture.id} className="rounded-lg border border-[var(--color-divider)] bg-[var(--color-card)] p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-white">
+                  <h3 className="font-semibold text-[var(--color-ink)]">
                     {capture.bookTitle}
-                    <span className="ml-2 font-normal text-slate-500">— {capture.bookAuthor}</span>
+                    <span className="ml-2 font-normal text-[var(--color-secondary)]">— {capture.bookAuthor}</span>
                   </h3>
-                  <p className="mt-1 text-[11px] text-slate-500">
+                  <p className="mt-1 text-[11px] text-[var(--color-secondary)]">
                     {new Date(capture.capturedAt).toLocaleString('en-GB')} ·{' '}
                     {CAPTURE_TYPE_OPTIONS.find((option) => option.value === capture.captureType)?.label}
                     {capture.source ? ` · ${capture.source}` : ''}
                     {capture.locator ? ` · ${capture.locator.kind}: ${capture.locator.value}` : ''}
                   </p>
                 </div>
-                <span className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-bold uppercase ${STATUS_STYLES[capture.status]}`}>
+                <span className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-semibold uppercase ${STATUS_STYLES[capture.status]}`}>
                   {STATUS_LABELS[capture.status]}
                 </span>
               </div>
-              <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-slate-200">
+              <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-[var(--color-secondary)]">
                 {capture.originalText}
               </p>
-              <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10px] text-slate-600">
+              <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10px] text-[var(--color-secondary)]">
                 <span>{capture.destinationNotePath}</span>
                 <span>{capture.id}</span>
               </div>

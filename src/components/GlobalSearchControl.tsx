@@ -204,7 +204,7 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
 
   return (
     <div className={`relative ${className}`}>
-      <Search className={`w-4 h-4 absolute left-3 top-3 ${isEntranceHall ? 'text-[#c5a86a]' : 'text-[#757684]'}`} />
+      <Search className={`w-4 h-4 absolute left-3 top-3 ${isEntranceHall ? 'text-[var(--color-secondary)]' : 'text-[var(--color-secondary)]'}`} />
       <input
         type="text"
         ref={searchInputRef}
@@ -220,8 +220,8 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
         }}
         className={`w-full pl-9 pr-8 py-2 text-base md:text-sm border rounded-lg focus:outline-none focus:ring-1 ${
           isEntranceHall
-            ? 'border-[#c5a86a]/30 focus:border-[#e4cb93] focus:ring-[#e4cb93] bg-[#0c1322] text-white placeholder-slate-500'
-            : 'border-[#c4c5d5] dark:border-[#444653] focus:border-[#00288e] dark:focus:border-white focus:ring-[#00288e] dark:focus:ring-white bg-[#faf8ff] dark:bg-[#131b2e] text-[#131b2e] dark:text-white'
+            ? 'border-[var(--color-secondary)]/30 focus:border-[var(--color-secondary)] focus:ring-[var(--color-secondary)] bg-[var(--color-card)] text-[var(--color-ink)] placeholder-[var(--color-secondary)]'
+            : 'border-[var(--color-divider)] border-[var(--color-secondary)] focus:border-[var(--color-control)] focus:border-white focus:ring-[var(--color-control)] focus:ring-white bg-[var(--color-card-raised)] bg-[var(--color-card)] text-[var(--color-ink)] text-[var(--color-ink)]'
         }`}
         placeholder="Search / (Calendar, tasks, notes)"
       />
@@ -237,7 +237,7 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
             }
           }}
           className={`absolute right-3 top-2.5 cursor-pointer ${
-            isEntranceHall ? 'text-slate-400 hover:text-[#ba1a1a]' : 'text-[#757684] hover:text-[#ba1a1a]'
+            isEntranceHall ? 'text-[var(--color-secondary)] hover:text-[var(--color-warning)]' : 'text-[var(--color-secondary)] hover:text-[var(--color-warning)]'
           }`}
           type="button"
           aria-label="Clear search"
@@ -250,14 +250,14 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
       {(searchResults || searchMessage) && searchQuery && (
         <div className={`absolute top-11 left-0 right-0 border rounded-lg shadow-xl z-50 p-4 max-h-96 overflow-y-auto ${
           isEntranceHall
-            ? 'bg-[#0d1527] border-[#c5a86a]/30 text-white shadow-black/80'
-            : 'bg-white dark:bg-[#131b2e] border-[#eaedff] dark:border-[#283044] text-[#131b2e] dark:text-white shadow-xl'
+            ? 'bg-[var(--color-card)] border-[var(--color-secondary)]/30 text-[var(--color-ink)] shadow-black/80'
+            : 'bg-[var(--color-card)] bg-[var(--color-card)] border-[var(--color-divider)] border-[var(--color-divider)] text-[var(--color-ink)] text-[var(--color-ink)] shadow-xl'
         }`}>
           <div className={`flex justify-between items-center mb-2 pb-2 border-b ${
-            isEntranceHall ? 'border-[#1e293b]' : 'border-[#eaedff] dark:border-[#283044]'
+            isEntranceHall ? 'border-[var(--color-divider)]' : 'border-[var(--color-divider)] border-[var(--color-divider)]'
           }`}>
-            <p className={`text-xs font-bold font-display uppercase tracking-wider ${
-              isEntranceHall ? 'text-[#c5a86a]' : 'text-[#757684]'
+            <p className={`text-xs font-semibold font-display uppercase tracking-wider ${
+              isEntranceHall ? 'text-[var(--color-secondary)]' : 'text-[var(--color-secondary)]'
             }`}>Search Results</p>
             <button
               onClick={() => {
@@ -269,16 +269,16 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
                   setSearchResults(null);
                 }
               }}
-              className="text-[#757684] hover:text-[#ba1a1a] cursor-pointer"
+              className="text-[var(--color-secondary)] hover:text-[var(--color-warning)] cursor-pointer"
               type="button"
             >
               <X className="w-3 h-3" />
             </button>
           </div>
-          
+
           {searchMessage ? (
             <div className="text-center py-4" role="status">
-              <p className="text-xs text-amber-700 dark:text-amber-300">
+              <p className="text-xs text-[var(--color-warning)] text-[var(--color-warning)]">
                 {searchMessage}
               </p>
               {mobileCopyFallback && (
@@ -288,12 +288,12 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
                     onClick={() => {
                       void handleCopyMobileQuery();
                     }}
-                    className="rounded-md border border-amber-500/50 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-50 dark:text-amber-200 dark:hover:bg-amber-950/30"
+                    className="rounded-md border border-[var(--color-warning)] px-3 py-1.5 text-xs font-semibold text-[var(--color-warning)] hover:bg-[var(--color-warning-surface)] text-[var(--color-warning)] hover:bg-[var(--color-warning-surface)]"
                   >
                     {mobileCopyFallback.status === 'copied' ? 'Query copied' : 'Copy query'}
                   </button>
                   {mobileCopyFallback.status === 'failed' && (
-                    <code className="max-w-full select-all break-words rounded bg-black/5 px-2 py-1 text-xs text-[#131b2e] dark:bg-white/10 dark:text-white">
+                    <code className="max-w-full select-all break-words rounded bg-[var(--color-card)]/5 px-2 py-1 text-xs text-[var(--color-ink)] bg-[var(--color-card)]/10 text-[var(--color-ink)]">
                       {mobileCopyFallback.query}
                     </code>
                   )}
@@ -301,15 +301,15 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
               )}
             </div>
           ) : searchResults && searchResults.notes.length === 0 ? (
-            <p className="text-xs text-[#757684] text-center py-4">No matching Obsidian notes found.</p>
+            <p className="text-xs text-[var(--color-secondary)] text-center py-4">No matching Obsidian notes found.</p>
           ) : searchResults ? (
             <div className="space-y-2">
-              <p className={`text-[10px] font-extrabold uppercase tracking-widest font-display ${
-                isEntranceHall ? 'text-[#c5a86a]' : 'text-[#00288e] dark:text-[#a8b8ff]'
+              <p className={`text-[10px] font-semibold uppercase tracking-widest font-display ${
+                isEntranceHall ? 'text-[var(--color-secondary)]' : 'text-[var(--color-control)] text-[var(--color-secondary)]'
               }`}>Obsidian Notes ({searchResults.notes.length})</p>
               {searchResults.notes.map(n => (
-                <div 
-                  key={n.id} 
+                <div
+                  key={n.id}
                   onClick={() => {
                     setSelectedNote(n);
                     if (onClearSearch) {
@@ -321,12 +321,12 @@ export const GlobalSearchControl: React.FC<GlobalSearchControlProps> = ({
                   }}
                   className={`p-2 rounded cursor-pointer transition-colors text-left ${
                     isEntranceHall
-                      ? 'hover:bg-[#1e293b]/50'
-                      : 'hover:bg-[#f2f3ff] dark:hover:bg-[#273545]/50'
+                      ? 'hover:bg-[var(--color-divider)]/50'
+                      : 'hover:bg-[var(--color-card-raised)] hover:bg-[var(--color-card)]/50'
                   }`}
                 >
-                  <p className={`text-xs font-bold ${isEntranceHall ? 'text-white' : 'text-[#131b2e] dark:text-white'}`}>{n.title}</p>
-                  <p className="text-[10px] text-[#757684] truncate mt-0.5">{n.preview}</p>
+                  <p className={`text-xs font-semibold ${isEntranceHall ? 'text-[var(--color-ink)]' : 'text-[var(--color-ink)] text-[var(--color-ink)]'}`}>{n.title}</p>
+                  <p className="text-[10px] text-[var(--color-secondary)] truncate mt-0.5">{n.preview}</p>
                 </div>
               ))}
             </div>

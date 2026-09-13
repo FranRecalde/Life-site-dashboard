@@ -1,21 +1,21 @@
 import React from 'react';
-import { 
-  X, 
-  AlertTriangle, 
-  ExternalLink 
+import {
+  X,
+  AlertTriangle,
+  ExternalLink
 } from 'lucide-react';
 import { CalendarEventEditor } from '../CalendarEventEditor';
 import { TodoistTaskEditor } from '../TodoistTaskEditor';
 import { TodoistMoveMenu } from '../TodoistMoveMenu';
 import { CalendarEventForm } from '../CalendarEventForm';
 import { SettingsWorkspace } from '../SettingsWorkspace';
-import { 
-  CalendarEvent, 
-  TodoistTask, 
-  TodoistProjectSummary, 
-  TodoistSection, 
-  ObsidianNote, 
-  UserSettings 
+import {
+  CalendarEvent,
+  TodoistTask,
+  TodoistProjectSummary,
+  TodoistSection,
+  ObsidianNote,
+  UserSettings
 } from '../../types';
 
 export interface AppOverlaysProps {
@@ -207,14 +207,14 @@ export const AppOverlays: React.FC<AppOverlaysProps> = ({
 
       {/* Todoist Parent Completion Warning Modal */}
       {confirmingCompleteTask && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50">
-          <div className="bg-white dark:bg-[#131b2e] border border-red-200 dark:border-red-950/40 rounded-xl w-[calc(100vw-16px)] max-w-sm shadow-2xl p-4 sm:p-6 relative text-left space-y-4 overflow-y-auto max-h-[calc(100vh-16px)] max-h-[calc(100dvh-16px)]">
+        <div className="fixed inset-0 bg-[var(--color-card)]/40 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-[var(--color-card)] bg-[var(--color-card)] border border-[var(--color-warning)] border-[var(--color-warning)] rounded-xl w-[calc(100vw-16px)] max-w-sm shadow-2xl p-4 sm:p-6 relative text-left space-y-4 overflow-y-auto max-h-[calc(100vh-16px)] max-h-[calc(100dvh-16px)]">
             <div>
-              <h3 className="text-sm font-bold text-[#ba1a1a] font-display flex items-center gap-1.5">
+              <h3 className="text-sm font-semibold text-[var(--color-warning)] font-display flex items-center gap-1.5">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
                 <span>Confirm Task Completion</span>
               </h3>
-              <p className="text-xs text-[#757684] mt-2 leading-relaxed">
+              <p className="text-xs text-[var(--color-secondary)] mt-2 leading-relaxed">
                 Completing this task will also complete its remaining subtasks. Continue?
               </p>
             </div>
@@ -222,7 +222,7 @@ export const AppOverlays: React.FC<AppOverlaysProps> = ({
               <button
                 type="button"
                 onClick={onCloseConfirmingCompleteTask}
-                className="px-3.5 py-1.5 text-xs font-bold text-[#757684] hover:text-[#131b2e] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                className="px-3.5 py-1.5 text-xs font-semibold text-[var(--color-secondary)] hover:text-[var(--color-ink)] hover:text-[var(--color-ink)] hover:bg-[var(--color-card)] hover:bg-[var(--color-card)] rounded-md transition-colors"
               >
                 Cancel
               </button>
@@ -233,7 +233,7 @@ export const AppOverlays: React.FC<AppOverlaysProps> = ({
                   onCloseConfirmingCompleteTask();
                   onCompleteTask(taskId);
                 }}
-                className="px-3.5 py-1.5 text-xs font-bold bg-[#ba1a1a] text-white hover:bg-[#961414] rounded-md transition-colors shadow-sm"
+                className="px-3.5 py-1.5 text-xs font-semibold bg-[var(--color-warning-surface)] text-[var(--color-ink)] hover:bg-[var(--color-warning-surface)] rounded-md transition-colors shadow-sm"
               >
                 Complete task
               </button>
@@ -244,39 +244,39 @@ export const AppOverlays: React.FC<AppOverlaysProps> = ({
 
       {/* Obsidian Note Preview Dialog */}
       {selectedNote && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50">
-          <div className="bg-white dark:bg-[#131b2e] border border-[#eaedff] dark:border-[#283044] rounded-xl w-[calc(100vw-16px)] max-w-lg shadow-2xl p-4 sm:p-6 relative overflow-y-auto max-h-[calc(100vh-16px)] max-h-[calc(100dvh-16px)]">
-            <button 
+        <div className="fixed inset-0 bg-[var(--color-card)]/40 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-[var(--color-card)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] rounded-xl w-[calc(100vw-16px)] max-w-lg shadow-2xl p-4 sm:p-6 relative overflow-y-auto max-h-[calc(100vh-16px)] max-h-[calc(100dvh-16px)]">
+            <button
               onClick={onCloseSelectedNote}
-              className="absolute right-4 top-4 text-[#757684] hover:text-[#ba1a1a] p-1.5"
+              className="absolute right-4 top-4 text-[var(--color-secondary)] hover:text-[var(--color-warning)] p-1.5"
             >
               <X className="w-5 h-5" />
             </button>
-            
+
             <div className="text-left space-y-4">
-              <span className="text-[10px] font-extrabold uppercase bg-[#f2f3ff] text-[#00288e] dark:bg-[#1a2c4d] dark:text-[#a8b8ff] px-2.5 py-1 rounded">
+              <span className="text-[10px] font-semibold uppercase bg-[var(--color-card-raised)] text-[var(--color-control)] bg-[var(--color-card)] text-[var(--color-secondary)] px-2.5 py-1 rounded">
                 Obsidian note preview
               </span>
-              <h3 className="text-lg font-bold font-display text-[#131b2e] dark:text-white leading-tight">
+              <h3 className="text-lg font-semibold font-display text-[var(--color-ink)] text-[var(--color-ink)] leading-tight">
                 {selectedNote.title}
               </h3>
-              
-              <div className="border-t border-[#eaedff] dark:border-[#283044]/40 pt-4 text-xs space-y-4">
-                <p className="text-[#757684] font-semibold">Note snippet preview</p>
-                <div className="bg-[#faf8ff] dark:bg-[#0c1322]/40 p-4 rounded-lg border border-[#eaedff] dark:border-[#283044]/40 text-[#131b2e] dark:text-white whitespace-pre-line leading-relaxed max-h-60 overflow-y-auto">
+
+              <div className="border-t border-[var(--color-divider)] border-[var(--color-divider)]/40 pt-4 text-xs space-y-4">
+                <p className="text-[var(--color-secondary)] font-semibold">Note snippet preview</p>
+                <div className="bg-[var(--color-card-raised)] bg-[var(--color-card)]/40 p-4 rounded-lg border border-[var(--color-divider)] border-[var(--color-divider)]/40 text-[var(--color-ink)] text-[var(--color-ink)] whitespace-pre-line leading-relaxed max-h-60 overflow-y-auto">
                   {selectedNote.preview}
                 </div>
-                
-                <div className="flex justify-between items-center text-[10px] text-[#757684]">
+
+                <div className="flex justify-between items-center text-[10px] text-[var(--color-secondary)]">
                   <span>Last Modified: {new Date(selectedNote.modifiedAt).toLocaleString('en-GB')}</span>
                 </div>
               </div>
 
-              <div className="border-t border-[#eaedff]/40 pt-4 flex justify-between items-center">
+              <div className="border-t border-[var(--color-divider)]/40 pt-4 flex justify-between items-center">
                 {selectedNote.obsidianUri ? (
                   <a
                     href={selectedNote.obsidianUri}
-                    className="bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-display font-semibold uppercase tracking-wider py-2 px-4 rounded flex items-center gap-1.5"
+                    className="bg-[var(--color-card-raised)] hover:bg-[var(--color-card)] text-[var(--color-ink)] text-xs font-display font-semibold uppercase tracking-wider py-2 px-4 rounded flex items-center gap-1.5"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     <span>Open in Obsidian</span>
@@ -284,7 +284,7 @@ export const AppOverlays: React.FC<AppOverlaysProps> = ({
                 ) : (
                   <span></span>
                 )}
-                <span className="text-[9px] text-[#757684] italic">Editing is disabled inside dashboard.</span>
+                <span className="text-[9px] text-[var(--color-secondary)] italic">Editing is disabled inside dashboard.</span>
               </div>
             </div>
           </div>
@@ -293,12 +293,12 @@ export const AppOverlays: React.FC<AppOverlaysProps> = ({
 
       {/* Settings Modal */}
       {showSettings && settingsEditState && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50">
-          <div className="bg-white dark:bg-[#131b2e] border border-[#eaedff] dark:border-[#283044] rounded-xl w-[calc(100vw-16px)] max-w-full md:max-w-3xl shadow-2xl overflow-hidden relative flex flex-col md:flex-row h-[calc(100dvh-16px)] md:h-[32rem] max-h-[calc(100dvh-16px)] md:max-h-none min-w-0">
-            
-            <button 
+        <div className="fixed inset-0 bg-[var(--color-card)]/40 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-[var(--color-card)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] rounded-xl w-[calc(100vw-16px)] max-w-full md:max-w-3xl shadow-2xl overflow-hidden relative flex flex-col md:flex-row h-[calc(100dvh-16px)] md:h-[32rem] max-h-[calc(100dvh-16px)] md:max-h-none min-w-0">
+
+            <button
               onClick={onCloseSettings}
-              className="absolute right-3 top-3 md:right-4 md:top-4 text-[#757684] hover:text-[#ba1a1a] p-1.5 z-50 bg-white/80 dark:bg-[#131b2e]/80 rounded-full"
+              className="absolute right-3 top-3 md:right-4 md:top-4 text-[var(--color-secondary)] hover:text-[var(--color-warning)] p-1.5 z-50 bg-[var(--color-card)]/80 bg-[var(--color-card)]/80 rounded-full"
               title="Close settings"
             >
               <X className="w-5 h-5" />

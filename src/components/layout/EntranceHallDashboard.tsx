@@ -1,18 +1,18 @@
 import React from 'react';
-import { 
-  Calendar, 
-  CheckSquare, 
-  Folder, 
-  FileText, 
-  Brain, 
-  Sparkles, 
-  TrendingUp, 
-  Clock, 
-  RefreshCw, 
-  WifiOff, 
-  ChevronRight, 
-  AlertCircle, 
-  Check, 
+import {
+  Calendar,
+  CheckSquare,
+  Folder,
+  FileText,
+  Brain,
+  Sparkles,
+  TrendingUp,
+  Clock,
+  RefreshCw,
+  WifiOff,
+  ChevronRight,
+  AlertCircle,
+  Check,
   AlertTriangle,
   Compass,
   ArrowRight
@@ -134,8 +134,8 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
       original: todayTaskFocus,
     };
   } else if (upcomingEventFocus) {
-    const formattedTime = upcomingEventFocus.allDay 
-      ? 'All Day' 
+    const formattedTime = upcomingEventFocus.allDay
+      ? 'All Day'
       : new Date(upcomingEventFocus.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
     focusElement = {
       type: 'event',
@@ -196,28 +196,28 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
   return (
     <div className="space-y-6">
       {/* 1. GREETING & CONTEXT PANEL */}
-      <section 
-        className="p-6 rounded-xl border border-[#1e293b]/60 bg-gradient-to-r from-[#0d1527] to-[#0a0f1d] flex flex-col md:flex-row md:items-center md:justify-between gap-6"
+      <section
+        className="p-6 rounded-xl border border-[var(--color-divider)]/60 bg-gradient-to-r from-[var(--color-card)] to-[var(--color-page)] flex flex-col md:flex-row md:items-center md:justify-between gap-6"
         aria-label="Welcome banner"
       >
         <div className="select-none">
-          <span className="text-[10px] font-mono tracking-widest text-[#c5a86a] uppercase">
+          <span className="text-[10px] font-mono tracking-widest text-[var(--color-secondary)] uppercase">
             {getFormattedDate()}
           </span>
-          <h1 className="text-2xl font-display font-black text-white tracking-wide uppercase mt-1">
+          <h1 className="text-2xl font-display font-semibold text-[var(--color-ink)] tracking-wide uppercase mt-1">
             {getGreeting()},{' '}
-            <span className="text-[#e4cb93]">
+            <span className="text-[var(--color-secondary)]">
               {username || 'Explorer'}
             </span>
           </h1>
-          <p className="text-xs text-slate-400 mt-1 max-w-lg leading-relaxed">
+          <p className="text-xs text-[var(--color-secondary)] mt-1 max-w-lg leading-relaxed">
             Here is your unified workspace summary. Change contexts below to filter events, tasks, and recent actions.
           </p>
         </div>
 
         {/* Workspace Context Picker */}
-        <div 
-          className="flex items-center gap-1.5 p-1 bg-[#070b13] border border-[#1e293b] rounded-lg self-start md:self-auto"
+        <div
+          className="flex items-center gap-1.5 p-1 bg-[var(--color-page)] border border-[var(--color-divider)] rounded-lg self-start md:self-auto"
           role="radiogroup"
           aria-label="Filter workspace context"
         >
@@ -229,10 +229,10 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
                 onClick={() => onContextChange(context)}
                 role="radio"
                 aria-checked={isActive}
-                className={`px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider transition-all duration-200 outline-none focus-visible:ring-1 focus-visible:ring-[#c5a86a] ${
+                className={`px-3 py-1.5 rounded text-[10px] font-semibold uppercase tracking-wider transition-all duration-200 outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-secondary)] ${
                   isActive
-                    ? 'bg-[#131b2e] text-[#e4cb93] border border-[#9a7d44]/30'
-                    : 'text-slate-400 border border-transparent hover:text-slate-200'
+                    ? 'bg-[var(--color-card)] text-[var(--color-secondary)] border border-[var(--color-secondary)]/30'
+                    : 'text-[var(--color-secondary)] border border-transparent hover:text-[var(--color-secondary)]'
                 }`}
               >
                 {context}
@@ -244,18 +244,18 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
 
       {/* 2. TODAY'S DETERMINISTIC FOCUS */}
       <section aria-label="Today's Primary Focus">
-        <div className="bg-gradient-to-r from-[#131b2e] via-[#0d1527] to-[#131b2e] border border-[#9a7d44]/25 rounded-xl p-5 shadow-[0_4px_24px_rgba(197,168,106,0.05)] select-none">
-          <div className="flex items-center gap-2 text-[10px] font-mono tracking-widest text-[#c5a86a] uppercase">
-            <Sparkles className="w-3.5 h-3.5 text-[#e4cb93] animate-pulse" />
+        <div className="bg-gradient-to-r from-[var(--color-card)] via-[var(--color-card)] to-[var(--color-card)] border border-[var(--color-secondary)]/25 rounded-xl p-5 shadow-none select-none">
+          <div className="flex items-center gap-2 text-[10px] font-mono tracking-widest text-[var(--color-secondary)] uppercase">
+            <Sparkles className="w-3.5 h-3.5 text-[var(--color-secondary)] animate-pulse" />
             <span>Today's Core Priority Focus</span>
           </div>
           {focusElement ? (
             <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-mono text-[#757684] uppercase">
+                <p className="text-xs font-mono text-[var(--color-secondary)] uppercase">
                   {focusElement.subtext}
                 </p>
-                <h4 className="text-base font-bold text-white mt-1 group-hover:text-[#e4cb93] transition-colors leading-snug">
+                <h4 className="text-base font-semibold text-[var(--color-ink)] mt-1 group-hover:text-[var(--color-secondary)] transition-colors leading-snug">
                   {focusElement.title}
                 </h4>
               </div>
@@ -269,14 +269,14 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
                     onNavigate(focusElement?.type === 'event' ? 'calendar' : 'tasks');
                   }
                 }}
-                className="px-4 py-2.5 rounded-lg border border-[#c5a86a]/30 bg-[#0a0f1d] hover:border-[#e4cb93] text-xs font-semibold uppercase tracking-wider text-slate-300 hover:text-white transition-colors cursor-pointer flex items-center gap-2 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[#c5a86a]"
+                className="px-4 py-2.5 rounded-lg border border-[var(--color-secondary)]/30 bg-[var(--color-page)] hover:border-[var(--color-secondary)] text-xs font-semibold uppercase tracking-wider text-[var(--color-secondary)] hover:text-[var(--color-ink)] transition-colors cursor-pointer flex items-center gap-2 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-secondary)]"
               >
                 <span>Attend to Focus</span>
-                <ArrowRight className="w-3.5 h-3.5 text-[#c5a86a]" />
+                <ArrowRight className="w-3.5 h-3.5 text-[var(--color-secondary)]" />
               </button>
             </div>
           ) : (
-            <p className="text-xs text-slate-400 mt-2 italic">
+            <p className="text-xs text-[var(--color-secondary)] mt-2 italic">
               You have no critical focus items remaining for today. Enjoy the clear space!
             </p>
           )}
@@ -293,7 +293,7 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
           headerAction={
             <button
               onClick={() => onNavigate('calendar')}
-              className="text-[10px] font-black uppercase tracking-wider text-[#c5a86a] hover:text-[#e4cb93] p-1.5 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-[#c5a86a]"
+              className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-secondary)] hover:text-[var(--color-secondary)] p-1.5 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-secondary)]"
               aria-label="View full calendar view"
             >
               Calendar Panel
@@ -303,19 +303,19 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
           {agendaEvents.length > 0 ? (
             <div className="space-y-3.5" role="list">
               {agendaEvents.map((event) => (
-                <div 
+                <div
                   key={event.id}
                   onClick={() => onOpenEvent && onOpenEvent(event)}
-                  className="flex items-start gap-3.5 p-2 rounded-lg border border-transparent hover:border-[#1e293b] hover:bg-[#131b2e]/30 cursor-pointer transition-all"
+                  className="flex items-start gap-3.5 p-2 rounded-lg border border-transparent hover:border-[var(--color-divider)] hover:bg-[var(--color-card)]/30 cursor-pointer transition-all"
                   role="listitem"
                 >
-                  <div className="text-[10px] font-mono text-[#c5a86a] bg-[#131b2e] px-2 py-1 rounded tracking-wide shrink-0 whitespace-nowrap">
+                  <div className="text-[10px] font-mono text-[var(--color-secondary)] bg-[var(--color-card)] px-2 py-1 rounded tracking-wide shrink-0 whitespace-nowrap">
                     {formatEventTime(event)}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-white truncate">{event.title}</p>
+                    <p className="text-xs font-semibold text-[var(--color-ink)] truncate">{event.title}</p>
                     {event.calendarName && (
-                      <p className="text-[10px] text-slate-500 truncate mt-0.5">{event.calendarName}</p>
+                      <p className="text-[10px] text-[var(--color-secondary)] truncate mt-0.5">{event.calendarName}</p>
                     )}
                   </div>
                 </div>
@@ -323,7 +323,7 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
             </div>
           ) : (
             <div className="text-center py-6">
-              <p className="text-xs text-slate-500 italic">No scheduled events found for today</p>
+              <p className="text-xs text-[var(--color-secondary)] italic">No scheduled events found for today</p>
             </div>
           )}
         </EntranceHallCard>
@@ -336,7 +336,7 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
           headerAction={
             <button
               onClick={() => onNavigate('tasks')}
-              className="text-[10px] font-black uppercase tracking-wider text-[#c5a86a] hover:text-[#e4cb93] p-1.5 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-[#c5a86a]"
+              className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-secondary)] hover:text-[var(--color-secondary)] p-1.5 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-secondary)]"
               aria-label="View full tasks panel"
             >
               Tasks Panel
@@ -346,34 +346,34 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
           {dashboardTasks.length > 0 ? (
             <div className="space-y-3" role="list">
               {dashboardTasks.map((task) => (
-                <div 
+                <div
                   key={task.id}
                   onClick={() => onOpenTask && onOpenTask(task)}
-                  className="flex items-start gap-3 p-2 rounded-lg border border-transparent hover:border-[#1e293b] hover:bg-[#131b2e]/30 cursor-pointer transition-all"
+                  className="flex items-start gap-3 p-2 rounded-lg border border-transparent hover:border-[var(--color-divider)] hover:bg-[var(--color-card)]/30 cursor-pointer transition-all"
                   role="listitem"
                 >
                   <div className="mt-0.5 shrink-0">
                     <div className={`w-3.5 h-3.5 rounded-full border ${
-                      task.isOverdue 
-                        ? 'border-red-500/60 bg-red-500/10' 
-                        : 'border-[#c5a86a]/60 bg-[#c5a86a]/10'
+                      task.isOverdue
+                        ? 'border-[var(--color-warning)] bg-[var(--color-warning-surface)]'
+                        : 'border-[var(--color-secondary)]/60 bg-[var(--color-card-raised)]/10'
                     } flex items-center justify-center`} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-slate-100 truncate">{task.title}</p>
+                    <p className="text-xs font-semibold text-[var(--color-secondary)] truncate">{task.title}</p>
                     <div className="flex items-center gap-2 mt-1">
                       {task.isOverdue && (
-                        <span className="text-[9px] font-mono font-bold uppercase text-red-400 bg-red-950/40 px-1.5 py-0.5 rounded tracking-wider shrink-0">
+                        <span className="text-[9px] font-mono font-semibold uppercase text-[var(--color-warning)] bg-[var(--color-warning-surface)] px-1.5 py-0.5 rounded tracking-wider shrink-0">
                           Overdue
                         </span>
                       )}
                       {task.dueDate && (
-                        <span className="text-[9px] font-mono text-slate-500">
+                        <span className="text-[9px] font-mono text-[var(--color-secondary)]">
                           Due: {task.dueDate}
                         </span>
                       )}
                       {task.projectName && (
-                        <span className="text-[9px] text-slate-500 truncate">
+                        <span className="text-[9px] text-[var(--color-secondary)] truncate">
                           • {task.projectName}
                         </span>
                       )}
@@ -384,7 +384,7 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
             </div>
           ) : (
             <div className="text-center py-6">
-              <p className="text-xs text-slate-500 italic">No incomplete tasks in today's view</p>
+              <p className="text-xs text-[var(--color-secondary)] italic">No incomplete tasks in today's view</p>
             </div>
           )}
         </EntranceHallCard>
@@ -397,7 +397,7 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
           headerAction={
             <button
               onClick={() => onNavigate('projects')}
-              className="text-[10px] font-black uppercase tracking-wider text-[#c5a86a] hover:text-[#e4cb93] p-1.5 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-[#c5a86a]"
+              className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-secondary)] hover:text-[var(--color-secondary)] p-1.5 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-secondary)]"
               aria-label="View full projects panel"
             >
               Projects Panel
@@ -407,35 +407,35 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
           {dashboardProjects.length > 0 ? (
             <div className="space-y-3.5" role="list">
               {dashboardProjects.map((project) => (
-                <div 
+                <div
                   key={project.id}
-                  className="p-2 rounded-lg border border-transparent hover:border-[#1e293b]/50 transition-all select-none"
+                  className="p-2 rounded-lg border border-transparent hover:border-[var(--color-divider)]/50 transition-all select-none"
                   role="listitem"
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: project.color || '#757684' }} />
-                      <span className="text-xs font-bold text-white truncate">{project.name}</span>
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: project.color || 'var(--color-secondary)' }} />
+                      <span className="text-xs font-semibold text-[var(--color-ink)] truncate">{project.name}</span>
                       {project.isFavorite && (
-                        <span className="text-[8px] font-mono font-black tracking-wider text-[#e4cb93] bg-[#9a7d44]/20 border border-[#9a7d44]/30 px-1 py-0.2 rounded uppercase">
+                        <span className="text-[8px] font-mono font-semibold tracking-wider text-[var(--color-secondary)] bg-[var(--color-card-raised)]/20 border border-[var(--color-secondary)]/30 px-1 py-0.2 rounded uppercase">
                           FAV
                         </span>
                       )}
                     </div>
-                    <span className="text-[10px] font-mono text-slate-400">
+                    <span className="text-[10px] font-mono text-[var(--color-secondary)]">
                       {project.percentageCompleted}%
                     </span>
                   </div>
 
                   {/* Restrained progress bar */}
-                  <div className="w-full bg-[#070b13] rounded-full h-1.5 mt-2 overflow-hidden border border-[#1e293b]/50">
-                    <div 
-                      className="bg-gradient-to-r from-[#9a7d44] to-[#e4cb93] h-1.5 rounded-full transition-all duration-500" 
+                  <div className="w-full bg-[var(--color-page)] rounded-full h-1.5 mt-2 overflow-hidden border border-[var(--color-divider)]/50">
+                    <div
+                      className="bg-gradient-to-r from-[var(--color-secondary)] to-[var(--color-secondary)] h-1.5 rounded-full transition-all duration-500"
                       style={{ width: `${project.percentageCompleted}%` }}
                     />
                   </div>
-                  
-                  <div className="flex items-center justify-between text-[9px] text-[#757684] font-mono mt-1">
+
+                  <div className="flex items-center justify-between text-[9px] text-[var(--color-secondary)] font-mono mt-1">
                     <span>Active: {project.activeTaskCount}</span>
                     <span>Done: {project.completedTaskCount}</span>
                   </div>
@@ -444,7 +444,7 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
             </div>
           ) : (
             <div className="text-center py-6">
-              <p className="text-xs text-slate-500 italic">No active projects loaded</p>
+              <p className="text-xs text-[var(--color-secondary)] italic">No active projects loaded</p>
             </div>
           )}
         </EntranceHallCard>
@@ -457,7 +457,7 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
           headerAction={
             <button
               onClick={() => onNavigate('notes')}
-              className="text-[10px] font-black uppercase tracking-wider text-[#c5a86a] hover:text-[#e4cb93] p-1.5 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-[#c5a86a]"
+              className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-secondary)] hover:text-[var(--color-secondary)] p-1.5 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-secondary)]"
               aria-label="View full notes inbox"
             >
               Notes Panel
@@ -467,20 +467,20 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
           {dashboardNotes.length > 0 ? (
             <div className="space-y-3" role="list">
               {dashboardNotes.map((note) => (
-                <div 
+                <div
                   key={note.path}
                   onClick={() => onOpenNote && onOpenNote(note)}
-                  className="p-2.5 rounded-lg border border-[#1e293b]/40 bg-[#0a0f1d]/20 hover:border-[#9a7d44]/25 hover:bg-[#131b2e]/25 cursor-pointer transition-all"
+                  className="p-2.5 rounded-lg border border-[var(--color-divider)]/40 bg-[var(--color-page)]/20 hover:border-[var(--color-secondary)]/25 hover:bg-[var(--color-card)]/25 cursor-pointer transition-all"
                   role="listitem"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <h4 className="text-xs font-bold text-white truncate flex-1">{note.title}</h4>
-                    <span className="text-[8px] font-mono text-[#757684] shrink-0">
+                    <h4 className="text-xs font-semibold text-[var(--color-ink)] truncate flex-1">{note.title}</h4>
+                    <span className="text-[8px] font-mono text-[var(--color-secondary)] shrink-0">
                       {new Date(note.modifiedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                     </span>
                   </div>
                   {note.preview && (
-                    <p className="text-[10px] text-slate-400 truncate mt-1 leading-relaxed">
+                    <p className="text-[10px] text-[var(--color-secondary)] truncate mt-1 leading-relaxed">
                       {note.preview}
                     </p>
                   )}
@@ -489,7 +489,7 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
             </div>
           ) : (
             <div className="text-center py-6">
-              <p className="text-xs text-slate-500 italic">No recent vault notes loaded</p>
+              <p className="text-xs text-[var(--color-secondary)] italic">No recent vault notes loaded</p>
             </div>
           )}
         </EntranceHallCard>
@@ -514,13 +514,13 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
                 <button
                   key={route.id}
                   onClick={() => onNavigate(route.id as EntranceHallView)}
-                  className="p-2.5 rounded-lg border border-[#1e293b]/60 bg-[#0a0f1d]/40 text-left hover:border-[#c5a86a]/30 hover:bg-[#131b2e]/40 transition-all outline-none focus-visible:ring-1 focus-visible:ring-[#c5a86a] select-none group"
+                  className="p-2.5 rounded-lg border border-[var(--color-divider)]/60 bg-[var(--color-page)]/40 text-left hover:border-[var(--color-secondary)]/30 hover:bg-[var(--color-card)]/40 transition-all outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-secondary)] select-none group"
                 >
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-white uppercase tracking-wider group-hover:text-[#e4cb93] transition-colors">
-                    <IconComp className="w-3.5 h-3.5 text-slate-500 group-hover:text-[#e4cb93]" />
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold text-[var(--color-ink)] uppercase tracking-wider group-hover:text-[var(--color-secondary)] transition-colors">
+                    <IconComp className="w-3.5 h-3.5 text-[var(--color-secondary)] group-hover:text-[var(--color-secondary)]" />
                     <span className="truncate">{route.label}</span>
                   </div>
-                  <p className="text-[8px] text-[#757684] truncate mt-0.5 leading-none uppercase font-mono tracking-wide">
+                  <p className="text-[8px] text-[var(--color-secondary)] truncate mt-0.5 leading-none uppercase font-mono tracking-wide">
                     {route.desc}
                   </p>
                 </button>
@@ -538,26 +538,26 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
             <button
               onClick={onRefresh}
               disabled={refreshing}
-              className={`p-2 rounded bg-[#131b2e] border border-[#1e293b] text-slate-300 hover:text-white transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-[#c5a86a] ${refreshing ? 'opacity-50' : ''}`}
+              className={`p-2 rounded bg-[var(--color-card)] border border-[var(--color-divider)] text-[var(--color-secondary)] hover:text-[var(--color-ink)] transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-secondary)] ${refreshing ? '' : ''}`}
               title="Manual workspace synchronization"
               aria-label="Force manual workspace synchronization"
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-[#c5a86a] ${refreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 text-[var(--color-secondary)] ${refreshing ? 'animate-spin' : ''}`} />
             </button>
           }
         >
           <div className="space-y-2.5">
             {/* Global Network status */}
-            <div className="flex items-center justify-between p-2 rounded bg-[#0a0f1d]/40 border border-[#1e293b]/40">
-              <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Networking State</span>
+            <div className="flex items-center justify-between p-2 rounded bg-[var(--color-page)]/40 border border-[var(--color-divider)]/40">
+              <span className="text-[10px] font-mono text-[var(--color-secondary)] uppercase tracking-wider">Networking State</span>
               {isOffline ? (
-                <span className="flex items-center gap-1 text-[9px] font-mono font-black uppercase text-amber-400 bg-amber-950/30 border border-amber-900/30 px-1.5 py-0.5 rounded tracking-wider">
+                <span className="flex items-center gap-1 text-[9px] font-mono font-semibold uppercase text-[var(--color-warning)] bg-[var(--color-warning-surface)] border border-[var(--color-warning)] px-1.5 py-0.5 rounded tracking-wider">
                   <WifiOff className="w-3 h-3" />
                   <span>Offline</span>
                 </span>
               ) : (
-                <span className="flex items-center gap-1 text-[9px] font-mono font-black uppercase text-emerald-400 bg-emerald-950/30 border border-emerald-900/30 px-1.5 py-0.5 rounded tracking-wider">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 glow-dot" />
+                <span className="flex items-center gap-1 text-[9px] font-mono font-semibold uppercase text-[var(--color-success)] bg-[var(--color-success-surface)] border border-[var(--color-success)] px-1.5 py-0.5 rounded tracking-wider">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-success-surface)] glow-dot" />
                   <span>Online</span>
                 </span>
               )}
@@ -567,26 +567,26 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
             {serviceStatus.length > 0 ? (
               <div className="space-y-1.5" role="list">
                 {serviceStatus.map((srv) => (
-                  <div 
+                  <div
                     key={srv.provider}
-                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-[#131b2e]/10 transition-colors"
+                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-[var(--color-card)]/10 transition-colors"
                     role="listitem"
                   >
-                    <span className="text-xs font-semibold text-slate-300">{getProviderLabel(srv.provider)}</span>
+                    <span className="text-xs font-semibold text-[var(--color-secondary)]">{getProviderLabel(srv.provider)}</span>
                     <div className="flex items-center gap-1.5">
                       {srv.status === 'connected' ? (
-                        <span className="text-[8px] font-mono font-bold uppercase text-emerald-400 bg-emerald-950/20 px-1.5 py-0.5 rounded tracking-wider flex items-center gap-1">
-                          <Check className="w-2.5 h-2.5 text-emerald-500" />
+                        <span className="text-[8px] font-mono font-semibold uppercase text-[var(--color-success)] bg-[var(--color-success-surface)] px-1.5 py-0.5 rounded tracking-wider flex items-center gap-1">
+                          <Check className="w-2.5 h-2.5 text-[var(--color-success)]" />
                           <span>OK</span>
                         </span>
                       ) : srv.status === 'warning' ? (
-                        <span className="text-[8px] font-mono font-bold uppercase text-amber-400 bg-amber-950/20 px-1.5 py-0.5 rounded tracking-wider flex items-center gap-1">
-                          <AlertTriangle className="w-2.5 h-2.5 text-amber-500" />
+                        <span className="text-[8px] font-mono font-semibold uppercase text-[var(--color-warning)] bg-[var(--color-warning-surface)] px-1.5 py-0.5 rounded tracking-wider flex items-center gap-1">
+                          <AlertTriangle className="w-2.5 h-2.5 text-[var(--color-warning)]" />
                           <span>Attention</span>
                         </span>
                       ) : (
-                        <span className="text-[8px] font-mono font-bold uppercase text-red-400 bg-red-950/20 px-1.5 py-0.5 rounded tracking-wider flex items-center gap-1">
-                          <AlertCircle className="w-2.5 h-2.5 text-red-500" />
+                        <span className="text-[8px] font-mono font-semibold uppercase text-[var(--color-warning)] bg-[var(--color-warning-surface)] px-1.5 py-0.5 rounded tracking-wider flex items-center gap-1">
+                          <AlertCircle className="w-2.5 h-2.5 text-[var(--color-warning)]" />
                           <span>Unlinked</span>
                         </span>
                       )}
@@ -596,12 +596,12 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
               </div>
             ) : (
               <div className="text-center py-2">
-                <p className="text-[10px] text-slate-500 italic">No system heartbeats mapped</p>
+                <p className="text-[10px] text-[var(--color-secondary)] italic">No system heartbeats mapped</p>
               </div>
             )}
 
             {/* Sync Timestamp footer */}
-            <div className="text-right text-[8px] font-mono text-[#757684] mt-3">
+            <div className="text-right text-[8px] font-mono text-[var(--color-secondary)] mt-3">
               Last Sync: {lastUpdated || 'N/A'}
             </div>
           </div>

@@ -1,27 +1,27 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { 
-  Calendar, 
-  CheckSquare, 
-  Search, 
-  RefreshCw, 
-  Settings, 
-  LogOut, 
-  Clock, 
-  CloudSun, 
-  Mic, 
-  MicOff, 
-  Paperclip, 
-  Folder, 
-  ExternalLink, 
-  FileText, 
-  Menu, 
-  X, 
-  AlertTriangle, 
-  CheckCircle2, 
-  HelpCircle, 
-  ChevronDown, 
-  ChevronUp, 
-  WifiOff, 
+import {
+  Calendar,
+  CheckSquare,
+  Search,
+  RefreshCw,
+  Settings,
+  LogOut,
+  Clock,
+  CloudSun,
+  Mic,
+  MicOff,
+  Paperclip,
+  Folder,
+  ExternalLink,
+  FileText,
+  Menu,
+  X,
+  AlertTriangle,
+  CheckCircle2,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
+  WifiOff,
   Info,
   CalendarDays,
   User,
@@ -57,13 +57,13 @@ import { EntranceHallDashboard } from './components/layout/EntranceHallDashboard
 import { ObsidianErrorBox } from './components/feedback/ObsidianErrorBox';
 import { ReadingCaptureWorkspace } from './components/ReadingCaptureWorkspace';
 import { SignalWorkspace } from './components/SignalWorkspace';
-import { 
-  DashboardSnapshot, 
-  UserSettings, 
-  CalendarEvent, 
-  TodoistTask, 
-  ObsidianNote, 
-  WeatherSnapshot, 
+import {
+  DashboardSnapshot,
+  UserSettings,
+  CalendarEvent,
+  TodoistTask,
+  ObsidianNote,
+  WeatherSnapshot,
   ServiceStatus,
   TodoistProjectSummary,
   TodoistProjectTask,
@@ -139,7 +139,7 @@ export default function App() {
   // Authentication states
   const [authChecked, setAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  
+
   // Refs to handle current authentication status and request-generation/epoch
   const authStatusRef = useRef<boolean>(false);
   const authGenerationRef = useRef<number>(0);
@@ -330,7 +330,7 @@ export default function App() {
     const modeSetting = settings?.obsidian?.connectionMode || 'auto';
     if (modeSetting === 'mobile') return 'mobile';
     if (modeSetting === 'desktop') return 'desktop';
-    
+
     // Automatic detection: viewport width < 768 and coarse pointer
     const isNarrow = typeof window !== 'undefined' ? window.innerWidth < 768 : false;
     const isCoarse = typeof window !== 'undefined' ? window.matchMedia('(pointer: coarse)').matches : false;
@@ -341,34 +341,34 @@ export default function App() {
     if (getActiveObsidianMode() === 'mobile') {
       return {
         text: 'Mobile Handoff Active',
-        color: 'border-purple-300 bg-purple-50 text-purple-700 dark:bg-purple-950/20 dark:text-purple-300 dark:border-purple-800/40'
+        color: 'border-[var(--color-divider)] bg-[var(--color-card-raised)] text-[var(--color-secondary)] bg-[var(--color-card-raised)] text-[var(--color-secondary)] border-[var(--color-divider)]'
       };
     }
-    
+
     if (!obsidianApiKey) {
       return {
         text: 'Unconfigured',
-        color: 'border-gray-300 bg-gray-50 text-gray-500 dark:bg-gray-800/30 dark:text-gray-400 dark:border-gray-700'
+        color: 'border-[var(--color-divider)] bg-[var(--color-card)] text-[var(--color-secondary)] bg-[var(--color-card)] text-[var(--color-secondary)] border-[var(--color-divider)]'
       };
     }
-    
+
     if (obsidianTestStatus.success === true) {
       return {
         text: 'Connected',
-        color: 'border-green-300 bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-300 dark:border-green-800'
+        color: 'border-[var(--color-success)] bg-[var(--color-success-surface)] text-[var(--color-success)] bg-[var(--color-success-surface)] text-[var(--color-success)] border-[var(--color-success)]'
       };
     }
-    
+
     if (obsidianTestStatus.success === false) {
       return {
         text: 'Connection Error',
-        color: 'border-red-300 bg-[#ffdad6] text-[#ba1a1a] dark:bg-[#ffdad6]/20 dark:text-red-300 dark:border-red-800'
+        color: 'border-[var(--color-warning)] bg-[var(--color-warning-surface)] text-[var(--color-warning)] bg-[var(--color-warning-surface)]/20 text-[var(--color-warning)] border-[var(--color-warning)]'
       };
     }
-    
+
     return {
       text: 'Configured',
-      color: 'border-blue-300 bg-blue-50 text-blue-600 dark:bg-blue-950/20 dark:text-blue-300 dark:border-blue-800'
+      color: 'border-[var(--color-divider)] bg-[var(--color-card-raised)] text-[var(--color-secondary)] bg-[var(--color-card-raised)] text-[var(--color-secondary)] border-[var(--color-divider)]'
     };
   }, [getActiveObsidianMode, obsidianApiKey, obsidianTestStatus.success]);
 
@@ -553,7 +553,7 @@ export default function App() {
       }
 
       await ObsidianClient.replaceFile(obsidianUrl, obsidianApiKey, selectedRecentNote.path, editedNoteContent);
-      
+
       const updatedNote = {
         ...selectedRecentNote,
         content: editedNoteContent,
@@ -606,7 +606,7 @@ export default function App() {
       await ObsidianClient.appendToFile(obsidianUrl, obsidianApiKey, selectedRecentNote.path, appendText);
 
       const fileData = await ObsidianClient.readFile(obsidianUrl, obsidianApiKey, selectedRecentNote.path);
-      
+
       if (authStatusRef.current && authGenerationRef.current === currentGen) {
         setAppendNoteSuccess(true);
         setAppendNoteContent('');
@@ -663,7 +663,7 @@ export default function App() {
 
   const handleTestObsidianConnection = async () => {
     setObsidianTestStatus({ success: null, message: '', loading: true });
-    
+
     const baseUrl = ObsidianClient.cleanBaseUrl(obsidianUrl);
     setObsidianUrl(baseUrl);
     sessionStorage.setItem('obsidian_api_url', baseUrl);
@@ -741,7 +741,7 @@ export default function App() {
         const folder = settings?.obsidian?.inboxFolder || 'Fleeting Notes';
         const cleanFolder = ObsidianClient.normalizeVaultPath(folder);
         const encodedFolder = ObsidianClient.encodeVaultPath(cleanFolder ? `${cleanFolder}/` : '');
-        
+
         try {
           const folderResponse = await fetch(`${baseUrl}/vault/${encodedFolder}`, {
             method: 'GET',
@@ -760,7 +760,7 @@ export default function App() {
               localStorage.setItem('obsidian_api_key', keyToTest);
               localStorage.setItem('obsidian_api_url', baseUrl);
             }
-            
+
             setObsidianTestStatus({
               success: true,
               message: 'Connection successful!\n• Local service is reachable.\n• Authentication succeeded.\n• Fleeting Notes folder found.\n• Saved secure connection.',
@@ -776,7 +776,7 @@ export default function App() {
               localStorage.setItem('obsidian_api_key', keyToTest);
               localStorage.setItem('obsidian_api_url', baseUrl);
             }
-            
+
             setObsidianTestStatus({
               success: true, // Reported as connection success but warning
               message: `Connection successful, but the configured Fleeting Notes folder "${folder}" was not found (Status 404).\n` +
@@ -987,7 +987,7 @@ export default function App() {
     setRecentNotesErrorDetails(null);
     setSaveNoteErrorDetails(null);
     setAppendNoteErrorDetails(null);
-    
+
     // Clear any local cache
     localStorage.removeItem('life_site_snapshot');
   }, []);
@@ -1331,7 +1331,7 @@ export default function App() {
 
     try {
       const data = await ApiClient.getTodoistProjects(context);
-      
+
       // Mark as successfully loaded only after the API request succeeds and its result is accepted as current
       if (
         authStatusRef.current &&
@@ -1388,7 +1388,7 @@ export default function App() {
           setCalendarView(snapshot.settings.defaultCalendarView || 'day');
           setLastUpdated(new Date(snapshot.fetchedAt).toLocaleTimeString('en-GB'));
         }
-        
+
         if (isOffline) {
           if (authStatusRef.current && authGenerationRef.current === currentGen) {
             setLoading(false);
@@ -1408,7 +1408,7 @@ export default function App() {
         setThemeMode(data.settings.theme === 'dark' ? 'dark' : 'light');
         setCalendarView(data.settings.defaultCalendarView || 'day');
         setLastUpdated(new Date(data.fetchedAt).toLocaleTimeString('en-GB'));
-        
+
         // Save snapshot to local cache
         localStorage.setItem('life_site_snapshot', JSON.stringify(data));
 
@@ -1589,7 +1589,7 @@ export default function App() {
     try {
       const updated = await ApiClient.saveSettings(settingsEditState);
       if (!isAuthGenerationCurrent(currentGen)) return;
-      
+
       // Update local storage cache to avoid stale settings load
       const cached = localStorage.getItem('life_site_snapshot');
       if (cached) {
@@ -1629,16 +1629,16 @@ export default function App() {
     setLoading(true);
     try {
       const payload: any = {};
-      
+
       // Only send if the user typed a new token
       if (secretsForm.todoistToken && secretsForm.todoistToken.trim() !== '') {
         payload.todoistToken = secretsForm.todoistToken.trim();
       }
-      
+
       if (secretsForm.googleClientId !== undefined) {
         payload.googleClientId = secretsForm.googleClientId;
       }
-      
+
       // Only send if the user typed a new secret
       if (secretsForm.googleClientSecret && secretsForm.googleClientSecret.trim() !== '') {
         payload.googleClientSecret = secretsForm.googleClientSecret.trim();
@@ -1757,7 +1757,7 @@ export default function App() {
   // Task grouping helper
   const taskGroups = useMemo(() => {
     if (!filteredData) return { overdue: [], today: [], upcoming: [], completed: [] };
-    
+
     const overdue: TodoistTask[] = [];
     const today: TodoistTask[] = [];
     const upcoming: TodoistTask[] = [];
@@ -1811,7 +1811,7 @@ export default function App() {
     const totalInboxTasks = inboxTasks.length;
     const totalInboxSections = inboxSections.length;
     const tasksWithSectionId = inboxTasks.filter(t => t.sectionId).length;
-    
+
     // Create section map with stringified IDs
     const sectionMap = new Map<string, TodoistSection>();
     inboxSections.forEach(s => {
@@ -2105,7 +2105,7 @@ export default function App() {
     try {
       await ApiClient.completeTodoistTask(taskId);
       if (!isAuthGenerationCurrent(currentGen)) return;
-      
+
       // Success animation
       setJustCompletedTaskIds(prev => {
         const next = new Set(prev);
@@ -2135,7 +2135,7 @@ export default function App() {
           next.delete(taskId);
           return next;
         });
-        
+
         // Refresh project summaries and dashboard snapshot
         await fetchProjects(activeTab);
         await triggerRefresh();
@@ -2157,7 +2157,7 @@ export default function App() {
     const currentGen = authGenerationRef.current;
     const isExpanding = !expandedProjectIds[projectId];
     setExpandedProjectIds(prev => ({ ...prev, [projectId]: isExpanding }));
-    
+
     if (isExpanding && !projectTasks[projectId]) {
       setLoadingProjectTasks(prev => ({ ...prev, [projectId]: true }));
       try {
@@ -2393,7 +2393,7 @@ export default function App() {
       const titleText = obsidianTitle.trim() ? `# ${obsidianTitle.trim()}\n\n` : '';
       const fullText = `${titleText}${obsidianInput.trim()}`;
       await navigator.clipboard.writeText(fullText);
-      
+
       setMobileHandoffStatus('copied');
       setTimeout(() => {
         setMobileHandoffStatus(previousStatus === 'copied' ? 'available' : previousStatus);
@@ -2507,7 +2507,7 @@ export default function App() {
         if (cleanedTitle.length > 100) {
           cleanedTitle = cleanedTitle.substring(0, 100).trim();
         }
-        
+
         if (cleanedTitle) {
           baseName = cleanedTitle;
         }
@@ -2519,7 +2519,7 @@ export default function App() {
 
       let fileName = `${baseName}.md`;
       let attempts = 0;
-      
+
       while (await ObsidianClient.checkFileExists(obsidianUrl, obsidianApiKey, `${folder}/${fileName}`) && attempts < 20) {
         if (!isAuthGenerationCurrent(currentGen)) return;
         attempts++;
@@ -2544,7 +2544,7 @@ export default function App() {
       setTimeout(() => {
         if (isAuthGenerationCurrent(currentGen)) setObsidianSuccess(false);
       }, 3000);
-      
+
       // Refresh Recent Notes immediately
       await loadRecentNotes();
 
@@ -2694,10 +2694,10 @@ export default function App() {
 
   if (!authChecked) {
     return (
-      <div className="min-h-screen bg-[#faf8ff] text-[#131b2e] flex flex-col items-center justify-center font-sans">
+      <div className="min-h-screen bg-[var(--color-card-raised)] text-[var(--color-ink)] flex flex-col items-center justify-center font-sans">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-full border-4 border-[#00288e] border-t-transparent animate-spin"></div>
-          <p className="font-display font-medium text-lg tracking-wide">Loading Life Site Dashboard...</p>
+          <div className="w-12 h-12 rounded-full border-4 border-[var(--color-control)] border-t-transparent animate-spin"></div>
+          <p className="font-display font-normal text-lg tracking-wide">Loading Life Site Dashboard...</p>
         </div>
       </div>
     );
@@ -2706,45 +2706,45 @@ export default function App() {
   // Render Login view if unauthenticated
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen relative overflow-hidden bg-[#faf8ff] text-[#131b2e] flex flex-col justify-center items-center px-4 font-sans">
+      <div className="min-h-screen relative overflow-hidden bg-[var(--color-card-raised)] text-[var(--color-ink)] flex flex-col justify-center items-center px-4 font-sans">
         {/* Glow circles */}
-        <div className="blob bg-[#dbeafe] w-[400px] h-[400px] -top-24 -left-24 animate-pulse"></div>
-        <div className="blob bg-[#eaedff] w-[500px] h-[500px] -bottom-24 -right-24 animate-pulse"></div>
+        <div className="blob bg-[var(--color-card-raised)] w-[400px] h-[400px] -top-24 -left-24 animate-pulse"></div>
+        <div className="blob bg-[var(--color-divider)] w-[500px] h-[500px] -bottom-24 -right-24 animate-pulse"></div>
 
-        <div className="w-full max-w-md bg-white rounded-xl shadow-md border border-[#eaedff] p-8 relative z-10 transition-all">
+        <div className="w-full max-w-md bg-[var(--color-card)] rounded-xl shadow-md border border-[var(--color-divider)] p-8 relative z-10 transition-all">
           <div className="text-center mb-8">
-            <h1 className="font-display text-4xl font-extrabold tracking-tighter text-[#00288e] mb-2">dp</h1>
-            <h2 className="font-display text-xl font-bold tracking-tight text-[#131b2e]">LIFE SITE DASHBOARD</h2>
-            <p className="text-[#444653] text-sm mt-1">Please sign in to access your dashboard</p>
+            <h1 className="font-display text-4xl font-semibold tracking-tighter text-[var(--color-control)] mb-2">dp</h1>
+            <h2 className="font-display text-xl font-semibold tracking-tight text-[var(--color-ink)]">LIFE SITE DASHBOARD</h2>
+            <p className="text-[var(--color-secondary)] text-sm mt-1">Please sign in to access your dashboard</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
             {loginError && (
-              <div className="bg-[#ffdad6] border border-[#ba1a1a] rounded p-3 text-[#ba1a1a] text-sm flex items-center gap-2">
+              <div className="bg-[var(--color-warning-surface)] border border-[var(--color-warning)] rounded p-3 text-[var(--color-warning)] text-sm flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4" />
                 <span>{loginError}</span>
               </div>
             )}
 
             <div className="space-y-1">
-              <label className="block text-xs font-semibold tracking-wider text-[#444653] uppercase font-display">Username</label>
+              <label className="block text-xs font-semibold tracking-wider text-[var(--color-secondary)] uppercase font-display">Username</label>
               <input
                 type="text"
                 value={loginUsername}
                 onChange={(e) => setLoginUsername(e.target.value)}
-                className="w-full p-3 border border-[#c4c5d5] rounded focus:outline-none focus:border-[#00288e] bg-[#faf8ff] text-[#131b2e] transition-colors"
+                className="w-full p-3 border border-[var(--color-divider)] rounded focus:outline-none focus:border-[var(--color-control)] bg-[var(--color-card-raised)] text-[var(--color-ink)] transition-colors"
                 placeholder="Enter username"
                 required
               />
             </div>
 
             <div className="space-y-1">
-              <label className="block text-xs font-semibold tracking-wider text-[#444653] uppercase font-display">Password</label>
+              <label className="block text-xs font-semibold tracking-wider text-[var(--color-secondary)] uppercase font-display">Password</label>
               <input
                 type="password"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
-                className="w-full p-3 border border-[#c4c5d5] rounded focus:outline-none focus:border-[#00288e] bg-[#faf8ff] text-[#131b2e] transition-colors"
+                className="w-full p-3 border border-[var(--color-divider)] rounded focus:outline-none focus:border-[var(--color-control)] bg-[var(--color-card-raised)] text-[var(--color-ink)] transition-colors"
                 placeholder="Enter password"
                 required
               />
@@ -2753,13 +2753,13 @@ export default function App() {
             <button
               type="submit"
               disabled={loginLoading}
-              className="w-full bg-[#00288e] hover:bg-[#1e40af] disabled:bg-opacity-50 text-white font-display font-semibold uppercase tracking-wider py-3 px-4 rounded transition-colors text-sm"
+              className="w-full bg-[var(--color-card-raised)] hover:bg-[var(--color-card)] disabled:bg-opacity-50 text-[var(--color-ink)] font-display font-semibold uppercase tracking-wider py-3 px-4 rounded transition-colors text-sm"
             >
               {loginLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
 
-          <div className="mt-6 text-center text-xs text-[#757684]">
+          <div className="mt-6 text-center text-xs text-[var(--color-secondary)]">
             <p>© 2026 Life Site Operating System. All rights reserved.</p>
           </div>
         </div>
@@ -2820,8 +2820,8 @@ export default function App() {
               onOpenNote={(note) => {
                 setSelectedNote({
                   ...note,
-                  obsidianUri: settings?.obsidian?.vaultName 
-                    ? `obsidian://open?vault=${encodeURIComponent(settings.obsidian.vaultName)}&file=${encodeURIComponent(note.path)}` 
+                  obsidianUri: settings?.obsidian?.vaultName
+                    ? `obsidian://open?vault=${encodeURIComponent(settings.obsidian.vaultName)}&file=${encodeURIComponent(note.path)}`
                     : undefined
                 });
               }}
@@ -2830,17 +2830,17 @@ export default function App() {
 
           {entranceHallView === 'calendar' && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-xl border border-[#1e293b]/60 bg-gradient-to-r from-[#0d1527] to-[#0a0f1d] select-none">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-xl border border-[var(--color-divider)]/60 bg-gradient-to-r from-[var(--color-card)] to-[var(--color-page)] select-none">
                 <div>
-                  <span className="text-[10px] font-mono tracking-widest text-[#c5a86a] uppercase">Integrated Calendar</span>
-                  <h1 className="text-2xl font-display font-black text-white tracking-wide uppercase mt-1">Calendar Workspace</h1>
-                  <p className="text-xs text-slate-400 mt-1 max-w-lg leading-relaxed">
+                  <span className="text-[10px] font-mono tracking-widest text-[var(--color-secondary)] uppercase">Integrated Calendar</span>
+                  <h1 className="text-2xl font-display font-semibold text-[var(--color-ink)] tracking-wide uppercase mt-1">Calendar Workspace</h1>
+                  <p className="text-xs text-[var(--color-secondary)] mt-1 max-w-lg leading-relaxed">
                     Manage your personal and professional google calendars, daily schedule hours, and agenda appointments in real-time.
                   </p>
                 </div>
                 <button
                   onClick={() => handleEntranceHallViewChange('dashboard')}
-                  className="px-4 py-2.5 rounded-lg border border-[#c5a86a]/30 bg-[#0a0f1d] hover:border-[#e4cb93] text-xs font-semibold uppercase tracking-wider text-slate-300 hover:text-white transition-colors cursor-pointer flex items-center gap-2 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[#c5a86a]"
+                  className="px-4 py-2.5 rounded-lg border border-[var(--color-secondary)]/30 bg-[var(--color-page)] hover:border-[var(--color-secondary)] text-xs font-semibold uppercase tracking-wider text-[var(--color-secondary)] hover:text-[var(--color-ink)] transition-colors cursor-pointer flex items-center gap-2 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-secondary)]"
                 >
                   <span>Back to Dashboard</span>
                 </button>
@@ -2879,25 +2879,25 @@ export default function App() {
 
           {entranceHallView === 'tasks' && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-xl border border-[#1e293b]/60 bg-gradient-to-r from-[#0d1527] to-[#0a0f1d] select-none text-left">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-xl border border-[var(--color-divider)]/60 bg-gradient-to-r from-[var(--color-card)] to-[var(--color-page)] select-none text-left">
                 <div>
-                  <span className="text-[10px] font-mono tracking-widest text-[#c5a86a] uppercase">Mission-Critical Agenda</span>
-                  <h1 className="text-2xl font-display font-black text-white tracking-wide uppercase mt-1">Tasks Workspace</h1>
-                  <p className="text-xs text-slate-400 mt-1 max-w-lg leading-relaxed">
+                  <span className="text-[10px] font-mono tracking-widest text-[var(--color-secondary)] uppercase">Mission-Critical Agenda</span>
+                  <h1 className="text-2xl font-display font-semibold text-[var(--color-ink)] tracking-wide uppercase mt-1">Tasks Workspace</h1>
+                  <p className="text-xs text-[var(--color-secondary)] mt-1 max-w-lg leading-relaxed">
                     View today's priorities and manage your pull-system boards across your current workflows.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 text-left">
                   {/* Compact Context Selector */}
-                  <div className="flex gap-1.5 p-1 bg-[#0a0f1d] border border-[#1e293b] rounded-lg">
+                  <div className="flex gap-1.5 p-1 bg-[var(--color-page)] border border-[var(--color-divider)] rounded-lg">
                     {(['combined', 'personal', 'professional'] as const).map(tab => (
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all duration-200 cursor-pointer outline-none ${
+                        className={`px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider rounded-md transition-all duration-200 cursor-pointer outline-none ${
                           activeTab === tab
-                            ? 'bg-[#c5a86a] text-[#070b13]'
-                            : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+                            ? 'bg-[var(--color-card-raised)] text-[var(--color-ink)]'
+                            : 'text-[var(--color-secondary)] hover:text-[var(--color-ink)] hover:bg-[var(--color-card)]'
                         }`}
                       >
                         {tab}
@@ -2907,7 +2907,7 @@ export default function App() {
 
                   <button
                     onClick={() => handleEntranceHallViewChange('dashboard')}
-                    className="px-4 py-2.5 rounded-lg border border-[#c5a86a]/30 bg-[#0a0f1d] hover:border-[#e4cb93] text-xs font-semibold uppercase tracking-wider text-slate-300 hover:text-white transition-colors cursor-pointer flex items-center gap-2 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[#c5a86a]"
+                    className="px-4 py-2.5 rounded-lg border border-[var(--color-secondary)]/30 bg-[var(--color-page)] hover:border-[var(--color-secondary)] text-xs font-semibold uppercase tracking-wider text-[var(--color-secondary)] hover:text-[var(--color-ink)] transition-colors cursor-pointer flex items-center gap-2 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-secondary)]"
                   >
                     <span>Back to Dashboard</span>
                   </button>
@@ -2986,25 +2986,25 @@ export default function App() {
 
           {entranceHallView === 'projects' && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-xl border border-[#1e293b]/60 bg-gradient-to-r from-[#0d1527] to-[#0a0f1d] select-none text-left">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-xl border border-[var(--color-divider)]/60 bg-gradient-to-r from-[var(--color-card)] to-[var(--color-page)] select-none text-left">
                 <div>
-                  <span className="text-[10px] font-mono tracking-widest text-[#c5a86a] uppercase">Vanguard Projects</span>
-                  <h1 className="text-2xl font-display font-black text-white tracking-wide uppercase mt-1">Projects Hub</h1>
-                  <p className="text-xs text-slate-400 mt-1 max-w-lg leading-relaxed">
+                  <span className="text-[10px] font-mono tracking-widest text-[var(--color-secondary)] uppercase">Vanguard Projects</span>
+                  <h1 className="text-2xl font-display font-semibold text-[var(--color-ink)] tracking-wide uppercase mt-1">Projects Hub</h1>
+                  <p className="text-xs text-[var(--color-secondary)] mt-1 max-w-lg leading-relaxed">
                     Explore your project hierarchies, track progress metrics, and complete tasks directly.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   {/* Compact Context Selector */}
-                  <div className="flex gap-1.5 p-1 bg-[#0a0f1d] border border-[#1e293b] rounded-lg">
+                  <div className="flex gap-1.5 p-1 bg-[var(--color-page)] border border-[var(--color-divider)] rounded-lg">
                     {(['combined', 'personal', 'professional'] as const).map(tab => (
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all duration-200 cursor-pointer outline-none ${
+                        className={`px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider rounded-md transition-all duration-200 cursor-pointer outline-none ${
                           activeTab === tab
-                            ? 'bg-[#c5a86a] text-[#070b13]'
-                            : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+                            ? 'bg-[var(--color-card-raised)] text-[var(--color-ink)]'
+                            : 'text-[var(--color-secondary)] hover:text-[var(--color-ink)] hover:bg-[var(--color-card)]'
                         }`}
                       >
                         {tab}
@@ -3014,7 +3014,7 @@ export default function App() {
 
                   <button
                     onClick={() => handleEntranceHallViewChange('dashboard')}
-                    className="px-4 py-2.5 rounded-lg border border-[#c5a86a]/30 bg-[#0a0f1d] hover:border-[#e4cb93] text-xs font-semibold uppercase tracking-wider text-slate-300 hover:text-white transition-colors cursor-pointer flex items-center gap-2 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[#c5a86a]"
+                    className="px-4 py-2.5 rounded-lg border border-[var(--color-secondary)]/30 bg-[var(--color-page)] hover:border-[var(--color-secondary)] text-xs font-semibold uppercase tracking-wider text-[var(--color-secondary)] hover:text-[var(--color-ink)] transition-colors cursor-pointer flex items-center gap-2 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-secondary)]"
                   >
                     <span>Back to Dashboard</span>
                   </button>
@@ -3042,25 +3042,25 @@ export default function App() {
 
           {entranceHallView === 'notes' && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-xl border border-[#1e293b]/60 bg-gradient-to-r from-[#0d1527] to-[#0a0f1d] select-none text-left">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-xl border border-[var(--color-divider)]/60 bg-gradient-to-r from-[var(--color-card)] to-[var(--color-page)] select-none text-left">
                 <div>
-                  <span className="text-[10px] font-mono tracking-widest text-[#c5a86a] uppercase">VAULT REPOSITORY</span>
-                  <h1 className="text-2xl font-display font-black text-white tracking-wide uppercase mt-1">Notes Inbox</h1>
-                  <p className="text-xs text-slate-400 mt-1 max-w-lg leading-relaxed">
+                  <span className="text-[10px] font-mono tracking-widest text-[var(--color-secondary)] uppercase">VAULT REPOSITORY</span>
+                  <h1 className="text-2xl font-display font-semibold text-[var(--color-ink)] tracking-wide uppercase mt-1">Notes Inbox</h1>
+                  <p className="text-xs text-[var(--color-secondary)] mt-1 max-w-lg leading-relaxed">
                     Captures, creates, appends and edits notes in your configured Obsidian vault.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   {/* Compact Context Selector */}
-                  <div className="flex gap-1.5 p-1 bg-[#0a0f1d] border border-[#1e293b] rounded-lg">
+                  <div className="flex gap-1.5 p-1 bg-[var(--color-page)] border border-[var(--color-divider)] rounded-lg">
                     {(['combined', 'personal', 'professional'] as const).map(tab => (
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all duration-200 cursor-pointer outline-none ${
+                        className={`px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider rounded-md transition-all duration-200 cursor-pointer outline-none ${
                           activeTab === tab
-                            ? 'bg-[#c5a86a] text-[#070b13]'
-                            : 'text-slate-400 hover:text-white hover:bg-slate-800/40'
+                            ? 'bg-[var(--color-card-raised)] text-[var(--color-ink)]'
+                            : 'text-[var(--color-secondary)] hover:text-[var(--color-ink)] hover:bg-[var(--color-card)]'
                         }`}
                       >
                         {tab}
@@ -3070,7 +3070,7 @@ export default function App() {
 
                   <button
                     onClick={() => handleEntranceHallViewChange('dashboard')}
-                    className="px-4 py-2.5 rounded-lg border border-[#c5a86a]/30 bg-[#0a0f1d] hover:border-[#e4cb93] text-xs font-semibold uppercase tracking-wider text-slate-300 hover:text-white transition-colors cursor-pointer flex items-center gap-2 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[#c5a86a]"
+                    className="px-4 py-2.5 rounded-lg border border-[var(--color-secondary)]/30 bg-[var(--color-page)] hover:border-[var(--color-secondary)] text-xs font-semibold uppercase tracking-wider text-[var(--color-secondary)] hover:text-[var(--color-ink)] transition-colors cursor-pointer flex items-center gap-2 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-secondary)]"
                   >
                     <span>Back to Dashboard</span>
                   </button>
@@ -3139,17 +3139,17 @@ export default function App() {
 
           {entranceHallView === 'thought-catcher' && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-xl border border-[#1e293b]/60 bg-gradient-to-r from-[#0d1527] to-[#0a0f1d] select-none">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-xl border border-[var(--color-divider)]/60 bg-gradient-to-r from-[var(--color-card)] to-[var(--color-page)] select-none">
                 <div>
-                  <span className="text-[10px] font-mono tracking-widest text-[#c5a86a] uppercase">Kinetic Stream</span>
-                  <h1 className="text-2xl font-display font-black text-white tracking-wide uppercase mt-1">Thought Catcher</h1>
-                  <p className="text-xs text-slate-400 mt-1 max-w-lg leading-relaxed">
+                  <span className="text-[10px] font-mono tracking-widest text-[var(--color-secondary)] uppercase">Kinetic Stream</span>
+                  <h1 className="text-2xl font-display font-semibold text-[var(--color-ink)] tracking-wide uppercase mt-1">Thought Catcher</h1>
+                  <p className="text-xs text-[var(--color-secondary)] mt-1 max-w-lg leading-relaxed">
                     Capture and cycle your streams of consciousness, transient ideas, and creative drafts into your local Obsidian vault.
                   </p>
                 </div>
                 <button
                   onClick={() => handleEntranceHallViewChange('dashboard')}
-                  className="px-4 py-2.5 rounded-lg border border-[#c5a86a]/30 bg-[#0a0f1d] hover:border-[#e4cb93] text-xs font-semibold uppercase tracking-wider text-slate-300 hover:text-white transition-colors cursor-pointer flex items-center gap-2 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[#c5a86a]"
+                  className="px-4 py-2.5 rounded-lg border border-[var(--color-secondary)]/30 bg-[var(--color-page)] hover:border-[var(--color-secondary)] text-xs font-semibold uppercase tracking-wider text-[var(--color-secondary)] hover:text-[var(--color-ink)] transition-colors cursor-pointer flex items-center gap-2 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-secondary)]"
                 >
                   <span>Back to Dashboard</span>
                 </button>
@@ -3157,18 +3157,18 @@ export default function App() {
 
               {/* Inline Editor for Selected Recent Note */}
               {selectedRecentNote && (
-                <div className="p-4 rounded-xl border border-[#00288e]/30 dark:border-[#a8b8ff]/30 bg-[#eaedff]/30 dark:bg-[#0c1322]/70 space-y-4 animate-fadeIn text-left">
-                  <div className="flex justify-between items-center pb-2 border-b border-[#eaedff] dark:border-[#283044]">
+                <div className="p-4 rounded-xl border border-[var(--color-control)]/30 border-[var(--color-secondary)]/30 bg-[var(--color-divider)]/30 bg-[var(--color-card)]/70 space-y-4 animate-fadeIn text-left">
+                  <div className="flex justify-between items-center pb-2 border-b border-[var(--color-divider)] border-[var(--color-divider)]">
                     <div className="flex items-center gap-1.5">
-                      <FileText className="w-4 h-4 text-[#00288e] dark:text-[#a8b8ff]" />
-                      <span className="font-display font-bold text-xs uppercase tracking-wider text-[#00288e] dark:text-[#a8b8ff] truncate max-w-[200px] md:max-w-[400px]">
+                      <FileText className="w-4 h-4 text-[var(--color-control)] text-[var(--color-secondary)]" />
+                      <span className="font-display font-semibold text-xs uppercase tracking-wider text-[var(--color-control)] text-[var(--color-secondary)] truncate max-w-[200px] md:max-w-[400px]">
                         Editing: {selectedRecentNote.title}
                       </span>
                     </div>
-                    <button 
+                    <button
                       type="button"
                       onClick={() => setSelectedRecentNote(null)}
-                      className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-[#757684]"
+                      className="p-1 rounded-full hover:bg-[var(--color-card)]/5 hover:bg-[var(--color-card)]/5 text-[var(--color-secondary)]"
                       title="Close editor"
                     >
                       <X className="w-4 h-4" />
@@ -3176,7 +3176,7 @@ export default function App() {
                   </div>
 
                   <div className="space-y-2">
-                    <label htmlFor="entrance-hall-note-content-editor" className="block text-[10px] font-extrabold text-[#757684] uppercase tracking-wider">
+                    <label htmlFor="entrance-hall-note-content-editor" className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider">
                       File Contents (Markdown)
                     </label>
                     <textarea
@@ -3184,18 +3184,18 @@ export default function App() {
                       value={editedNoteContent}
                       onChange={(e) => setEditedNoteContent(e.target.value)}
                       disabled={isSavingEditedNote}
-                      className="w-full p-3 font-mono text-base md:text-xs border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0c1322] focus:outline-none focus:border-[#00288e] text-[#131b2e] dark:text-white leading-relaxed min-h-[8rem]"
+                      className="w-full p-3 font-mono text-base md:text-xs border border-[var(--color-divider)] border-[var(--color-secondary)] rounded-lg bg-[var(--color-card)] bg-[var(--color-card)] focus:outline-none focus:border-[var(--color-control)] text-[var(--color-ink)] text-[var(--color-ink)] leading-relaxed min-h-[8rem]"
                     />
-                    
+
                     {saveNoteSuccess && (
-                      <div className="text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-1.5 py-0.5">
+                      <div className="text-[var(--color-success)] text-[var(--color-success)] text-xs font-semibold flex items-center gap-1.5 py-0.5">
                         <CheckCircle2 className="w-4 h-4" />
                         <span>Changes saved successfully to Obsidian vault!</span>
                       </div>
                     )}
                     {saveNoteError && (
-                      <ObsidianErrorBox 
-                        errorText={saveNoteError} 
+                      <ObsidianErrorBox
+                        errorText={saveNoteError}
                         techDetails={saveNoteErrorDetails}
                       />
                     )}
@@ -3205,14 +3205,14 @@ export default function App() {
                         type="button"
                         onClick={handleSaveChanges}
                         disabled={isSavingEditedNote || isAppendingNote}
-                        className="bg-[#00288e] hover:bg-[#1e40af] disabled:opacity-50 text-white font-display text-[10px] font-bold uppercase tracking-wider py-2 px-4 rounded transition-colors cursor-pointer"
+                        className="bg-[var(--color-card-raised)] hover:bg-[var(--color-card)] disabled:opacity-50 text-[var(--color-ink)] font-display text-[10px] font-semibold uppercase tracking-wider py-2 px-4 rounded transition-colors cursor-pointer"
                       >
                         {isSavingEditedNote ? 'Saving...' : 'Save Changes'}
                       </button>
-                      
+
                       <a
                         href={ObsidianClient.buildObsidianUri(settings?.obsidian?.vaultName || 'LifeVault', selectedRecentNote.path)}
-                        className="inline-flex items-center gap-1 bg-[#faf8ff] hover:bg-[#eaedff] dark:bg-[#131b2e] dark:hover:bg-[#1a233a] text-[#131b2e] dark:text-white border border-[#eaedff] dark:border-[#283044] font-display text-[10px] font-bold uppercase tracking-wider py-2 px-4 rounded transition-colors"
+                        className="inline-flex items-center gap-1 bg-[var(--color-card-raised)] hover:bg-[var(--color-divider)] bg-[var(--color-card)] hover:bg-[var(--color-card)] text-[var(--color-ink)] text-[var(--color-ink)] border border-[var(--color-divider)] border-[var(--color-divider)] font-display text-[10px] font-semibold uppercase tracking-wider py-2 px-4 rounded transition-colors"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                         <span>Open in Obsidian</span>
@@ -3222,15 +3222,15 @@ export default function App() {
                         type="button"
                         onClick={() => setSelectedRecentNote(null)}
                         disabled={isSavingEditedNote}
-                        className="text-[#757684] hover:text-[#131b2e] dark:hover:text-white font-display text-[10px] font-bold uppercase tracking-wider py-2 px-3 cursor-pointer"
+                        className="text-[var(--color-secondary)] hover:text-[var(--color-ink)] hover:text-[var(--color-ink)] font-display text-[10px] font-semibold uppercase tracking-wider py-2 px-3 cursor-pointer"
                       >
                         Cancel
                       </button>
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-[#eaedff] dark:border-[#283044] space-y-2">
-                    <label htmlFor="entrance-hall-note-append-editor" className="block text-[10px] font-extrabold text-[#757684] uppercase tracking-wider">
+                  <div className="pt-2 border-t border-[var(--color-divider)] border-[var(--color-divider)] space-y-2">
+                    <label htmlFor="entrance-hall-note-append-editor" className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider">
                       Append to Note
                     </label>
                     <textarea
@@ -3239,18 +3239,18 @@ export default function App() {
                       onChange={(e) => setAppendNoteContent(e.target.value)}
                       disabled={isAppendingNote}
                       placeholder="Type material to append (will be separated by a blank line)..."
-                      className="w-full p-3 text-base md:text-xs border border-[#c4c5d5] dark:border-[#444653] rounded-lg bg-white dark:bg-[#0c1322] focus:outline-none focus:border-[#00288e] text-[#131b2e] dark:text-white leading-relaxed min-h-[4rem]"
+                      className="w-full p-3 text-base md:text-xs border border-[var(--color-divider)] border-[var(--color-secondary)] rounded-lg bg-[var(--color-card)] bg-[var(--color-card)] focus:outline-none focus:border-[var(--color-control)] text-[var(--color-ink)] text-[var(--color-ink)] leading-relaxed min-h-[4rem]"
                     />
 
                     {appendNoteSuccess && (
-                      <div className="text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-1.5 py-0.5">
+                      <div className="text-[var(--color-success)] text-[var(--color-success)] text-xs font-semibold flex items-center gap-1.5 py-0.5">
                         <CheckCircle2 className="w-4 h-4" />
                         <span>Appended successfully to the note!</span>
                       </div>
                     )}
                     {appendNoteError && (
-                      <ObsidianErrorBox 
-                        errorText={appendNoteError} 
+                      <ObsidianErrorBox
+                        errorText={appendNoteError}
                         techDetails={appendNoteErrorDetails}
                       />
                     )}
@@ -3260,7 +3260,7 @@ export default function App() {
                         type="button"
                         onClick={handleAppendToNote}
                         disabled={isAppendingNote || isSavingEditedNote || !appendNoteContent.trim()}
-                        className="bg-[#00288e] hover:bg-[#1e40af] disabled:opacity-40 text-white font-display text-[10px] font-bold uppercase tracking-wider py-2 px-4 rounded transition-colors cursor-pointer"
+                        className="bg-[var(--color-card-raised)] hover:bg-[var(--color-card)] disabled:opacity-40 text-[var(--color-ink)] font-display text-[10px] font-semibold uppercase tracking-wider py-2 px-4 rounded transition-colors cursor-pointer"
                       >
                         {isAppendingNote ? 'Appending...' : 'Append to Note'}
                       </button>
@@ -3289,17 +3289,17 @@ export default function App() {
 
           {entranceHallView === 'habits' && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-xl border border-[#1e293b]/60 bg-gradient-to-r from-[#0d1527] to-[#0a0f1d] select-none">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-xl border border-[var(--color-divider)]/60 bg-gradient-to-r from-[var(--color-card)] to-[var(--color-page)] select-none">
                 <div>
-                  <span className="text-[10px] font-mono tracking-widest text-[#c5a86a] uppercase">Consistency Engine</span>
-                  <h1 className="text-2xl font-display font-black text-white tracking-wide uppercase mt-1">Habits Workspace</h1>
-                  <p className="text-xs text-slate-400 mt-1 max-w-lg leading-relaxed">
+                  <span className="text-[10px] font-mono tracking-widest text-[var(--color-secondary)] uppercase">Consistency Engine</span>
+                  <h1 className="text-2xl font-display font-semibold text-[var(--color-ink)] tracking-wide uppercase mt-1">Habits Workspace</h1>
+                  <p className="text-xs text-[var(--color-secondary)] mt-1 max-w-lg leading-relaxed">
                     Track your daily commitments, consistency rates, performance streaks, and historical completions.
                   </p>
                 </div>
                 <button
                   onClick={() => handleEntranceHallViewChange('dashboard')}
-                  className="px-4 py-2.5 rounded-lg border border-[#c5a86a]/30 bg-[#0a0f1d] hover:border-[#e4cb93] text-xs font-semibold uppercase tracking-wider text-slate-300 hover:text-white transition-colors cursor-pointer flex items-center gap-2 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[#c5a86a]"
+                  className="px-4 py-2.5 rounded-lg border border-[var(--color-secondary)]/30 bg-[var(--color-page)] hover:border-[var(--color-secondary)] text-xs font-semibold uppercase tracking-wider text-[var(--color-secondary)] hover:text-[var(--color-ink)] transition-colors cursor-pointer flex items-center gap-2 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-secondary)]"
                 >
                   <span>Back to Dashboard</span>
                 </button>
@@ -3321,29 +3321,29 @@ export default function App() {
 
           {entranceHallView === 'settings' && (
             !settingsEditState ? (
-              <div className="flex flex-col items-center justify-center py-20 text-slate-400 font-mono text-xs gap-3">
-                <RefreshCw className="w-5 h-5 animate-spin text-[#c5a86a]" />
+              <div className="flex flex-col items-center justify-center py-20 text-[var(--color-secondary)] font-mono text-xs gap-3">
+                <RefreshCw className="w-5 h-5 animate-spin text-[var(--color-secondary)]" />
                 <span>Loading system settings...</span>
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-xl border border-[#1e293b]/60 bg-gradient-to-r from-[#0d1527] to-[#0a0f1d] select-none text-left">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 rounded-xl border border-[var(--color-divider)]/60 bg-gradient-to-r from-[var(--color-card)] to-[var(--color-page)] select-none text-left">
                   <div>
-                    <span className="text-[10px] font-mono tracking-widest text-[#c5a86a] uppercase font-bold">SYSTEM CONTROLS</span>
-                    <h1 className="text-2xl font-display font-black text-white tracking-wide uppercase mt-1">Settings Console</h1>
-                    <p className="text-xs text-slate-400 mt-1 max-w-lg leading-relaxed">
+                    <span className="text-[10px] font-mono tracking-widest text-[var(--color-secondary)] uppercase font-semibold">SYSTEM CONTROLS</span>
+                    <h1 className="text-2xl font-display font-semibold text-[var(--color-ink)] tracking-wide uppercase mt-1">Settings Console</h1>
+                    <p className="text-xs text-[var(--color-secondary)] mt-1 max-w-lg leading-relaxed">
                       These settings control the whole Life Site preferences, integrations, secrets, and view layouts.
                     </p>
                   </div>
                   <button
                     onClick={() => handleEntranceHallViewChange('dashboard')}
-                    className="px-4 py-2.5 rounded-lg border border-[#c5a86a]/30 bg-[#0a0f1d] hover:border-[#e4cb93] text-xs font-semibold uppercase tracking-wider text-slate-300 hover:text-white transition-colors cursor-pointer flex items-center gap-2 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[#c5a86a]"
+                    className="px-4 py-2.5 rounded-lg border border-[var(--color-secondary)]/30 bg-[var(--color-page)] hover:border-[var(--color-secondary)] text-xs font-semibold uppercase tracking-wider text-[var(--color-secondary)] hover:text-[var(--color-ink)] transition-colors cursor-pointer flex items-center gap-2 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-secondary)]"
                   >
                     <span>Back to Dashboard</span>
                   </button>
                 </div>
 
-                <div className="bg-[#0a0f1d]/60 border border-[#1e293b]/60 rounded-xl p-6">
+                <div className="bg-[var(--color-page)]/60 border border-[var(--color-divider)]/60 rounded-xl p-6">
                   <SettingsWorkspace
                     settingsSection={settingsSection}
                     setSettingsSection={setSettingsSection}
@@ -3376,11 +3376,11 @@ export default function App() {
           )}
         </LifeSiteShell>
       ) : (
-    <div className="min-h-screen bg-[#faf8ff] dark:bg-[#0c1322] text-[#131b2e] dark:text-[#faf8ff] font-sans transition-colors duration-300 relative pb-12 w-full max-w-full overflow-x-hidden min-w-0">
-      
+    <div className="min-h-screen bg-[var(--color-card-raised)] bg-[var(--color-card)] text-[var(--color-ink)] text-[var(--color-card-raised)] font-sans transition-colors duration-300 relative pb-12 w-full max-w-full overflow-x-hidden min-w-0">
+
       {/* Background Blobs for Atmospheric Premium Design Layer */}
-      <div className="blob bg-[#dbeafe] dark:bg-[#1e40af]/10 w-[600px] h-[600px] -top-96 -left-96"></div>
-      <div className="blob bg-[#eaedff] dark:bg-[#273545]/10 w-[700px] h-[700px] -bottom-96 -right-96"></div>
+      <div className="blob bg-[var(--color-card-raised)] bg-[var(--color-ink-hover)]/10 w-[600px] h-[600px] -top-96 -left-96"></div>
+      <div className="blob bg-[var(--color-divider)] bg-[var(--color-card)]/10 w-[700px] h-[700px] -bottom-96 -right-96"></div>
 
       <GlobalHeader
         isOffline={isOffline}
@@ -3405,7 +3405,7 @@ export default function App() {
 
       {/* Main Container Area */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4 sm:mt-6 w-full min-w-0 max-w-full">
-        
+
         {/* Context Switching Tabs (Phase 4.4) */}
         <ContextTabs
           activeTab={activeTab}
@@ -3519,21 +3519,21 @@ export default function App() {
             {/* LEFT COLUMN: Task Inbox */}
             <div className="flex flex-col min-h-0">
               {/* Task Inbox - Capture Panel (Phase 9) */}
-              <section className="bg-white dark:bg-[#131b2e] rounded-xl border border-[#eaedff] dark:border-[#283044] shadow-sm p-4 sm:p-6 text-left flex flex-col min-h-0 lg:h-full">
+              <section className="bg-[var(--color-card)] bg-[var(--color-card)] rounded-xl border border-[var(--color-divider)] border-[var(--color-divider)] shadow-sm p-4 sm:p-6 text-left flex flex-col min-h-0 lg:h-full">
             <div className="mb-4">
-              <h3 className="font-display text-lg font-bold text-[#00288e] dark:text-white">TASK INBOX</h3>
-              <p className="text-xs text-[#757684] mt-0.5">Quickly Add Tasks to Todoist (T)</p>
+              <h3 className="font-display text-lg font-semibold text-[var(--color-control)] text-[var(--color-ink)]">TASK INBOX</h3>
+              <p className="text-xs text-[var(--color-secondary)] mt-0.5">Quickly Add Tasks to Todoist (T)</p>
             </div>
 
             <form onSubmit={submitTodoistTask} className="space-y-4 flex-1 flex flex-col justify-between">
               {todoistSuccess && (
-                <div className="bg-[#eaedff] dark:bg-[#273545]/60 text-[#00288e] dark:text-[#a8b8ff] p-2.5 rounded text-xs font-semibold flex items-center gap-1.5">
+                <div className="bg-[var(--color-divider)] bg-[var(--color-card)]/60 text-[var(--color-control)] text-[var(--color-secondary)] p-2.5 rounded text-xs font-semibold flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Task captured successfully into Todoist Inbox!</span>
                 </div>
               )}
               {todoistError && (
-                <div className="bg-[#ffdad6] text-[#ba1a1a] p-2.5 rounded text-xs font-semibold flex items-center gap-1.5">
+                <div className="bg-[var(--color-warning-surface)] text-[var(--color-warning)] p-2.5 rounded text-xs font-semibold flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4" />
                   <span>{todoistError}</span>
                 </div>
@@ -3546,20 +3546,20 @@ export default function App() {
                   value={todoistInput}
                   onChange={(e) => setTodoistInput(e.target.value)}
                   disabled={todoistLoading || isOffline}
-                  className="w-full p-4 border border-[#c4c5d5] dark:border-[#444653] rounded-lg focus:outline-none focus:border-[#00288e] bg-[#faf8ff] dark:bg-[#0c1322]/40 text-[#131b2e] dark:text-white text-base md:text-xs h-full"
+                  className="w-full p-4 border border-[var(--color-divider)] border-[var(--color-secondary)] rounded-lg focus:outline-none focus:border-[var(--color-control)] bg-[var(--color-card-raised)] bg-[var(--color-card)]/40 text-[var(--color-ink)] text-[var(--color-ink)] text-base md:text-xs h-full"
                   placeholder="Task title..."
                   required
                 />
-                
+
                 {/* Voice Record Mic (Phase 15) */}
                 <button
                   type="button"
                   onClick={toggleVoiceTodoist}
                   disabled={todoistLoading || isOffline || !isVoiceSupported}
                   className={`absolute right-4 bottom-4 p-2.5 rounded-full transition-colors ${
-                    isListeningTodoist 
-                      ? 'bg-[#ba1a1a] text-white animate-pulse' 
-                      : 'bg-[#00288e] text-white hover:bg-[#1e40af]'
+                    isListeningTodoist
+                      ? 'bg-[var(--color-warning-surface)] text-[var(--color-ink)] animate-pulse'
+                      : 'bg-[var(--color-card-raised)] text-[var(--color-ink)] hover:bg-[var(--color-card)]'
                   } disabled:opacity-30`}
                   title="Voice dictation input"
                 >
@@ -3569,30 +3569,30 @@ export default function App() {
 
               {/* Combined contextual toggle row */}
               <div className="flex justify-between items-center gap-4">
-                
+
                 {/* Context Toggle (Phase 14) */}
                 {activeTab === 'combined' ? (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-extrabold text-[#757684] uppercase tracking-wider font-display">Target:</span>
-                    <div className="flex bg-[#faf8ff] dark:bg-[#0c1322] border border-[#eaedff] dark:border-[#283044]/80 rounded p-0.5 text-[9px]">
-                      <button 
-                        type="button" 
+                    <span className="text-[10px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider font-display">Target:</span>
+                    <div className="flex bg-[var(--color-card-raised)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)]/80 rounded p-0.5 text-[9px]">
+                      <button
+                        type="button"
                         onClick={() => setTodoistContext('personal')}
-                        className={`px-2 py-0.5 font-bold rounded ${todoistContext === 'personal' ? 'bg-[#00288e] text-white' : 'text-[#757684]'}`}
+                        className={`px-2 py-0.5 font-semibold rounded ${todoistContext === 'personal' ? 'bg-[var(--color-card-raised)] text-[var(--color-ink)]' : 'text-[var(--color-secondary)]'}`}
                       >
                         Personal
                       </button>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => setTodoistContext('professional')}
-                        className={`px-2 py-0.5 font-bold rounded ${todoistContext === 'professional' ? 'bg-[#00288e] text-white' : 'text-[#757684]'}`}
+                        className={`px-2 py-0.5 font-semibold rounded ${todoistContext === 'professional' ? 'bg-[var(--color-card-raised)] text-[var(--color-ink)]' : 'text-[var(--color-secondary)]'}`}
                       >
                         Pro
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <span className="text-[10px] font-bold text-[#757684] uppercase tracking-wide">
+                  <span className="text-[10px] font-semibold text-[var(--color-secondary)] uppercase tracking-wide">
                     Context: {activeTab}
                   </span>
                 )}
@@ -3600,7 +3600,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={todoistLoading || isOffline || !todoistInput.trim()}
-                  className="bg-[#00288e] hover:bg-[#1e40af] disabled:bg-opacity-50 text-white font-display text-xs font-semibold tracking-wider uppercase py-2.5 px-6 rounded-lg transition-colors flex items-center gap-1.5"
+                  className="bg-[var(--color-card-raised)] hover:bg-[var(--color-card)] disabled:bg-opacity-50 text-[var(--color-ink)] font-display text-xs font-semibold tracking-wider uppercase py-2.5 px-6 rounded-lg transition-colors flex items-center gap-1.5"
                 >
                   {todoistLoading ? 'Sending...' : 'Send'}
                 </button>
@@ -3628,7 +3628,7 @@ export default function App() {
 
         {/* Responsive Grid wrapping Notes Inbox and Thought Catcher */}
         <div className="col-span-1 lg:col-span-12 grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-          
+
           {/* Notes Inbox - Capture Panel (Phase 12 Redesigned for Obsidian) */}
           <ObsidianNotesInbox
             settings={settings}

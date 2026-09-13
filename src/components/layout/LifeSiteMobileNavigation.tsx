@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Menu, 
-  X, 
-  LayoutDashboard, 
-  Calendar, 
-  CheckSquare, 
-  Folder, 
-  FileText, 
-  Brain, 
-  Sparkles, 
+import {
+  Menu,
+  X,
+  LayoutDashboard,
+  Calendar,
+  CheckSquare,
+  Folder,
+  FileText,
+  Brain,
+  Sparkles,
   Settings,
   Flame,
   BookOpen, Radio
@@ -152,19 +152,19 @@ export const LifeSiteMobileNavigation: React.FC<LifeSiteMobileNavigationProps> =
   return (
     <div className="life-site-entrance-hall block md:hidden select-none">
       {/* Mini top bar containing the trigger */}
-      <header className="flex items-center justify-between px-4 py-3 bg-[#0a0f1d] border-b border-[#1e293b]">
+      <header className="flex items-center justify-between px-4 py-3 bg-[var(--color-page)] border-b border-[var(--color-divider)]">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded bg-gradient-to-tr from-[#9a7d44] via-[#c5a86a] to-[#e4cb93] flex items-center justify-center">
-            <Flame className="w-4 h-4 text-[#0a0f1d]" />
+          <div className="w-7 h-7 rounded bg-gradient-to-tr from-[var(--color-secondary)] via-[var(--color-secondary)] to-[var(--color-secondary)] flex items-center justify-center">
+            <Flame className="w-4 h-4 text-[var(--color-ink)]" />
           </div>
-          <span className="font-display font-black text-sm text-white tracking-widest uppercase">
+          <span className="font-display font-semibold text-sm text-[var(--color-ink)] tracking-widest uppercase">
             LIFE SITE
           </span>
         </div>
-        
+
         <button
           onClick={() => setIsOpen(true)}
-          className="p-2 rounded-lg border border-[#1e293b] bg-[#131b2e]/60 text-slate-300 hover:text-white transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#c5a86a]"
+          className="p-2 rounded-lg border border-[var(--color-divider)] bg-[var(--color-card)]/60 text-[var(--color-secondary)] hover:text-[var(--color-ink)] transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-secondary)]"
           aria-label="Open navigation menu"
           aria-expanded={isOpen}
         >
@@ -176,31 +176,31 @@ export const LifeSiteMobileNavigation: React.FC<LifeSiteMobileNavigationProps> =
       {isOpen && (
         <div className="fixed inset-0 z-[999] flex">
           {/* Backdrop */}
-          <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
+          <div
+            className="fixed inset-0 bg-[var(--color-card)]/60 backdrop-blur-sm transition-opacity duration-300"
             onClick={() => setIsOpen(false)}
             aria-hidden="true"
           />
 
           {/* Drawer content */}
-          <div 
+          <div
             ref={drawerRef}
-            className="relative flex flex-col w-4/5 max-w-xs h-full bg-[#0a0f1d] border-r border-[#1e293b] shadow-2xl p-6 transition-transform duration-300 ease-out transform translate-x-0"
+            className="relative flex flex-col w-4/5 max-w-xs h-full bg-[var(--color-page)] border-r border-[var(--color-divider)] shadow-2xl p-6 transition-transform duration-300 ease-out transform translate-x-0"
             role="dialog"
             aria-modal="true"
             aria-label="Mobile Navigation Drawer"
           >
             {/* Header / Brand with Close Action */}
-            <div className="flex items-center justify-between pb-6 border-b border-[#1e293b] mb-6">
+            <div className="flex items-center justify-between pb-6 border-b border-[var(--color-divider)] mb-6">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded bg-gradient-to-tr from-[#9a7d44] via-[#c5a86a] to-[#e4cb93] flex items-center justify-center">
-                  <Flame className="w-4 h-4 text-[#0a0f1d]" />
+                <div className="w-8 h-8 rounded bg-gradient-to-tr from-[var(--color-secondary)] via-[var(--color-secondary)] to-[var(--color-secondary)] flex items-center justify-center">
+                  <Flame className="w-4 h-4 text-[var(--color-ink)]" />
                 </div>
                 <div className="text-left">
-                  <h2 className="font-display font-black text-sm text-white tracking-wider uppercase">
+                  <h2 className="font-display font-semibold text-sm text-[var(--color-ink)] tracking-wider uppercase">
                     Life Site
                   </h2>
-                  <p className="text-[9px] font-mono tracking-wider text-[#c5a86a] uppercase">
+                  <p className="text-[9px] font-mono tracking-wider text-[var(--color-secondary)] uppercase">
                     Mobile Hall
                   </p>
                 </div>
@@ -208,7 +208,7 @@ export const LifeSiteMobileNavigation: React.FC<LifeSiteMobileNavigationProps> =
 
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-2 rounded-lg border border-[#1e293b] bg-[#131b2e]/40 text-slate-400 hover:text-white transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#c5a86a]"
+                className="p-2 rounded-lg border border-[var(--color-divider)] bg-[var(--color-card)]/40 text-[var(--color-secondary)] hover:text-[var(--color-ink)] transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-secondary)]"
                 aria-label="Close navigation menu"
               >
                 <X className="w-4 h-4" />
@@ -217,7 +217,7 @@ export const LifeSiteMobileNavigation: React.FC<LifeSiteMobileNavigationProps> =
 
             {/* Navigation Options List */}
             <nav className="flex-1 space-y-1 overflow-y-auto">
-              <span className="block mb-2 text-[9px] font-black tracking-widest text-[#757684] uppercase">
+              <span className="block mb-2 text-[9px] font-semibold tracking-widest text-[var(--color-secondary)] uppercase">
                 Categories
               </span>
               {NAVIGATION_ITEMS.map((item) => {
@@ -227,17 +227,17 @@ export const LifeSiteMobileNavigation: React.FC<LifeSiteMobileNavigationProps> =
                   <button
                     key={item.id}
                     onClick={() => handleSelectItem(item.id)}
-                    className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[#c5a86a] text-left ${
+                    className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-secondary)] text-left ${
                       isActive
-                        ? 'bg-[#131b2e] text-[#e4cb93] border border-[#9a7d44]/30 shadow-md'
-                        : 'text-slate-400 border border-transparent hover:text-slate-200 hover:bg-[#131b2e]/30'
+                        ? 'bg-[var(--color-card)] text-[var(--color-secondary)] border border-[var(--color-secondary)]/30 shadow-md'
+                        : 'text-[var(--color-secondary)] border border-transparent hover:text-[var(--color-secondary)] hover:bg-[var(--color-card)]/30'
                     }`}
                     aria-label={item.ariaLabel}
                   >
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-[#e4cb93]' : 'text-slate-500'}`} />
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-[var(--color-secondary)]' : 'text-[var(--color-secondary)]'}`} />
                     <span className="flex-1">{item.label}</span>
                     {isActive && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#e4cb93]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-card-raised)]" />
                     )}
                   </button>
                 );
@@ -245,8 +245,8 @@ export const LifeSiteMobileNavigation: React.FC<LifeSiteMobileNavigationProps> =
             </nav>
 
             {/* Footer */}
-            <div className="pt-4 border-t border-[#1e293b] text-center">
-              <p className="text-[9px] font-mono text-[#757684] tracking-wider uppercase">
+            <div className="pt-4 border-t border-[var(--color-divider)] text-center">
+              <p className="text-[9px] font-mono text-[var(--color-secondary)] tracking-wider uppercase">
                 Life Engine Mobile
               </p>
             </div>
@@ -255,10 +255,10 @@ export const LifeSiteMobileNavigation: React.FC<LifeSiteMobileNavigationProps> =
       )}
 
       {/* Floating Indicator of Current Selection */}
-      <div className="px-4 py-2 bg-[#131b2e] border-b border-[#1e293b]/50 text-[10px] font-mono tracking-wider text-slate-400 flex items-center gap-2 uppercase">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#c5a86a] animate-pulse" />
+      <div className="px-4 py-2 bg-[var(--color-card)] border-b border-[var(--color-divider)]/50 text-[10px] font-mono tracking-wider text-[var(--color-secondary)] flex items-center gap-2 uppercase">
+        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-card-raised)] animate-pulse" />
         <span>Current View: </span>
-        <strong className="text-[#e4cb93]">{activeItem?.label}</strong>
+        <strong className="text-[var(--color-secondary)]">{activeItem?.label}</strong>
       </div>
     </div>
   );

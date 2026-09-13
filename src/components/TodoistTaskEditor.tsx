@@ -91,7 +91,7 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
   const showRecurringWarning = isRecurring && isDueDateModified;
 
   // Track if details have changed
-  const hasDetailsChanged = 
+  const hasDetailsChanged =
     content.trim() !== (task.title || '').trim() ||
     description.trim() !== (task.description || '').trim() ||
     dueDate !== (task.dueDate || '') ||
@@ -99,7 +99,7 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
 
   // Track if location has changed
   const initialSectionId = task.sectionId || 'no-section';
-  const hasLocationChanged = 
+  const hasLocationChanged =
     selectedProjectId !== (task.projectId || '') ||
     selectedSectionId !== initialSectionId;
 
@@ -262,19 +262,19 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
   };
 
   return (
-    <div 
-      className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50"
+    <div
+      className="fixed inset-0 bg-[var(--color-card)]/40 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50"
       role="dialog"
       aria-modal="true"
       aria-labelledby="task-editor-title"
     >
-      <div className="bg-white dark:bg-[#131b2e] border border-[#eaedff] dark:border-[#283044] shadow-2xl p-4 sm:p-6 relative overflow-y-auto max-h-[calc(100vh-16px)] max-h-[calc(100dvh-16px)] flex flex-col max-sm:fixed max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:rounded-t-2xl max-sm:rounded-b-none max-sm:max-h-[85vh] max-sm:w-full sm:rounded-xl sm:w-[calc(100vw-16px)] sm:max-w-lg">
+      <div className="bg-[var(--color-card)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] shadow-2xl p-4 sm:p-6 relative overflow-y-auto max-h-[calc(100vh-16px)] max-h-[calc(100dvh-16px)] flex flex-col max-sm:fixed max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:rounded-t-2xl max-sm:rounded-b-none max-sm:max-h-[85vh] max-sm:w-full sm:rounded-xl sm:w-[calc(100vw-16px)] sm:max-w-lg">
         {/* Close Button */}
         <button
           id="editor-close-btn"
           type="button"
           onClick={onClose}
-          className="absolute right-2 top-2 sm:right-4 sm:top-4 text-[#757684] hover:text-[#ba1a1a] p-2.5 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-[#00288e] flex items-center justify-center min-w-[44px] min-h-[44px]"
+          className="absolute right-2 top-2 sm:right-4 sm:top-4 text-[var(--color-secondary)] hover:text-[var(--color-warning)] p-2.5 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-control)] flex items-center justify-center min-w-[44px] min-h-[44px]"
           aria-label="Close task editor"
           title="Close task editor"
         >
@@ -283,25 +283,25 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
 
         {/* Header */}
         <div className="mb-4">
-          <span className="text-[10px] font-extrabold uppercase bg-[#f2f3ff] text-[#00288e] dark:bg-[#1a2c4d] dark:text-[#a8b8ff] px-2.5 py-1 rounded">
+          <span className="text-[10px] font-semibold uppercase bg-[var(--color-card-raised)] text-[var(--color-control)] bg-[var(--color-card)] text-[var(--color-secondary)] px-2.5 py-1 rounded">
             Todoist Task Editor
           </span>
-          <h2 id="task-editor-title" className="text-lg font-bold font-display text-[#131b2e] dark:text-white leading-tight mt-2">
+          <h2 id="task-editor-title" className="text-lg font-semibold font-display text-[var(--color-ink)] text-[var(--color-ink)] leading-tight mt-2">
             Edit: {task.title}
           </h2>
         </div>
 
         {/* Two Forms (Details & Location) separated cleanly */}
         <div className="space-y-6 flex-1 min-h-0 overflow-y-auto pr-1">
-          
+
           {/* Details Section Form */}
-          <form id="editor-details-form" onSubmit={handleSaveDetails} className="space-y-4 border-t border-[#eaedff] dark:border-[#283044]/40 pt-4 text-left">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#00288e] dark:text-[#a8b8ff] font-display">
+          <form id="editor-details-form" onSubmit={handleSaveDetails} className="space-y-4 border-t border-[var(--color-divider)] border-[var(--color-divider)]/40 pt-4 text-left">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-control)] text-[var(--color-secondary)] font-display">
               Task Details
             </h3>
 
             <div className="space-y-1">
-              <label htmlFor="editor-task-title" className="block text-[10px] font-bold text-[#757684] uppercase tracking-wider">
+              <label htmlFor="editor-task-title" className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider">
                 Title *
               </label>
               <input
@@ -312,12 +312,12 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Task title"
-                className="w-full text-xs bg-white dark:bg-[#131b2e] border border-[#eaedff] dark:border-[#283044] rounded p-2 focus:outline-none focus:border-[#00288e] text-gray-900 dark:text-white disabled:opacity-60"
+                className="w-full text-xs bg-[var(--color-card)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] rounded p-2 focus:outline-none focus:border-[var(--color-control)] text-[var(--color-ink)] text-[var(--color-ink)] disabled:opacity-60"
               />
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="editor-task-description" className="block text-[10px] font-bold text-[#757684] uppercase tracking-wider">
+              <label htmlFor="editor-task-description" className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider">
                 Description
               </label>
               <textarea
@@ -327,13 +327,13 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Description"
                 rows={3}
-                className="w-full text-xs bg-white dark:bg-[#131b2e] border border-[#eaedff] dark:border-[#283044] rounded p-2 focus:outline-none focus:border-[#00288e] text-gray-900 dark:text-white resize-none disabled:opacity-60 leading-relaxed"
+                className="w-full text-xs bg-[var(--color-card)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] rounded p-2 focus:outline-none focus:border-[var(--color-control)] text-[var(--color-ink)] text-[var(--color-ink)] resize-none disabled:opacity-60 leading-relaxed"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label htmlFor="editor-task-due-date" className="block text-[10px] font-bold text-[#757684] uppercase tracking-wider">
+                <label htmlFor="editor-task-due-date" className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider">
                   Due Date
                 </label>
                 <input
@@ -342,10 +342,10 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
                   disabled={isDetailsSaving || isSavingAll}
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full text-xs bg-white dark:bg-[#131b2e] border border-[#eaedff] dark:border-[#283044] rounded p-2 focus:outline-none focus:border-[#00288e] text-gray-900 dark:text-white disabled:opacity-60"
+                  className="w-full text-xs bg-[var(--color-card)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] rounded p-2 focus:outline-none focus:border-[var(--color-control)] text-[var(--color-ink)] text-[var(--color-ink)] disabled:opacity-60"
                 />
                 {showRecurringWarning && (
-                  <div className="flex items-start gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 mt-1 bg-amber-50 dark:bg-amber-950/20 p-1.5 border border-amber-100 dark:border-amber-900/30 rounded">
+                  <div className="flex items-start gap-1 text-[10px] font-semibold text-[var(--color-warning)] text-[var(--color-warning)] mt-1 bg-[var(--color-warning-surface)] bg-[var(--color-warning-surface)] p-1.5 border border-[var(--color-warning)] border-[var(--color-warning)] rounded">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                     <span>Warning: This is a recurring task. Changing its due date may break or replace its recurrence pattern.</span>
                   </div>
@@ -353,7 +353,7 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label htmlFor="editor-task-priority" className="block text-[10px] font-bold text-[#757684] uppercase tracking-wider">
+                <label htmlFor="editor-task-priority" className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider">
                   Priority
                 </label>
                 <select
@@ -361,7 +361,7 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
                   disabled={isDetailsSaving || isSavingAll}
                   value={priority}
                   onChange={(e) => setPriority(Number(e.target.value))}
-                  className="w-full text-xs bg-white dark:bg-[#131b2e] border border-[#eaedff] dark:border-[#283044] rounded p-2 focus:outline-none focus:border-[#00288e] text-gray-900 dark:text-white disabled:opacity-60"
+                  className="w-full text-xs bg-[var(--color-card)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] rounded p-2 focus:outline-none focus:border-[var(--color-control)] text-[var(--color-ink)] text-[var(--color-ink)] disabled:opacity-60"
                 >
                   <option value={1}>Priority 1 (Normal)</option>
                   <option value={2}>Priority 2 (Medium)</option>
@@ -372,13 +372,13 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
             </div>
 
             {detailsError && (
-              <div className="text-[11px] font-semibold text-red-600 dark:text-red-400 p-2 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/40 rounded">
+              <div className="text-[11px] font-semibold text-[var(--color-warning)] text-[var(--color-warning)] p-2 bg-[var(--color-warning-surface)] bg-[var(--color-warning-surface)] border border-[var(--color-warning)] border-[var(--color-warning)] rounded">
                 Error saving details: {detailsError}
               </div>
             )}
 
             {detailsSuccess && (
-              <div className="text-[11px] font-semibold text-green-600 dark:text-green-400 p-2 bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900/40 rounded flex items-center gap-1.5">
+              <div className="text-[11px] font-semibold text-[var(--color-success)] text-[var(--color-success)] p-2 bg-[var(--color-success-surface)] bg-[var(--color-success-surface)] border border-[var(--color-success)] border-[var(--color-success)] rounded flex items-center gap-1.5">
                 <Check className="w-3.5 h-3.5 shrink-0" />
                 <span>{detailsSuccess}</span>
               </div>
@@ -389,7 +389,7 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
                 id="editor-save-details-btn"
                 type="submit"
                 disabled={isDetailsSaving || isSavingAll || !hasDetailsChanged || !content.trim() || isOffline}
-                className="px-3 py-1.5 bg-[#00288e] text-white rounded text-xs font-bold hover:bg-[#1e40af] disabled:opacity-50 transition-colors flex items-center gap-1 cursor-pointer"
+                className="px-3 py-1.5 bg-[var(--color-card-raised)] text-[var(--color-ink)] rounded text-xs font-semibold hover:bg-[var(--color-card)] disabled:opacity-50 transition-colors flex items-center gap-1 cursor-pointer"
               >
                 {isDetailsSaving ? (
                   <>
@@ -404,14 +404,14 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
           </form>
 
           {/* Location / Move Section Form */}
-          <form id="editor-location-form" onSubmit={handleMoveTask} className="space-y-4 border-t border-[#eaedff] dark:border-[#283044]/40 pt-4 text-left">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#00288e] dark:text-[#a8b8ff] font-display">
+          <form id="editor-location-form" onSubmit={handleMoveTask} className="space-y-4 border-t border-[var(--color-divider)] border-[var(--color-divider)]/40 pt-4 text-left">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-control)] text-[var(--color-secondary)] font-display">
               Move Task
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label htmlFor="editor-task-project" className="block text-[10px] font-bold text-[#757684] uppercase tracking-wider">
+                <label htmlFor="editor-task-project" className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider">
                   Project
                 </label>
                 <select
@@ -419,7 +419,7 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
                   disabled={isMoveSaving || isSavingAll}
                   value={selectedProjectId}
                   onChange={(e) => setSelectedProjectId(e.target.value)}
-                  className="w-full text-xs bg-white dark:bg-[#131b2e] border border-[#eaedff] dark:border-[#283044] rounded p-2 focus:outline-none focus:border-[#00288e] text-gray-900 dark:text-white disabled:opacity-60"
+                  className="w-full text-xs bg-[var(--color-card)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] rounded p-2 focus:outline-none focus:border-[var(--color-control)] text-[var(--color-ink)] text-[var(--color-ink)] disabled:opacity-60"
                 >
                   <option value="" disabled>Select Project</option>
                   {projects.map(proj => (
@@ -431,7 +431,7 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label htmlFor="editor-task-section" className="block text-[10px] font-bold text-[#757684] uppercase tracking-wider">
+                <label htmlFor="editor-task-section" className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider">
                   Section
                 </label>
                 <select
@@ -439,7 +439,7 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
                   disabled={isMoveSaving || isSavingAll}
                   value={selectedSectionId}
                   onChange={(e) => setSelectedSectionId(e.target.value)}
-                  className="w-full text-xs bg-white dark:bg-[#131b2e] border border-[#eaedff] dark:border-[#283044] rounded p-2 focus:outline-none focus:border-[#00288e] text-gray-900 dark:text-white disabled:opacity-60"
+                  className="w-full text-xs bg-[var(--color-card)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] rounded p-2 focus:outline-none focus:border-[var(--color-control)] text-[var(--color-ink)] text-[var(--color-ink)] disabled:opacity-60"
                 >
                   <option value="no-section">No Section</option>
                   {projectSections.map(sec => (
@@ -452,13 +452,13 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
             </div>
 
             {moveError && (
-              <div className="text-[11px] font-semibold text-red-600 dark:text-red-400 p-2 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/40 rounded">
+              <div className="text-[11px] font-semibold text-[var(--color-warning)] text-[var(--color-warning)] p-2 bg-[var(--color-warning-surface)] bg-[var(--color-warning-surface)] border border-[var(--color-warning)] border-[var(--color-warning)] rounded">
                 Error moving task: {moveError}
               </div>
             )}
 
             {moveSuccess && (
-              <div className="text-[11px] font-semibold text-green-600 dark:text-green-400 p-2 bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900/40 rounded flex items-center gap-1.5">
+              <div className="text-[11px] font-semibold text-[var(--color-success)] text-[var(--color-success)] p-2 bg-[var(--color-success-surface)] bg-[var(--color-success-surface)] border border-[var(--color-success)] border-[var(--color-success)] rounded flex items-center gap-1.5">
                 <Check className="w-3.5 h-3.5 shrink-0" />
                 <span>{moveSuccess}</span>
               </div>
@@ -469,7 +469,7 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
                 id="editor-move-task-btn"
                 type="submit"
                 disabled={isMoveSaving || isSavingAll || !hasLocationChanged || !selectedProjectId || isOffline}
-                className="px-3 py-1.5 bg-[#00288e] text-white rounded text-xs font-bold hover:bg-[#1e40af] disabled:opacity-50 transition-colors flex items-center gap-1 cursor-pointer"
+                className="px-3 py-1.5 bg-[var(--color-card-raised)] text-[var(--color-ink)] rounded text-xs font-semibold hover:bg-[var(--color-card)] disabled:opacity-50 transition-colors flex items-center gap-1 cursor-pointer"
               >
                 {isMoveSaving ? (
                   <>
@@ -486,21 +486,21 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
         </div>
 
         {/* Unified Save All & Cancel Footer */}
-        <div className="border-t border-[#eaedff] dark:border-[#283044]/40 pt-4 mt-6 space-y-3">
+        <div className="border-t border-[var(--color-divider)] border-[var(--color-divider)]/40 pt-4 mt-6 space-y-3">
           {allStatusMessage && (
-            <div className={`text-xs font-bold p-2.5 rounded border ${
-              allStatusMessage.includes('Success:') 
-                ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-900/40 text-green-700 dark:text-green-400' 
-                : allStatusMessage.includes('Partial Success:') 
-                  ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-400'
-                  : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900/40 text-red-700 dark:text-red-400'
+            <div className={`text-xs font-semibold p-2.5 rounded border ${
+              allStatusMessage.includes('Success:')
+                ? 'bg-[var(--color-success-surface)] bg-[var(--color-success-surface)] border-[var(--color-success)] border-[var(--color-success)] text-[var(--color-success)] text-[var(--color-success)]'
+                : allStatusMessage.includes('Partial Success:')
+                  ? 'bg-[var(--color-warning-surface)] bg-[var(--color-warning-surface)] border-[var(--color-warning)] border-[var(--color-warning)] text-[var(--color-warning)] text-[var(--color-warning)]'
+                  : 'bg-[var(--color-warning-surface)] bg-[var(--color-warning-surface)] border-[var(--color-warning)] border-[var(--color-warning)] text-[var(--color-warning)] text-[var(--color-warning)]'
             }`}>
               {allStatusMessage}
             </div>
           )}
 
           <div className="flex justify-between items-center gap-2">
-            <span className="text-[10px] text-[#757684]">
+            <span className="text-[10px] text-[var(--color-secondary)]">
               {isOffline ? 'Offline mode. Changes are disabled.' : 'Save details or move separately, or use Save All.'}
             </span>
             <div className="flex gap-2">
@@ -509,7 +509,7 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
                 type="button"
                 disabled={isDetailsSaving || isMoveSaving || isSavingAll}
                 onClick={onClose}
-                className="px-3 py-1.5 border border-[#eaedff] dark:border-[#283044] rounded text-xs font-bold text-[#757684] hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                className="px-3 py-1.5 border border-[var(--color-divider)] border-[var(--color-divider)] rounded text-xs font-semibold text-[var(--color-secondary)] hover:bg-[var(--color-card)] hover:bg-[var(--color-card)] transition-colors disabled:opacity-50"
               >
                 Close
               </button>
@@ -518,7 +518,7 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
                 type="button"
                 disabled={isDetailsSaving || isMoveSaving || isSavingAll || (!hasDetailsChanged && !hasLocationChanged) || (hasDetailsChanged && !content.trim()) || isOffline}
                 onClick={handleSaveAll}
-                className="px-4 py-1.5 bg-[#00288e] text-white rounded text-xs font-extrabold hover:bg-[#1e40af] disabled:opacity-50 transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-1.5 bg-[var(--color-card-raised)] text-[var(--color-ink)] rounded text-xs font-semibold hover:bg-[var(--color-card)] disabled:opacity-50 transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 {isSavingAll ? (
                   <>

@@ -128,24 +128,24 @@ export const TodoistMoveMenu: React.FC<TodoistMoveMenuProps> = ({
   };
 
   return (
-    <div 
-      className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in"
+    <div
+      className="fixed inset-0 bg-[var(--color-card)]/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="move-menu-title"
       onClick={onClose}
     >
-      <div 
+      <div
         ref={modalRef}
         tabIndex={-1}
-        className="bg-white dark:bg-[#131b2e] border border-[#eaedff] dark:border-[#283044] shadow-2xl p-5 relative overflow-y-auto max-h-[85vh] flex flex-col focus:outline-none max-sm:fixed max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:rounded-t-2xl max-sm:rounded-b-none max-sm:max-h-[85vh] max-sm:w-full sm:rounded-xl sm:max-w-sm w-full"
+        className="bg-[var(--color-card)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] shadow-2xl p-5 relative overflow-y-auto max-h-[85vh] flex flex-col focus:outline-none max-sm:fixed max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:rounded-t-2xl max-sm:rounded-b-none max-sm:max-h-[85vh] max-sm:w-full sm:rounded-xl sm:max-w-sm w-full"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-2 top-2 sm:right-4 sm:top-4 text-[#757684] hover:text-[#ba1a1a] p-2.5 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-[#00288e] flex items-center justify-center min-w-[44px] min-h-[44px]"
+          className="absolute right-2 top-2 sm:right-4 sm:top-4 text-[var(--color-secondary)] hover:text-[var(--color-warning)] p-2.5 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-control)] flex items-center justify-center min-w-[44px] min-h-[44px]"
           aria-label="Close menu"
           title="Close menu"
         >
@@ -154,21 +154,21 @@ export const TodoistMoveMenu: React.FC<TodoistMoveMenuProps> = ({
 
         {/* Title */}
         <div className="mb-3 pr-6">
-          <span className="text-[9px] font-extrabold uppercase bg-[#f2f3ff] text-[#00288e] dark:bg-[#1a2c4d] dark:text-[#a8b8ff] px-2 py-0.5 rounded">
+          <span className="text-[9px] font-semibold uppercase bg-[var(--color-card-raised)] text-[var(--color-control)] bg-[var(--color-card)] text-[var(--color-secondary)] px-2 py-0.5 rounded">
             Move Destination
           </span>
-          <h2 id="move-menu-title" className="text-sm font-bold font-display text-[#131b2e] dark:text-white leading-tight mt-1.5 break-words">
+          <h2 id="move-menu-title" className="text-sm font-semibold font-display text-[var(--color-ink)] text-[var(--color-ink)] leading-tight mt-1.5 break-words">
             Move: {task.title}
           </h2>
         </div>
 
         {/* Inline Dialog: Move out of Inbox Confirmation */}
         {pendingDestination ? (
-          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 rounded-lg p-3.5 space-y-3.5 my-2 text-left animate-slide-up">
-            <div className="flex gap-2 text-amber-800 dark:text-amber-400">
+          <div className="bg-[var(--color-warning-surface)] bg-[var(--color-warning-surface)] border border-[var(--color-warning)] border-[var(--color-warning)] rounded-lg p-3.5 space-y-3.5 my-2 text-left animate-slide-up">
+            <div className="flex gap-2 text-[var(--color-warning)] text-[var(--color-warning)]">
               <AlertTriangle className="w-5 h-5 shrink-0" />
               <div>
-                <h4 className="text-xs font-bold font-display uppercase tracking-wide">
+                <h4 className="text-xs font-semibold font-display uppercase tracking-wide">
                   Moving Out of Inbox
                 </h4>
                 <p className="text-[11px] leading-relaxed mt-1">
@@ -180,13 +180,13 @@ export const TodoistMoveMenu: React.FC<TodoistMoveMenuProps> = ({
                 </p>
               </div>
             </div>
-            
+
             <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
                 disabled={isMoving}
                 onClick={() => setPendingDestination(null)}
-                className="px-2.5 py-1 text-[10px] font-bold border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-400 rounded hover:bg-amber-100 dark:hover:bg-amber-950/40 disabled:opacity-50"
+                className="px-2.5 py-1 text-[10px] font-semibold border border-[var(--color-warning)] border-[var(--color-warning)] text-[var(--color-warning)] text-[var(--color-warning)] rounded hover:bg-[var(--color-warning-surface)] hover:bg-[var(--color-warning-surface)] disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -194,7 +194,7 @@ export const TodoistMoveMenu: React.FC<TodoistMoveMenuProps> = ({
                 type="button"
                 disabled={isMoving}
                 onClick={() => executeMove(pendingDestination.projectId, pendingDestination.sectionId)}
-                className="px-3 py-1 bg-amber-600 text-white rounded text-[10px] font-extrabold hover:bg-amber-700 disabled:opacity-50 flex items-center gap-1"
+                className="px-3 py-1 bg-[var(--color-warning-surface)] text-[var(--color-ink)] rounded text-[10px] font-semibold hover:bg-[var(--color-warning-surface)] disabled:opacity-50 flex items-center gap-1"
               >
                 {isMoving ? (
                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -208,14 +208,14 @@ export const TodoistMoveMenu: React.FC<TodoistMoveMenuProps> = ({
           /* Normal Destination List */
           <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4 my-2 text-left">
             {moveError && (
-              <div className="text-[11px] font-semibold text-red-600 dark:text-red-400 p-2.5 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/40 rounded flex items-start gap-1.5">
+              <div className="text-[11px] font-semibold text-[var(--color-warning)] text-[var(--color-warning)] p-2.5 bg-[var(--color-warning-surface)] bg-[var(--color-warning-surface)] border border-[var(--color-warning)] border-[var(--color-warning)] rounded flex items-start gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                 <span>{moveError}</span>
               </div>
             )}
 
             {projects.length === 0 ? (
-              <p className="text-xs text-[#757684] italic">No projects found in your catalog.</p>
+              <p className="text-xs text-[var(--color-secondary)] italic">No projects found in your catalog.</p>
             ) : (
               <div className="space-y-4">
                 {projects.map((proj) => {
@@ -223,10 +223,10 @@ export const TodoistMoveMenu: React.FC<TodoistMoveMenuProps> = ({
                   const isProjCurrentNoSec = isCurrentLocation(proj.id, 'no-section');
 
                   return (
-                    <div key={proj.id} className="border border-[#eaedff]/60 dark:border-[#283044]/30 rounded-lg p-2.5 bg-[#faf8ff]/30 dark:bg-transparent">
+                    <div key={proj.id} className="border border-[var(--color-divider)]/60 border-[var(--color-divider)]/30 rounded-lg p-2.5 bg-[var(--color-card-raised)]/30 bg-transparent">
                       {/* Project Header */}
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-[#131b2e] dark:text-white mb-2 pb-1 border-b border-[#eaedff]/40">
-                        <Folder className="w-3.5 h-3.5 text-[#00288e] dark:text-[#a8b8ff] shrink-0" />
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--color-ink)] text-[var(--color-ink)] mb-2 pb-1 border-b border-[var(--color-divider)]/40">
+                        <Folder className="w-3.5 h-3.5 text-[var(--color-control)] text-[var(--color-secondary)] shrink-0" />
                         <span>{proj.name}</span>
                       </div>
 
@@ -239,16 +239,16 @@ export const TodoistMoveMenu: React.FC<TodoistMoveMenuProps> = ({
                           onClick={() => handleDestinationClick(proj.id, undefined, proj.name, 'No Section')}
                           className={`w-full text-left text-[11px] px-3.5 py-2.5 rounded transition-all flex items-center justify-between ${
                             isProjCurrentNoSec
-                              ? 'bg-gray-100 dark:bg-gray-800/60 text-[#757684] font-medium cursor-not-allowed border border-dashed border-gray-300 dark:border-gray-700'
-                              : 'text-gray-700 dark:text-gray-300 hover:bg-[#00288e]/5 hover:text-[#00288e] dark:hover:bg-[#a8b8ff]/10 dark:hover:text-[#a8b8ff] focus:outline-none focus:ring-1 focus:ring-[#00288e]'
+                              ? 'bg-[var(--color-card)] bg-[var(--color-card)] text-[var(--color-secondary)] font-normal cursor-not-allowed border border-dashed border-[var(--color-divider)] border-[var(--color-divider)]'
+                              : 'text-[var(--color-ink)] text-[var(--color-secondary)] hover:bg-[var(--color-card-raised)]/5 hover:text-[var(--color-control)] hover:bg-[var(--color-card-raised)]/10 hover:text-[var(--color-secondary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-control)]'
                           }`}
                         >
                           <span className="flex items-center gap-1">
-                            <ChevronRight className="w-3 h-3 text-[#757684] opacity-50" />
+                            <ChevronRight className="w-3 h-3 text-[var(--color-secondary)] " />
                             <span>No Section</span>
                           </span>
                           {isProjCurrentNoSec && (
-                            <span className="text-[9px] font-bold bg-[#eaedff] dark:bg-gray-800 text-[#00288e] dark:text-[#a8b8ff] px-1.5 py-0.5 rounded flex items-center gap-0.5 shrink-0">
+                            <span className="text-[9px] font-semibold bg-[var(--color-divider)] bg-[var(--color-card)] text-[var(--color-control)] text-[var(--color-secondary)] px-1.5 py-0.5 rounded flex items-center gap-0.5 shrink-0">
                               <Check className="w-2.5 h-2.5" />
                               <span>Current</span>
                             </span>
@@ -267,16 +267,16 @@ export const TodoistMoveMenu: React.FC<TodoistMoveMenuProps> = ({
                               onClick={() => handleDestinationClick(proj.id, sec.id, proj.name, sec.name)}
                               className={`w-full text-left text-[11px] px-3.5 py-2.5 rounded transition-all flex items-center justify-between ${
                                 isSecCurrent
-                                  ? 'bg-gray-100 dark:bg-gray-800/60 text-[#757684] font-medium cursor-not-allowed border border-dashed border-gray-300 dark:border-gray-700'
-                                  : 'text-gray-700 dark:text-gray-300 hover:bg-[#00288e]/5 hover:text-[#00288e] dark:hover:bg-[#a8b8ff]/10 dark:hover:text-[#a8b8ff] focus:outline-none focus:ring-1 focus:ring-[#00288e]'
+                                  ? 'bg-[var(--color-card)] bg-[var(--color-card)] text-[var(--color-secondary)] font-normal cursor-not-allowed border border-dashed border-[var(--color-divider)] border-[var(--color-divider)]'
+                                  : 'text-[var(--color-ink)] text-[var(--color-secondary)] hover:bg-[var(--color-card-raised)]/5 hover:text-[var(--color-control)] hover:bg-[var(--color-card-raised)]/10 hover:text-[var(--color-secondary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-control)]'
                               }`}
                             >
                               <span className="flex items-center gap-1">
-                                <ChevronRight className="w-3 h-3 text-[#757684] opacity-50" />
+                                <ChevronRight className="w-3 h-3 text-[var(--color-secondary)] " />
                                 <span>{sec.name}</span>
                               </span>
                               {isSecCurrent && (
-                                <span className="text-[9px] font-bold bg-[#eaedff] dark:bg-gray-800 text-[#00288e] dark:text-[#a8b8ff] px-1.5 py-0.5 rounded flex items-center gap-0.5 shrink-0">
+                                <span className="text-[9px] font-semibold bg-[var(--color-divider)] bg-[var(--color-card)] text-[var(--color-control)] text-[var(--color-secondary)] px-1.5 py-0.5 rounded flex items-center gap-0.5 shrink-0">
                                   <Check className="w-2.5 h-2.5" />
                                   <span>Current</span>
                                 </span>
@@ -294,15 +294,15 @@ export const TodoistMoveMenu: React.FC<TodoistMoveMenuProps> = ({
         )}
 
         {/* Footer */}
-        <div className="border-t border-[#eaedff] dark:border-[#283044]/40 pt-3 mt-3 flex justify-between items-center">
-          <span className="text-[9px] text-[#757684]">
+        <div className="border-t border-[var(--color-divider)] border-[var(--color-divider)]/40 pt-3 mt-3 flex justify-between items-center">
+          <span className="text-[9px] text-[var(--color-secondary)]">
             {isOffline ? 'Offline mode.' : 'Select a destination to move.'}
           </span>
           <button
             type="button"
             disabled={isMoving}
             onClick={onClose}
-            className="px-3 py-1 border border-[#eaedff] dark:border-[#283044] rounded text-[10px] font-bold text-[#757684] hover:bg-gray-100 dark:hover:bg-gray-850 transition-colors"
+            className="px-3 py-1 border border-[var(--color-divider)] border-[var(--color-divider)] rounded text-[10px] font-semibold text-[var(--color-secondary)] hover:bg-[var(--color-card)] hover:bg-[var(--color-card)] transition-colors"
           >
             Cancel
           </button>

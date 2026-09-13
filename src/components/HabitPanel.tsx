@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  Plus, 
-  Archive, 
-  CheckCircle2, 
-  Loader2, 
-  AlertTriangle, 
-  Calendar, 
-  X, 
-  Info, 
+import {
+  Plus,
+  Archive,
+  CheckCircle2,
+  Loader2,
+  AlertTriangle,
+  Calendar,
+  X,
+  Info,
   RefreshCw,
   Square,
   ChevronRight,
@@ -22,10 +22,10 @@ import {
 } from 'lucide-react';
 import { ApiClient } from '../services/apiClient';
 import { Habit, HabitEntry, Weekday, DashboardContext, HabitSchedule } from '../types';
-import { 
-  getLocalYYYYMMDD, 
-  isHabitScheduledOnDate, 
-  calculateScheduledHabitStreak, 
+import {
+  getLocalYYYYMMDD,
+  isHabitScheduledOnDate,
+  calculateScheduledHabitStreak,
   calculateWeeklyTargetProgress,
   calculateSevenDaySummary,
   parseLocalDate,
@@ -40,7 +40,7 @@ const getDatesInRange = (start: string, end: string): string[] => {
     const parts = current.split('-');
     const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
     d.setDate(d.getDate() - 1);
-    
+
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
@@ -59,10 +59,10 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
   const [error, setError] = useState<string | null>(null);
   const [savingHabitIds, setSavingHabitIds] = useState<Record<string, boolean>>({});
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
-  
+
   // Archiving / menu popups
   const [activeMenuHabitId, setActiveMenuHabitId] = useState<string | null>(null);
-  
+
   // Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
@@ -113,7 +113,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
     setError(null);
     try {
       // Fetch active habits (not archived) for the current context
-      const data = await ApiClient.getHabits({ 
+      const data = await ApiClient.getHabits({
         context: activeTab,
         includeArchived: false
       });
@@ -195,7 +195,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
     setHabits(prevHabits => {
       return prevHabits.map(h => {
         if (h.id !== habitId) return h;
-        
+
         let updatedEntries = [...h.entries];
         const existingEntryIdx = updatedEntries.findIndex(e => e.date === today);
 
@@ -232,9 +232,9 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
 
     try {
       await ApiClient.updateHabitEntry(habitId, today, !currentlyCompleted);
-      
+
       // Fetch fresh recalculated data from server to keep stats/streaks perfectly accurate
-      const freshData = await ApiClient.getHabits({ 
+      const freshData = await ApiClient.getHabits({
         context: activeTab,
         includeArchived: false
       });
@@ -243,9 +243,9 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
       console.error('Failed to update habit check-in:', err);
       // Rollback
       setHabits(previousHabits);
-      setRowErrors(prev => ({ 
-        ...prev, 
-        [habitId]: err.message || 'Failed to save' 
+      setRowErrors(prev => ({
+        ...prev,
+        [habitId]: err.message || 'Failed to save'
       }));
     } finally {
       setSavingHabitIds(prev => ({ ...prev, [habitId]: false }));
@@ -263,7 +263,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
     try {
       await ApiClient.updateHabit(habitId, { archived: true });
       // Refresh list
-      const freshData = await ApiClient.getHabits({ 
+      const freshData = await ApiClient.getHabits({
         context: activeTab,
         includeArchived: false
       });
@@ -278,8 +278,8 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
   const fetchArchivedHabits = async () => {
     setArchivedLoading(true);
     try {
-      const data = await ApiClient.getHabits({ 
-        includeArchived: true 
+      const data = await ApiClient.getHabits({
+        includeArchived: true
       });
       const archived = data.filter(h => h.archived);
       setArchivedHabits(archived);
@@ -294,12 +294,12 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
   const handleRestoreHabit = async (habitId: string) => {
     try {
       await ApiClient.updateHabit(habitId, { archived: false });
-      
+
       // Remove from archived habits in state
       setArchivedHabits(prev => prev.filter(h => h.id !== habitId));
-      
+
       // Refresh active habits list
-      const freshData = await ApiClient.getHabits({ 
+      const freshData = await ApiClient.getHabits({
         context: activeTab,
         includeArchived: false
       });
@@ -315,7 +315,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
     setEditingHabitId(habit.id);
     setNewHabitName(habit.name);
     setNewHabitContext(habit.context);
-    
+
     const schedule = habit.schedule;
     setNewScheduleType(schedule.type);
     if (schedule.type === 'selected_days') {
@@ -404,16 +404,16 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
           const updatedEntries = [...h.entries];
           const idx = updatedEntries.findIndex(e => e.date === date);
           if (idx > -1) {
-            updatedEntries[idx] = { 
-              ...updatedEntries[idx], 
+            updatedEntries[idx] = {
+              ...updatedEntries[idx],
               completed: !isCurrentlyCompleted,
               completedAt: !isCurrentlyCompleted ? new Date().toISOString() : null,
               updatedAt: new Date().toISOString()
             };
           } else {
-            updatedEntries.push({ 
-              habitId: historyHabit.id, 
-              date, 
+            updatedEntries.push({
+              habitId: historyHabit.id,
+              date,
               completed: !isCurrentlyCompleted,
               completedAt: !isCurrentlyCompleted ? new Date().toISOString() : null,
               updatedAt: new Date().toISOString()
@@ -543,9 +543,9 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
       setNewSelectedDays([]);
       setNewWeeklyTarget(3);
       setIsAddModalOpen(false);
-      
+
       // Reload only Habits list
-      const freshData = await ApiClient.getHabits({ 
+      const freshData = await ApiClient.getHabits({
         context: activeTab,
         includeArchived: false
       });
@@ -559,7 +559,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
   };
 
   const toggleDaySelection = (day: Weekday) => {
-    setNewSelectedDays(prev => 
+    setNewSelectedDays(prev =>
       prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
     );
   };
@@ -568,7 +568,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
   const scheduledMetrics = useMemo(() => {
     const scheduledHabits = habits.filter(h => h.schedule.type !== 'weekly_target');
     const scheduledToday = scheduledHabits.filter(h => isHabitScheduledOnDate(h, today));
-    const completedToday = scheduledToday.filter(h => 
+    const completedToday = scheduledToday.filter(h =>
       h.entries.some(e => e.date === today && e.completed)
     );
 
@@ -602,15 +602,15 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
   ];
 
   return (
-    <section className="col-span-1 lg:col-span-6 bg-white dark:bg-[#131b2e] rounded-xl border border-[#eaedff] dark:border-[#283044] shadow-sm p-4 sm:p-6 overflow-hidden flex flex-col h-full min-h-0">
-      
+    <section className="col-span-1 lg:col-span-6 bg-[var(--color-card)] bg-[var(--color-card)] rounded-xl border border-[var(--color-divider)] border-[var(--color-divider)] shadow-sm p-4 sm:p-6 overflow-hidden flex flex-col h-full min-h-0">
+
       {/* Header Area */}
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h3 className="font-display text-lg font-bold text-[#00288e] dark:text-white uppercase tracking-tight">HABITS</h3>
-          <p className="text-xs text-[#757684] mt-0.5 font-medium">Today’s consistency</p>
+          <h3 className="font-display text-lg font-semibold text-[var(--color-control)] text-[var(--color-ink)] uppercase tracking-tight">HABITS</h3>
+          <p className="text-xs text-[var(--color-secondary)] mt-0.5 font-normal">Today’s consistency</p>
         </div>
-        
+
         <div className="flex gap-2">
           <button
             type="button"
@@ -618,7 +618,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
               setIsArchivedModalOpen(true);
               fetchArchivedHabits();
             }}
-            className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-[10px] font-bold uppercase tracking-wider py-1.5 px-3 rounded-lg transition-colors cursor-pointer select-none"
+            className="flex items-center gap-1.5 bg-[var(--color-card)] hover:bg-[var(--color-card)] bg-[var(--color-card)] hover:bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] text-[var(--color-ink)] text-[var(--color-secondary)] text-[10px] font-semibold uppercase tracking-wider py-1.5 px-3 rounded-lg transition-colors cursor-pointer select-none"
           >
             <Archive className="w-3.5 h-3.5" />
             <span>Archived</span>
@@ -638,7 +638,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
               setHasConfirmedScheduleWarning(false);
               setIsAddModalOpen(true);
             }}
-            className="flex items-center gap-1 bg-[#00288e] hover:bg-[#1e40af] dark:bg-[#3b82f6] dark:hover:bg-[#2563eb] text-white text-[10px] font-bold uppercase tracking-wider py-1.5 px-3 rounded-lg transition-colors cursor-pointer select-none"
+            className="flex items-center gap-1 bg-[var(--color-card-raised)] hover:bg-[var(--color-card)] bg-[var(--color-card-raised)] hover:bg-[var(--color-card-raised)] text-[var(--color-ink)] text-[10px] font-semibold uppercase tracking-wider py-1.5 px-3 rounded-lg transition-colors cursor-pointer select-none"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Habit</span>
@@ -648,17 +648,17 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
 
       {/* Progress Summary Metric Bars */}
       {!loading && !error && habits.length > 0 && (
-        <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-[#faf8ff] dark:bg-[#1a2c4d]/20 border border-[#eaedff] dark:border-[#283044]/60 rounded-xl">
+        <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-[var(--color-card-raised)] bg-[var(--color-card)]/20 border border-[var(--color-divider)] border-[var(--color-divider)]/60 rounded-xl">
           <div className="space-y-1">
-            <span className="text-[10px] font-extrabold uppercase text-[#757684] tracking-wider block">Scheduled Today</span>
-            <span className="text-xs font-bold text-[#131b2e] dark:text-white">
+            <span className="text-[10px] font-semibold uppercase text-[var(--color-secondary)] tracking-wider block">Scheduled Today</span>
+            <span className="text-xs font-semibold text-[var(--color-ink)] text-[var(--color-ink)]">
               {scheduledMetrics.completedTodayCount} of {scheduledMetrics.totalDueToday} completed
             </span>
           </div>
-          
-          <div className="space-y-1 sm:border-l sm:border-[#eaedff] dark:sm:border-[#283044] sm:pl-3">
-            <span className="text-[10px] font-extrabold uppercase text-[#757684] tracking-wider block">Weekly Targets</span>
-            <span className="text-xs font-bold text-[#131b2e] dark:text-white">
+
+          <div className="space-y-1 sm:border-l sm:border-[var(--color-divider)] sm:border-[var(--color-divider)] sm:pl-3">
+            <span className="text-[10px] font-semibold uppercase text-[var(--color-secondary)] tracking-wider block">Weekly Targets</span>
+            <span className="text-xs font-semibold text-[var(--color-ink)] text-[var(--color-ink)]">
               {weeklyMetrics.metTargetCount} of {weeklyMetrics.totalWeekly} target{weeklyMetrics.totalWeekly !== 1 ? 's' : ''} met
             </span>
           </div>
@@ -667,20 +667,20 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
 
       {/* Loading State */}
       {loading && (
-        <div className="flex-1 flex flex-col items-center justify-center py-12 text-[#757684]">
-          <Loader2 className="w-6 h-6 animate-spin text-[#00288e] dark:text-[#3b82f6] mb-2" />
-          <span className="text-xs font-medium">Loading habits...</span>
+        <div className="flex-1 flex flex-col items-center justify-center py-12 text-[var(--color-secondary)]">
+          <Loader2 className="w-6 h-6 animate-spin text-[var(--color-control)] text-[var(--color-secondary)] mb-2" />
+          <span className="text-xs font-normal">Loading habits...</span>
         </div>
       )}
 
       {/* Error State */}
       {!loading && error && (
         <div className="flex-1 flex flex-col justify-center items-center py-12 text-center">
-          <AlertTriangle className="w-8 h-8 text-[#ba1a1a] mb-2" />
-          <p className="text-xs text-[#ba1a1a] font-semibold mb-3 max-w-xs">{error}</p>
+          <AlertTriangle className="w-8 h-8 text-[var(--color-warning)] mb-2" />
+          <p className="text-xs text-[var(--color-warning)] font-semibold mb-3 max-w-xs">{error}</p>
           <button
             onClick={fetchHabits}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#faf8ff] dark:bg-[#0c1322] border border-[#eaedff] dark:border-[#283044] rounded-md text-[10px] font-bold text-[#00288e] dark:text-white hover:bg-[#00288e] hover:text-white transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-card-raised)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] rounded-md text-[10px] font-semibold text-[var(--color-control)] text-[var(--color-ink)] hover:bg-[var(--color-card-raised)] hover:text-[var(--color-ink)] transition-colors cursor-pointer"
           >
             <RefreshCw className="w-3 h-3" />
             <span>Retry Load</span>
@@ -690,10 +690,10 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
 
       {/* Empty State */}
       {!loading && !error && habits.length === 0 && (
-        <div className="flex-1 flex flex-col justify-center items-center py-12 border border-dashed border-[#eaedff] dark:border-[#283044] rounded-xl bg-[#faf8ff]/50 dark:bg-[#0c1322]/10">
-          <Calendar className="w-8 h-8 text-[#c4c5d5] mb-2" />
-          <p className="text-xs font-bold text-[#131b2e] dark:text-white mb-1">No habits found</p>
-          <p className="text-[11px] text-[#757684] text-center max-w-xs px-4">
+        <div className="flex-1 flex flex-col justify-center items-center py-12 border border-dashed border-[var(--color-divider)] border-[var(--color-divider)] rounded-xl bg-[var(--color-card-raised)]/50 bg-[var(--color-card)]/10">
+          <Calendar className="w-8 h-8 text-[var(--color-divider)] mb-2" />
+          <p className="text-xs font-semibold text-[var(--color-ink)] text-[var(--color-ink)] mb-1">No habits found</p>
+          <p className="text-[11px] text-[var(--color-secondary)] text-center max-w-xs px-4">
             Create a habit to track your consistency for {activeTab === 'combined' ? 'personal and professional' : activeTab} objectives.
           </p>
         </div>
@@ -706,7 +706,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
             const isWeekly = habit.schedule.type === 'weekly_target';
             const isSaving = !!savingHabitIds[habit.id];
             const rowError = rowErrors[habit.id];
-            
+
             // Check completed today
             const isCompletedToday = habit.entries.some(e => e.date === today && e.completed);
 
@@ -739,52 +739,52 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
             }
 
             return (
-              <div 
+              <div
                 key={habit.id}
                 className={`p-3.5 rounded-xl border transition-all relative ${
-                  isCompletedToday 
-                    ? 'bg-emerald-50/35 border-emerald-200/50 dark:bg-emerald-950/5 dark:border-emerald-800/20' 
+                  isCompletedToday
+                    ? 'bg-[var(--color-success-surface)] border-[var(--color-success)] bg-[var(--color-success-surface)] border-[var(--color-success)]'
                     : !isWeekly && !isScheduledToday
-                      ? 'bg-gray-50/50 border-gray-100 dark:bg-gray-900/10 dark:border-gray-800/30 opacity-70'
-                      : 'bg-[#faf8ff] dark:bg-[#1a2c4d]/10 border-[#eaedff] dark:border-[#283044]/60'
+                      ? 'bg-[var(--color-card)] border-[var(--color-divider)] bg-[var(--color-card)] border-[var(--color-divider)] '
+                      : 'bg-[var(--color-card-raised)] bg-[var(--color-card)]/10 border-[var(--color-divider)] border-[var(--color-divider)]/60'
                 } hover:shadow-xs`}
               >
                 <div className="flex items-start justify-between gap-3">
-                  
+
                   {/* Left Side: Completion Toggle Checkbox / Tick Box */}
                   <button
                     type="button"
                     onClick={() => handleToggleComplete(habit, isCompletedToday)}
                     disabled={isSaving}
                     aria-label={`Toggle check-in for habit: ${habit.name}`}
-                    className="w-11 h-11 sm:w-10 sm:h-10 rounded-xl border border-[#c4c5d5] dark:border-gray-600 flex items-center justify-center bg-white dark:bg-[#131b2e] hover:border-[#00288e] dark:hover:border-blue-500 transition-all cursor-pointer disabled:opacity-50 shrink-0 select-none mt-0.5"
+                    className="w-11 h-11 sm:w-10 sm:h-10 rounded-xl border border-[var(--color-divider)] border-[var(--color-divider)] flex items-center justify-center bg-[var(--color-card)] bg-[var(--color-card)] hover:border-[var(--color-control)] hover:border-[var(--color-divider)] transition-all cursor-pointer disabled:opacity-50 shrink-0 select-none mt-0.5"
                   >
                     {isSaving ? (
-                      <Loader2 className="w-5 h-5 animate-spin text-[#00288e] dark:text-[#3b82f6]" />
+                      <Loader2 className="w-5 h-5 animate-spin text-[var(--color-control)] text-[var(--color-secondary)]" />
                     ) : isCompletedToday ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                      <CheckCircle2 className="w-5 h-5 text-[var(--color-success)]" />
                     ) : (
-                      <Square className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                      <Square className="w-5 h-5 text-[var(--color-secondary)] text-[var(--color-secondary)]" />
                     )}
                   </button>
 
                   {/* Middle Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className={`text-xs font-bold leading-tight break-words truncate ${
-                        isCompletedToday 
-                          ? 'text-gray-500 dark:text-gray-400 line-through decoration-emerald-500/30' 
-                          : 'text-[#131b2e] dark:text-white font-semibold'
+                      <h4 className={`text-xs font-semibold leading-tight break-words truncate ${
+                        isCompletedToday
+                          ? 'text-[var(--color-secondary)] text-[var(--color-secondary)] line-through decoration-[var(--color-success)]/30'
+                          : 'text-[var(--color-ink)] text-[var(--color-ink)] font-semibold'
                       }`}>
                         {habit.name}
                       </h4>
-                      
+
                       {/* Context indicator in combined view */}
                       {activeTab === 'combined' && (
-                        <span className={`text-[8px] font-extrabold uppercase px-1.5 py-0.2 rounded-sm ${
+                        <span className={`text-[8px] font-semibold uppercase px-1.5 py-0.2 rounded-sm ${
                           habit.context === 'personal'
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                            : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
+                            ? 'bg-[var(--color-card-raised)] text-[var(--color-secondary)] bg-[var(--color-card-raised)] text-[var(--color-secondary)]'
+                            : 'bg-[var(--color-card-raised)] text-[var(--color-secondary)] bg-[var(--color-card-raised)] text-[var(--color-secondary)]'
                         }`}>
                           {habit.context}
                         </span>
@@ -792,25 +792,25 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                     </div>
 
                     {/* Schedule detail and current status label */}
-                    <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[10px] text-[#757684]">
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[10px] text-[var(--color-secondary)]">
                       {!isWeekly ? (
                         <>
-                          <span className="font-medium bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wide">
+                          <span className="font-normal bg-[var(--color-card)] bg-[var(--color-card)] px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wide">
                             {habit.schedule.type === 'daily' ? 'Every Day' : habit.schedule.type === 'weekdays' ? 'Weekdays' : 'Selected Days'}
                           </span>
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide ${
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide ${
                             isCompletedToday
-                              ? 'bg-emerald-100/60 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
+                              ? 'bg-[var(--color-success-surface)] text-[var(--color-success)] bg-[var(--color-success-surface)] text-[var(--color-success)]'
                               : isScheduledToday
-                                ? 'bg-amber-100/60 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-                                : 'bg-gray-100/60 text-gray-500 dark:bg-gray-800/40 dark:text-gray-400'
+                                ? 'bg-[var(--color-warning-surface)] text-[var(--color-warning)] bg-[var(--color-warning-surface)] text-[var(--color-warning)]'
+                                : 'bg-[var(--color-card)] text-[var(--color-secondary)] bg-[var(--color-card)] text-[var(--color-secondary)]'
                           }`}>
                             {rowStatusText}
                           </span>
                         </>
                       ) : (
                         <>
-                          <span className="font-semibold text-[#131b2e] dark:text-white font-mono bg-blue-50 dark:bg-blue-950/20 px-2 py-0.5 rounded">
+                          <span className="font-semibold text-[var(--color-ink)] text-[var(--color-ink)] font-mono bg-[var(--color-card-raised)] bg-[var(--color-card-raised)] px-2 py-0.5 rounded">
                             {weeklyCompleted} of {weeklyTargetVal} this week
                           </span>
                         </>
@@ -820,9 +820,9 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                     {/* Progress bar for weekly targeted habits */}
                     {isWeekly && (
                       <div className="mt-2 max-w-xs">
-                        <div className="w-full h-1.5 bg-[#f0f2ff] dark:bg-[#1a2333] rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300" 
+                        <div className="w-full h-1.5 bg-[var(--color-card-raised)] bg-[var(--color-card)] rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-[var(--color-secondary)] to-[var(--color-secondary)] rounded-full transition-all duration-300"
                             style={{ width: `${Math.min(100, (weeklyCompleted / weeklyTargetVal) * 100)}%` }}
                           />
                         </div>
@@ -833,11 +833,11 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                   {/* Right Side: Streaks detail & Actions Menu */}
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <div className="text-right flex flex-col pr-1 select-none">
-                      <span className="text-[10px] font-bold text-[#131b2e] dark:text-white leading-tight font-mono">
+                      <span className="text-[10px] font-semibold text-[var(--color-ink)] text-[var(--color-ink)] leading-tight font-mono">
                         {isWeekly ? `🔥 ${currentStreakVal} wk${currentStreakVal !== 1 ? 's' : ''}` : `🔥 ${currentStreakVal} day${currentStreakVal !== 1 ? 's' : ''}`}
                       </span>
                       {longestStreakVal > 0 && (
-                        <span className="text-[9px] text-[#757684] mt-0.5 font-medium leading-none">
+                        <span className="text-[9px] text-[var(--color-secondary)] mt-0.5 font-normal leading-none">
                           Max: {longestStreakVal}
                         </span>
                       )}
@@ -851,33 +851,33 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                           e.stopPropagation();
                           setActiveMenuHabitId(activeMenuHabitId === habit.id ? null : habit.id);
                         }}
-                        className="p-1 rounded-md text-[#757684] hover:bg-black/5 dark:hover:bg-white/5 transition-colors focus:outline-none cursor-pointer"
+                        className="p-1 rounded-md text-[var(--color-secondary)] hover:bg-[var(--color-card)]/5 hover:bg-[var(--color-card)]/5 transition-colors focus:outline-none cursor-pointer"
                         title="Habit options"
                       >
                         <MoreVertical className="w-4 h-4" />
                       </button>
 
                       {activeMenuHabitId === habit.id && (
-                        <div className="absolute right-0 mt-1 w-32 bg-white dark:bg-[#131b2e] border border-[#eaedff] dark:border-[#283044] rounded-lg shadow-lg z-20 py-1 overflow-hidden">
+                        <div className="absolute right-0 mt-1 w-32 bg-[var(--color-card)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] rounded-lg shadow-lg z-20 py-1 overflow-hidden">
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleEditHabitClick(habit);
                             }}
-                            className="w-full text-left px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors flex items-center gap-1.5 cursor-pointer border-b border-[#eaedff] dark:border-[#283044]/60"
+                            className="w-full text-left px-3 py-2 text-xs font-normal text-[var(--color-ink)] text-[var(--color-secondary)] hover:bg-[var(--color-card)] hover:bg-[var(--color-card)]/5 transition-colors flex items-center gap-1.5 cursor-pointer border-b border-[var(--color-divider)] border-[var(--color-divider)]/60"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                             <span>Edit</span>
                           </button>
-                          
+
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleHistoryClick(habit);
                             }}
-                            className="w-full text-left px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors flex items-center gap-1.5 cursor-pointer border-b border-[#eaedff] dark:border-[#283044]/60"
+                            className="w-full text-left px-3 py-2 text-xs font-normal text-[var(--color-ink)] text-[var(--color-secondary)] hover:bg-[var(--color-card)] hover:bg-[var(--color-card)]/5 transition-colors flex items-center gap-1.5 cursor-pointer border-b border-[var(--color-divider)] border-[var(--color-divider)]/60"
                           >
                             <History className="w-3.5 h-3.5" />
                             <span>History</span>
@@ -886,7 +886,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                           <button
                             type="button"
                             onClick={(e) => handleArchiveHabit(e, habit.id)}
-                            className="w-full text-left px-3 py-2 text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-colors flex items-center gap-1.5 cursor-pointer"
+                            className="w-full text-left px-3 py-2 text-xs font-normal text-[var(--color-warning)] hover:text-[var(--color-warning)] text-[var(--color-warning)] hover:text-[var(--color-warning)] hover:bg-[var(--color-warning-surface)] hover:bg-[var(--color-warning-surface)] transition-colors flex items-center gap-1.5 cursor-pointer"
                           >
                             <Archive className="w-3.5 h-3.5" />
                             <span>Archive</span>
@@ -899,7 +899,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
 
                 {/* Row level check-in error warning */}
                 {rowError && (
-                  <div className="mt-2 text-[10px] text-[#ba1a1a] bg-red-50 dark:bg-[#ba1a1a]/10 border border-red-100 dark:border-red-950/20 px-2 py-1 rounded flex items-center gap-1 animate-fadeIn">
+                  <div className="mt-2 text-[10px] text-[var(--color-warning)] bg-[var(--color-warning-surface)] bg-[var(--color-warning-surface)]/10 border border-[var(--color-warning)] border-[var(--color-warning)] px-2 py-1 rounded flex items-center gap-1 animate-fadeIn">
                     <AlertTriangle className="w-3 h-3 shrink-0" />
                     <span className="truncate">{rowError}</span>
                   </div>
@@ -916,43 +916,43 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
           <button
             type="button"
             onClick={() => setIsStatsCollapsed(!isStatsCollapsed)}
-            className="w-full flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider text-[#757684] hover:text-[#00288e] dark:hover:text-blue-400 py-2 border-t border-[#eaedff] dark:border-[#283044]/40 transition-colors cursor-pointer select-none"
+            className="w-full flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-[var(--color-secondary)] hover:text-[var(--color-control)] hover:text-[var(--color-secondary)] py-2 border-t border-[var(--color-divider)] border-[var(--color-divider)]/40 transition-colors cursor-pointer select-none"
           >
             <span>7-Day Performance Details</span>
-            <span className="text-[9px] font-bold">{isStatsCollapsed ? 'Show Stats & Chart' : 'Hide Stats & Chart'}</span>
+            <span className="text-[9px] font-semibold">{isStatsCollapsed ? 'Show Stats & Chart' : 'Hide Stats & Chart'}</span>
           </button>
 
           {!isStatsCollapsed && (
-            <div className="pt-2.5 border-t border-[#eaedff] dark:border-[#283044]/30 space-y-3.5 animate-fadeIn">
+            <div className="pt-2.5 border-t border-[var(--color-divider)] border-[var(--color-divider)]/30 space-y-3.5 animate-fadeIn">
               {/* Summary Statistics Grid */}
               <div className="grid grid-cols-3 gap-2">
                 {/* 7-day completion rate */}
-                <div className="p-2 bg-gray-50/50 dark:bg-[#1a2c4d]/5 border border-gray-100 dark:border-[#283044]/30 rounded-xl flex flex-col justify-between min-h-[50px]">
-                  <span className="text-[8px] font-extrabold uppercase text-[#757684] tracking-wider block">7-Day Rate</span>
-                  <span className="text-sm font-extrabold text-[#131b2e] dark:text-white leading-tight font-mono">
+                <div className="p-2 bg-[var(--color-card)] bg-[var(--color-card)]/5 border border-[var(--color-divider)] border-[var(--color-divider)]/30 rounded-xl flex flex-col justify-between min-h-[50px]">
+                  <span className="text-[8px] font-semibold uppercase text-[var(--color-secondary)] tracking-wider block">7-Day Rate</span>
+                  <span className="text-sm font-semibold text-[var(--color-ink)] text-[var(--color-ink)] leading-tight font-mono">
                     {Math.round(sevenDaySummary.sevenDayCompletionRate * 100)}%
                   </span>
                 </div>
 
                 {/* Best Day */}
-                <div className="p-2 bg-gray-50/50 dark:bg-[#1a2c4d]/5 border border-gray-100 dark:border-[#283044]/30 rounded-xl flex flex-col justify-between min-h-[50px]">
-                  <span className="text-[8px] font-extrabold uppercase text-[#757684] tracking-wider block">Best Day</span>
-                  <span className="text-[10px] font-bold text-[#131b2e] dark:text-white leading-tight truncate" title={sevenDaySummary.bestDay}>
+                <div className="p-2 bg-[var(--color-card)] bg-[var(--color-card)]/5 border border-[var(--color-divider)] border-[var(--color-divider)]/30 rounded-xl flex flex-col justify-between min-h-[50px]">
+                  <span className="text-[8px] font-semibold uppercase text-[var(--color-secondary)] tracking-wider block">Best Day</span>
+                  <span className="text-[10px] font-semibold text-[var(--color-ink)] text-[var(--color-ink)] leading-tight truncate" title={sevenDaySummary.bestDay}>
                     {sevenDaySummary.bestDay}
                   </span>
                 </div>
 
                 {/* Consistency Trend */}
-                <div className="p-2 bg-gray-50/50 dark:bg-[#1a2c4d]/5 border border-gray-100 dark:border-[#283044]/30 rounded-xl flex flex-col justify-between min-h-[50px]">
-                  <span className="text-[8px] font-extrabold uppercase text-[#757684] tracking-wider block">Trend</span>
-                  <span className={`text-[10px] font-bold leading-tight ${
-                    sevenDaySummary.trend === 'Improving' 
-                      ? 'text-emerald-600 dark:text-emerald-400 font-semibold' 
+                <div className="p-2 bg-[var(--color-card)] bg-[var(--color-card)]/5 border border-[var(--color-divider)] border-[var(--color-divider)]/30 rounded-xl flex flex-col justify-between min-h-[50px]">
+                  <span className="text-[8px] font-semibold uppercase text-[var(--color-secondary)] tracking-wider block">Trend</span>
+                  <span className={`text-[10px] font-semibold leading-tight ${
+                    sevenDaySummary.trend === 'Improving'
+                      ? 'text-[var(--color-success)] text-[var(--color-success)] font-semibold'
                       : sevenDaySummary.trend === 'Declining'
-                        ? 'text-[#ba1a1a] dark:text-red-400 font-semibold'
+                        ? 'text-[var(--color-warning)] text-[var(--color-warning)] font-semibold'
                         : sevenDaySummary.trend === 'Steady'
-                          ? 'text-blue-600 dark:text-blue-400 font-semibold'
-                          : 'text-[#757684]'
+                          ? 'text-[var(--color-secondary)] text-[var(--color-secondary)] font-semibold'
+                          : 'text-[var(--color-secondary)]'
                   }`}>
                     {sevenDaySummary.trend}
                   </span>
@@ -961,7 +961,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
 
               {/* Vertical Bar Chart */}
               <div className="space-y-1.5">
-                <div className="flex justify-between items-center text-[9px] text-[#757684] font-extrabold uppercase tracking-wider">
+                <div className="flex justify-between items-center text-[9px] text-[var(--color-secondary)] font-semibold uppercase tracking-wider">
                   <span>Weekly History</span>
                   <span>Oldest to Newest</span>
                 </div>
@@ -972,52 +972,52 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                     const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
                     const dayLabel = weekdayNames[dateObj.getDay()];
                     const shortLabel = dayLabel.slice(0, 3);
-                    
+
                     const hasOpportunities = ds.scheduledOpportunities > 0;
                     const roundedPct = Math.round(ds.completionPercentage);
                     const barHeight = hasOpportunities ? Math.max(8, roundedPct) : 0; // min 8% for tiny bar
-                    
-                    const accessibilityLabel = hasOpportunities 
+
+                    const accessibilityLabel = hasOpportunities
                       ? `${dayLabel}: ${ds.completedCount} of ${ds.scheduledOpportunities} scheduled habits completed, ${roundedPct}%.`
                       : `${dayLabel}: No habits scheduled.`;
 
                     return (
-                      <div 
-                        key={ds.date} 
+                      <div
+                        key={ds.date}
                         className="flex flex-col items-center gap-1 h-full justify-end group cursor-pointer relative"
                         aria-label={accessibilityLabel}
                         title={accessibilityLabel}
                       >
                         {/* Numeric Percentage indicator shown on hover */}
-                        <div className="absolute -top-7 bg-[#131b2e] dark:bg-white text-white dark:text-[#131b2e] text-[9px] font-bold px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30 shadow-sm border border-[#eaedff] dark:border-[#283044]/30">
+                        <div className="absolute -top-7 bg-[var(--color-card)] bg-[var(--color-card)] text-[var(--color-ink)] text-[var(--color-ink)] text-[9px] font-semibold px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30 shadow-sm border border-[var(--color-divider)] border-[var(--color-divider)]/30">
                           {hasOpportunities ? `${ds.completedCount}/${ds.scheduledOpportunities} (${roundedPct}%)` : 'None'}
                         </div>
 
                         {/* Bar background / container */}
                         <div className={`w-full flex items-end justify-center rounded-t h-8 relative ${
-                          ds.isToday 
-                            ? 'bg-blue-100/40 dark:bg-blue-950/10 ring-1 ring-[#00288e]/10 dark:ring-blue-500/10' 
-                            : 'bg-gray-50/50 dark:bg-gray-900/10'
+                          ds.isToday
+                            ? 'bg-[var(--color-card-raised)] border-2 border-[var(--color-current)]'
+                            : 'bg-[var(--color-card)] bg-[var(--color-card)]'
                         }`}>
                           {hasOpportunities ? (
-                            <div 
+                            <div
                               className={`w-full rounded-t transition-all duration-300 ${
-                                ds.isToday 
-                                  ? 'bg-[#00288e] dark:bg-blue-500' 
-                                  : 'bg-blue-500/50 dark:bg-blue-600/30 hover:bg-blue-500 dark:hover:bg-blue-500'
+                                ds.isToday
+                                  ? 'bg-[var(--color-ink)]'
+                                  : 'bg-[var(--color-card-raised)] bg-[var(--color-card-raised)] hover:bg-[var(--color-card-raised)] hover:bg-[var(--color-card-raised)]'
                               }`}
                               style={{ height: `${barHeight}%` }}
                             />
                           ) : (
-                            <div className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-700 mb-0.5" />
+                            <div className="w-1 h-1 rounded-full bg-[var(--color-card)] bg-[var(--color-card)] mb-0.5" />
                           )}
                         </div>
 
                         {/* Day label */}
-                        <span className={`text-[8px] font-extrabold uppercase select-none tracking-wider ${
-                          ds.isToday 
-                            ? 'text-[#00288e] dark:text-blue-400' 
-                            : 'text-[#757684]'
+                        <span className={`text-[8px] font-semibold uppercase select-none tracking-wider ${
+                          ds.isToday
+                            ? 'text-[var(--color-control)] text-[var(--color-secondary)]'
+                            : 'text-[var(--color-secondary)]'
                         }`}>
                           {shortLabel}
                         </span>
@@ -1035,30 +1035,30 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
           ADD HABIT DIALOG / MODAL
           ======================================================================= */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50">
-          <div className="bg-white dark:bg-[#131b2e] border border-[#eaedff] dark:border-[#283044] rounded-xl w-[calc(100vw-16px)] max-w-md shadow-2xl p-4 sm:p-6 relative overflow-y-auto max-h-[calc(100vh-16px)] max-h-[calc(100dvh-16px)] animate-fadeIn text-left">
-            
-            <button 
+        <div className="fixed inset-0 bg-[var(--color-card)]/40 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-[var(--color-card)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] rounded-xl w-[calc(100vw-16px)] max-w-md shadow-2xl p-4 sm:p-6 relative overflow-y-auto max-h-[calc(100vh-16px)] max-h-[calc(100dvh-16px)] animate-fadeIn text-left">
+
+            <button
               onClick={() => {
                 setIsAddModalOpen(false);
                 setAddError(null);
               }}
-              className="absolute right-4 top-4 text-[#757684] hover:text-[#ba1a1a] p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer"
+              className="absolute right-4 top-4 text-[var(--color-secondary)] hover:text-[var(--color-warning)] p-1.5 rounded-full hover:bg-[var(--color-card)]/5 hover:bg-[var(--color-card)]/5 transition-all cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="space-y-4">
-              <span className="text-[10px] font-extrabold uppercase bg-[#f2f3ff] text-[#00288e] dark:bg-[#1a2c4d] dark:text-[#a8b8ff] px-2.5 py-1 rounded">
+              <span className="text-[10px] font-semibold uppercase bg-[var(--color-card-raised)] text-[var(--color-control)] bg-[var(--color-card)] text-[var(--color-secondary)] px-2.5 py-1 rounded">
                 {editingHabitId ? 'Habit Editor' : 'Habit Creator'}
               </span>
-              <h3 className="text-lg font-bold font-display text-[#131b2e] dark:text-white leading-tight">
+              <h3 className="text-lg font-semibold font-display text-[var(--color-ink)] text-[var(--color-ink)] leading-tight">
                 {editingHabitId ? 'Edit Habit' : 'Create New Habit'}
               </h3>
 
               <form onSubmit={handleAddHabitSubmit} className="space-y-4 pt-2">
                 {addError && (
-                  <div className="bg-[#ffdad6] text-[#ba1a1a] p-2.5 rounded text-xs font-semibold flex items-center gap-1.5 border border-[#ffb4ab]">
+                  <div className="bg-[var(--color-warning-surface)] text-[var(--color-warning)] p-2.5 rounded text-xs font-semibold flex items-center gap-1.5 border border-[var(--color-warning-surface)]">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
                     <span className="text-[11px] leading-snug">{addError}</span>
                   </div>
@@ -1066,7 +1066,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
 
                 {/* Habit Name */}
                 <div className="space-y-1.5">
-                  <label htmlFor="habit-name" className="block text-[10px] font-extrabold text-[#757684] uppercase tracking-wider">
+                  <label htmlFor="habit-name" className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider">
                     HABIT NAME
                   </label>
                   <input
@@ -1077,24 +1077,24 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                     placeholder="Enter habit name (e.g. Daily Meditation, Gym workout)"
                     required
                     disabled={addLoading}
-                    className="w-full p-3 border border-[#c4c5d5] dark:border-[#444653] rounded-lg focus:outline-none focus:border-[#00288e] bg-white dark:bg-[#0c1322] text-[#131b2e] dark:text-white text-xs leading-relaxed"
+                    className="w-full p-3 border border-[var(--color-divider)] border-[var(--color-secondary)] rounded-lg focus:outline-none focus:border-[var(--color-control)] bg-[var(--color-card)] bg-[var(--color-card)] text-[var(--color-ink)] text-[var(--color-ink)] text-xs leading-relaxed"
                   />
                 </div>
 
                 {/* Context Selector */}
                 <div className="space-y-1.5">
-                  <span className="block text-[10px] font-extrabold text-[#757684] uppercase tracking-wider">
+                  <span className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider">
                     CONTEXT
                   </span>
-                  <div className="flex bg-[#faf8ff] dark:bg-[#0c1322] border border-[#eaedff] dark:border-[#283044]/80 rounded-lg p-1 text-xs">
+                  <div className="flex bg-[var(--color-card-raised)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)]/80 rounded-lg p-1 text-xs">
                     <button
                       type="button"
                       onClick={() => setNewHabitContext('personal')}
                       disabled={addLoading}
                       className={`flex-1 py-1.5 px-3 font-semibold rounded-md transition-colors cursor-pointer ${
                         newHabitContext === 'personal'
-                          ? 'bg-[#00288e] text-white shadow-sm'
-                          : 'text-[#757684] hover:text-[#131b2e] dark:hover:text-white'
+                          ? 'bg-[var(--color-card-raised)] text-[var(--color-ink)] shadow-sm'
+                          : 'text-[var(--color-secondary)] hover:text-[var(--color-ink)] hover:text-[var(--color-ink)]'
                       }`}
                     >
                       Personal
@@ -1105,8 +1105,8 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                       disabled={addLoading}
                       className={`flex-1 py-1.5 px-3 font-semibold rounded-md transition-colors cursor-pointer ${
                         newHabitContext === 'professional'
-                          ? 'bg-[#00288e] text-white shadow-sm'
-                          : 'text-[#757684] hover:text-[#131b2e] dark:hover:text-white'
+                          ? 'bg-[var(--color-card-raised)] text-[var(--color-ink)] shadow-sm'
+                          : 'text-[var(--color-secondary)] hover:text-[var(--color-ink)] hover:text-[var(--color-ink)]'
                       }`}
                     >
                       Professional
@@ -1116,7 +1116,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
 
                 {/* Schedule Type */}
                 <div className="space-y-1.5">
-                  <span className="block text-[10px] font-extrabold text-[#757684] uppercase tracking-wider">
+                  <span className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider">
                     SCHEDULE TYPE
                   </span>
                   <div className="grid grid-cols-2 gap-2 text-xs">
@@ -1126,10 +1126,10 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                         type="button"
                         onClick={() => setNewScheduleType(type)}
                         disabled={addLoading}
-                        className={`py-2 px-3 border rounded-lg text-left font-bold capitalize transition-all cursor-pointer ${
+                        className={`py-2 px-3 border rounded-lg text-left font-semibold capitalize transition-all cursor-pointer ${
                           newScheduleType === type
-                            ? 'bg-[#eaedff] border-[#00288e] text-[#00288e] dark:bg-[#1a2c4d] dark:border-blue-500 dark:text-blue-400'
-                            : 'border-[#eaedff] dark:border-[#283044] hover:bg-gray-50 dark:hover:bg-gray-800 text-[#757684]'
+                            ? 'bg-[var(--color-divider)] border-[var(--color-control)] text-[var(--color-control)] bg-[var(--color-card)] border-[var(--color-divider)] text-[var(--color-secondary)]'
+                            : 'border-[var(--color-divider)] border-[var(--color-divider)] hover:bg-[var(--color-card)] hover:bg-[var(--color-card)] text-[var(--color-secondary)]'
                         }`}
                       >
                         {type === 'selected_days' ? 'Selected Days' : type === 'weekly_target' ? 'Weekly Target' : type}
@@ -1140,8 +1140,8 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
 
                 {/* Selected Days Selector */}
                 {newScheduleType === 'selected_days' && (
-                  <div className="space-y-2 pt-1 border-t border-[#eaedff] dark:border-[#283044]/50 animate-fadeIn">
-                    <span className="block text-[10px] font-extrabold text-[#757684] uppercase tracking-wider">
+                  <div className="space-y-2 pt-1 border-t border-[var(--color-divider)] border-[var(--color-divider)]/50 animate-fadeIn">
+                    <span className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider">
                       SELECT DAYS (At least one)
                     </span>
                     <div className="flex justify-between gap-1 select-none">
@@ -1154,10 +1154,10 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                             onClick={() => toggleDaySelection(day.value)}
                             disabled={addLoading}
                             title={day.value}
-                            className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs border transition-all cursor-pointer ${
+                            className={`w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-xs border transition-all cursor-pointer ${
                               isSelected
-                                ? 'bg-[#00288e] border-[#00288e] text-white shadow-xs'
-                                : 'border-[#eaedff] dark:border-[#283044] bg-[#faf8ff] dark:bg-[#0c1322] hover:bg-gray-100 text-[#757684]'
+                                ? 'bg-[var(--color-card-raised)] border-[var(--color-control)] text-[var(--color-ink)] shadow-xs'
+                                : 'border-[var(--color-divider)] border-[var(--color-divider)] bg-[var(--color-card-raised)] bg-[var(--color-card)] hover:bg-[var(--color-card)] text-[var(--color-secondary)]'
                             }`}
                           >
                             {day.label}
@@ -1170,8 +1170,8 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
 
                 {/* Weekly Target Selector */}
                 {newScheduleType === 'weekly_target' && (
-                  <div className="space-y-1.5 pt-1 border-t border-[#eaedff] dark:border-[#283044]/50 animate-fadeIn">
-                    <label htmlFor="weekly-target" className="block text-[10px] font-extrabold text-[#757684] uppercase tracking-wider">
+                  <div className="space-y-1.5 pt-1 border-t border-[var(--color-divider)] border-[var(--color-divider)]/50 animate-fadeIn">
+                    <label htmlFor="weekly-target" className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider">
                       WEEKLY TARGET
                     </label>
                     <div className="flex items-center gap-3">
@@ -1185,9 +1185,9 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                         onChange={(e) => setNewWeeklyTarget(parseInt(e.target.value, 10) || 1)}
                         required
                         disabled={addLoading}
-                        className="w-20 p-2.5 border border-[#c4c5d5] dark:border-[#444653] rounded-lg text-center font-bold text-xs bg-white dark:bg-[#0c1322] text-[#131b2e] dark:text-white"
+                        className="w-20 p-2.5 border border-[var(--color-divider)] border-[var(--color-secondary)] rounded-lg text-center font-semibold text-xs bg-[var(--color-card)] bg-[var(--color-card)] text-[var(--color-ink)] text-[var(--color-ink)]"
                       />
-                      <span className="text-xs font-semibold text-[#757684]">
+                      <span className="text-xs font-semibold text-[var(--color-secondary)]">
                         times per week
                       </span>
                     </div>
@@ -1196,7 +1196,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
 
                 {/* Start Date */}
                 <div className="space-y-1.5 pt-1">
-                  <label htmlFor="start-date" className="block text-[10px] font-extrabold text-[#757684] uppercase tracking-wider">
+                  <label htmlFor="start-date" className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider">
                     START DATE
                   </label>
                   <input
@@ -1206,13 +1206,13 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                     onChange={(e) => setNewStartDate(e.target.value)}
                     required
                     disabled={addLoading}
-                    className="w-full p-3 border border-[#c4c5d5] dark:border-[#444653] rounded-lg focus:outline-none focus:border-[#00288e] bg-white dark:bg-[#0c1322] text-[#131b2e] dark:text-white text-xs"
+                    className="w-full p-3 border border-[var(--color-divider)] border-[var(--color-secondary)] rounded-lg focus:outline-none focus:border-[var(--color-control)] bg-[var(--color-card)] bg-[var(--color-card)] text-[var(--color-ink)] text-[var(--color-ink)] text-xs"
                   />
                 </div>
 
                 {/* Schedule Warning Container */}
                 {showScheduleWarning && (
-                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 p-3 rounded-lg text-xs text-amber-800 dark:text-amber-300 space-y-2 animate-fadeIn">
+                  <div className="bg-[var(--color-warning-surface)] bg-[var(--color-warning-surface)] border border-[var(--color-warning)] border-[var(--color-warning)] p-3 rounded-lg text-xs text-[var(--color-warning)] text-[var(--color-warning)] space-y-2 animate-fadeIn">
                     <p className="font-semibold leading-relaxed">
                       Changing the schedule may change how previous streaks and completion rates are calculated. Existing check-ins will be preserved.
                     </p>
@@ -1223,7 +1223,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                           setShowScheduleWarning(false);
                           setHasConfirmedScheduleWarning(false);
                         }}
-                        className="px-2 py-1 bg-white dark:bg-[#131b2e] border border-amber-200 dark:border-amber-800/30 rounded font-bold hover:bg-amber-100 transition-colors cursor-pointer text-amber-900"
+                        className="px-2 py-1 bg-[var(--color-card)] bg-[var(--color-card)] border border-[var(--color-warning)] border-[var(--color-warning)] rounded font-semibold hover:bg-[var(--color-warning-surface)] transition-colors cursor-pointer text-[var(--color-warning)]"
                       >
                         Cancel
                       </button>
@@ -1237,7 +1237,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                             if (submitBtn) submitBtn.click();
                           }, 50);
                         }}
-                        className="px-2 py-1 bg-amber-600 text-white rounded font-bold hover:bg-amber-700 transition-colors cursor-pointer"
+                        className="px-2 py-1 bg-[var(--color-warning-surface)] text-[var(--color-ink)] rounded font-semibold hover:bg-[var(--color-warning-surface)] transition-colors cursor-pointer"
                       >
                         Confirm & Save
                       </button>
@@ -1246,7 +1246,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                 )}
 
                 {/* Form Buttons */}
-                <div className="flex justify-end gap-3 pt-3 border-t border-[#eaedff] dark:border-[#283044]/50">
+                <div className="flex justify-end gap-3 pt-3 border-t border-[var(--color-divider)] border-[var(--color-divider)]/50">
                   <button
                     type="button"
                     onClick={() => {
@@ -1257,7 +1257,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                       setHasConfirmedScheduleWarning(false);
                     }}
                     disabled={addLoading}
-                    className="px-4 py-2 text-xs font-bold text-[#757684] hover:text-[#131b2e] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all cursor-pointer"
+                    className="px-4 py-2 text-xs font-semibold text-[var(--color-secondary)] hover:text-[var(--color-ink)] hover:text-[var(--color-ink)] hover:bg-[var(--color-card)] hover:bg-[var(--color-card)] rounded-lg transition-all cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -1265,7 +1265,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                     id="submit-habit-btn"
                     type="submit"
                     disabled={addLoading}
-                    className="flex items-center gap-1.5 bg-[#00288e] hover:bg-[#1e40af] dark:bg-[#3b82f6] dark:hover:bg-[#2563eb] text-white text-xs font-bold uppercase tracking-wider py-2 px-5 rounded-lg transition-all cursor-pointer disabled:opacity-50"
+                    className="flex items-center gap-1.5 bg-[var(--color-card-raised)] hover:bg-[var(--color-card)] bg-[var(--color-card-raised)] hover:bg-[var(--color-card-raised)] text-[var(--color-ink)] text-xs font-semibold uppercase tracking-wider py-2 px-5 rounded-lg transition-all cursor-pointer disabled:opacity-50"
                   >
                     {addLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                     <span>{addLoading ? 'Saving...' : 'Save Habit'}</span>
@@ -1279,40 +1279,40 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
 
       {/* Archived Habits Modal */}
       {isArchivedModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white dark:bg-[#131b2e] border border-[#eaedff] dark:border-[#283044] rounded-xl w-[calc(100vw-16px)] max-w-lg shadow-2xl p-4 sm:p-6 relative overflow-y-auto max-h-[calc(100vh-16px)] max-h-[calc(100dvh-16px)] text-left flex flex-col">
-            
-            <button 
+        <div className="fixed inset-0 bg-[var(--color-card)]/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-[var(--color-card)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] rounded-xl w-[calc(100vw-16px)] max-w-lg shadow-2xl p-4 sm:p-6 relative overflow-y-auto max-h-[calc(100vh-16px)] max-h-[calc(100dvh-16px)] text-left flex flex-col">
+
+            <button
               onClick={() => setIsArchivedModalOpen(false)}
-              className="absolute right-4 top-4 text-[#757684] hover:text-[#ba1a1a] p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer"
+              className="absolute right-4 top-4 text-[var(--color-secondary)] hover:text-[var(--color-warning)] p-1.5 rounded-full hover:bg-[var(--color-card)]/5 hover:bg-[var(--color-card)]/5 transition-all cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="space-y-4 flex-1 min-h-0 flex flex-col">
               <div>
-                <span className="text-[10px] font-extrabold uppercase bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 px-2.5 py-1 rounded">
+                <span className="text-[10px] font-semibold uppercase bg-[var(--color-card)] text-[var(--color-ink)] bg-[var(--color-card)] text-[var(--color-secondary)] px-2.5 py-1 rounded">
                   Archive Room
                 </span>
-                <h3 className="text-lg font-bold font-display text-[#131b2e] dark:text-white mt-2 leading-tight">
+                <h3 className="text-lg font-semibold font-display text-[var(--color-ink)] text-[var(--color-ink)] mt-2 leading-tight">
                   Archived Habits
                 </h3>
-                <p className="text-xs text-[#757684] mt-1 font-medium">
+                <p className="text-xs text-[var(--color-secondary)] mt-1 font-normal">
                   Restore habits to resume active tracking or edit their context.
                 </p>
               </div>
 
               {/* Context Selector Tabs inside Archive */}
-              <div className="flex bg-[#faf8ff] dark:bg-[#0c1322] border border-[#eaedff] dark:border-[#283044]/80 rounded-lg p-1 text-xs">
+              <div className="flex bg-[var(--color-card-raised)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)]/80 rounded-lg p-1 text-xs">
                 {(['combined', 'personal', 'professional'] as const).map(tab => (
                   <button
                     key={tab}
                     type="button"
                     onClick={() => setArchivedTab(tab)}
-                    className={`flex-1 py-1 px-2 font-bold capitalize rounded-md transition-colors cursor-pointer ${
+                    className={`flex-1 py-1 px-2 font-semibold capitalize rounded-md transition-colors cursor-pointer ${
                       archivedTab === tab
-                        ? 'bg-[#00288e] text-white shadow-xs'
-                        : 'text-[#757684] hover:text-[#131b2e] dark:hover:text-white'
+                        ? 'bg-[var(--color-card-raised)] text-[var(--color-ink)] shadow-xs'
+                        : 'text-[var(--color-secondary)] hover:text-[var(--color-ink)] hover:text-[var(--color-ink)]'
                     }`}
                   >
                     {tab}
@@ -1324,8 +1324,8 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
               <div className="flex-1 overflow-y-auto min-h-[15rem] max-h-[22rem] pr-1 space-y-2.5 scrollbar-thin">
                 {archivedLoading ? (
                   <div className="flex flex-col items-center justify-center py-12 space-y-2">
-                    <Loader2 className="w-6 h-6 animate-spin text-[#00288e] dark:text-blue-500" />
-                    <p className="text-[11px] text-[#757684] font-medium">Retrieving archives...</p>
+                    <Loader2 className="w-6 h-6 animate-spin text-[var(--color-control)] text-[var(--color-secondary)]" />
+                    <p className="text-[11px] text-[var(--color-secondary)] font-normal">Retrieving archives...</p>
                   </div>
                 ) : (
                   (() => {
@@ -1337,9 +1337,9 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                     if (filtered.length === 0) {
                       return (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                          <Archive className="w-8 h-8 text-[#c4c5d5] dark:text-gray-600 mb-2" />
-                          <p className="text-xs font-bold text-[#131b2e] dark:text-white mb-0.5">No archives found</p>
-                          <p className="text-[10px] text-[#757684] max-w-xs">
+                          <Archive className="w-8 h-8 text-[var(--color-divider)] text-[var(--color-secondary)] mb-2" />
+                          <p className="text-xs font-semibold text-[var(--color-ink)] text-[var(--color-ink)] mb-0.5">No archives found</p>
+                          <p className="text-[10px] text-[var(--color-secondary)] max-w-xs">
                             Archived habits under the {archivedTab === 'combined' ? 'combined' : archivedTab} view will appear here.
                           </p>
                         </div>
@@ -1358,25 +1358,25 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                       const activeStreak = isWeekly ? 0 : calculateScheduledHabitStreak(habit, habit.entries, today).currentStreak;
 
                       return (
-                        <div 
+                        <div
                           key={habit.id}
-                          className="p-3 rounded-lg border border-[#eaedff] dark:border-[#283044] bg-[#faf8ff] dark:bg-[#1a2c4d]/10 flex items-center justify-between gap-3"
+                          className="p-3 rounded-lg border border-[var(--color-divider)] border-[var(--color-divider)] bg-[var(--color-card-raised)] bg-[var(--color-card)]/10 flex items-center justify-between gap-3"
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 break-words truncate">
+                              <h4 className="text-xs font-semibold text-[var(--color-secondary)] text-[var(--color-secondary)] break-words truncate">
                                 {habit.name}
                               </h4>
-                              <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.2 rounded-sm bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                              <span className="text-[8px] font-semibold uppercase px-1.5 py-0.2 rounded-sm bg-[var(--color-card)] text-[var(--color-ink)] bg-[var(--color-card)] text-[var(--color-secondary)]">
                                 {habit.context}
                               </span>
                             </div>
-                            <p className="text-[10px] text-[#757684] mt-1">
+                            <p className="text-[10px] text-[var(--color-secondary)] mt-1">
                               Schedule: <span className="font-semibold">{scheduleLabel}</span>
                             </p>
                             {activeStreak > 0 && (
-                              <p className="text-[9px] text-[#757684] mt-0.5 font-medium">
-                                Last active streak: <span className="font-mono font-bold text-emerald-600">🔥 {activeStreak}d</span>
+                              <p className="text-[9px] text-[var(--color-secondary)] mt-0.5 font-normal">
+                                Last active streak: <span className="font-mono font-semibold text-[var(--color-success)]">🔥 {activeStreak}d</span>
                               </p>
                             )}
                           </div>
@@ -1384,7 +1384,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                           <button
                             type="button"
                             onClick={() => handleRestoreHabit(habit.id)}
-                            className="flex items-center gap-1 bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 text-[10px] font-bold uppercase py-1 px-2.5 rounded transition-colors cursor-pointer shrink-0"
+                            className="flex items-center gap-1 bg-[var(--color-card)] hover:bg-[var(--color-card)] bg-[var(--color-card)] hover:bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] text-[var(--color-ink)] text-[var(--color-secondary)] text-[10px] font-semibold uppercase py-1 px-2.5 rounded transition-colors cursor-pointer shrink-0"
                           >
                             <RotateCcw className="w-3 h-3" />
                             <span>Restore</span>
@@ -1396,11 +1396,11 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                 )}
               </div>
 
-              <div className="flex justify-end pt-3 border-t border-[#eaedff] dark:border-[#283044]/50">
+              <div className="flex justify-end pt-3 border-t border-[var(--color-divider)] border-[var(--color-divider)]/50">
                 <button
                   type="button"
                   onClick={() => setIsArchivedModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-[#757684] hover:text-[#131b2e] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all cursor-pointer"
+                  className="px-4 py-2 text-xs font-semibold text-[var(--color-secondary)] hover:text-[var(--color-ink)] hover:text-[var(--color-ink)] hover:bg-[var(--color-card)] hover:bg-[var(--color-card)] rounded-lg transition-all cursor-pointer"
                 >
                   Close
                 </button>
@@ -1412,32 +1412,32 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
 
       {/* Compact History View Modal */}
       {isHistoryModalOpen && historyHabit && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white dark:bg-[#131b2e] border border-[#eaedff] dark:border-[#283044] rounded-xl w-[calc(100vw-16px)] max-w-md shadow-2xl p-4 sm:p-6 relative overflow-y-auto max-h-[calc(100vh-16px)] max-h-[calc(100dvh-16px)] text-left flex flex-col">
-            
-            <button 
+        <div className="fixed inset-0 bg-[var(--color-card)]/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-[var(--color-card)] bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] rounded-xl w-[calc(100vw-16px)] max-w-md shadow-2xl p-4 sm:p-6 relative overflow-y-auto max-h-[calc(100vh-16px)] max-h-[calc(100dvh-16px)] text-left flex flex-col">
+
+            <button
               onClick={() => setIsHistoryModalOpen(false)}
-              className="absolute right-4 top-4 text-[#757684] hover:text-[#ba1a1a] p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer"
+              className="absolute right-4 top-4 text-[var(--color-secondary)] hover:text-[var(--color-warning)] p-1.5 rounded-full hover:bg-[var(--color-card)]/5 hover:bg-[var(--color-card)]/5 transition-all cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="space-y-4 flex-1 min-h-0 flex flex-col">
               <div>
-                <span className="text-[10px] font-extrabold uppercase bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 px-2.5 py-1 rounded">
+                <span className="text-[10px] font-semibold uppercase bg-[var(--color-card-raised)] text-[var(--color-secondary)] bg-[var(--color-card-raised)] text-[var(--color-secondary)] px-2.5 py-1 rounded">
                   Logbook History
                 </span>
-                <h3 className="text-base font-bold font-display text-[#131b2e] dark:text-white mt-2 leading-tight truncate">
+                <h3 className="text-base font-semibold font-display text-[var(--color-ink)] text-[var(--color-ink)] mt-2 leading-tight truncate">
                   {historyHabit.name}
                 </h3>
-                <p className="text-[11px] text-[#757684] font-medium mt-0.5">
+                <p className="text-[11px] text-[var(--color-secondary)] font-normal mt-0.5">
                   View and correct check-ins. Updates save automatically.
                 </p>
               </div>
 
               {/* History Date Range and Navigation */}
-              <div className="flex items-center justify-between gap-2 p-2.5 bg-[#faf8ff] dark:bg-[#1a2c4d]/20 border border-[#eaedff] dark:border-[#283044]/60 rounded-xl text-xs">
-                <div className="font-mono font-bold text-gray-700 dark:text-gray-300">
+              <div className="flex items-center justify-between gap-2 p-2.5 bg-[var(--color-card-raised)] bg-[var(--color-card)]/20 border border-[var(--color-divider)] border-[var(--color-divider)]/60 rounded-xl text-xs">
+                <div className="font-mono font-semibold text-[var(--color-ink)] text-[var(--color-secondary)]">
                   {(() => {
                     const range = getHistoryDateRange(historyOffsetDays);
                     const formatDate = (dateStr: string) => {
@@ -1455,7 +1455,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                     type="button"
                     onClick={() => setHistoryOffsetDays(prev => prev + 30)}
                     disabled={historyLoading}
-                    className="p-1 rounded bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 cursor-pointer disabled:opacity-50"
+                    className="p-1 rounded bg-[var(--color-card)] hover:bg-[var(--color-card)] bg-[var(--color-card)] hover:bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] text-[var(--color-ink)] text-[var(--color-secondary)] cursor-pointer disabled:opacity-50"
                     title="Previous 30 days"
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -1464,7 +1464,7 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                     type="button"
                     onClick={() => setHistoryOffsetDays(prev => Math.max(0, prev - 30))}
                     disabled={historyOffsetDays === 0 || historyLoading}
-                    className="p-1 rounded bg-white hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 cursor-pointer disabled:opacity-50"
+                    className="p-1 rounded bg-[var(--color-card)] hover:bg-[var(--color-card)] bg-[var(--color-card)] hover:bg-[var(--color-card)] border border-[var(--color-divider)] border-[var(--color-divider)] text-[var(--color-ink)] text-[var(--color-secondary)] cursor-pointer disabled:opacity-50"
                     title="Next 30 days"
                   >
                     <ChevronRight className="w-4 h-4" />
@@ -1476,11 +1476,11 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
               <div className="flex-1 overflow-y-auto min-h-[14rem] max-h-[22rem] pr-1 space-y-1.5 scrollbar-thin">
                 {historyLoading ? (
                   <div className="flex flex-col items-center justify-center py-16 space-y-2">
-                    <Loader2 className="w-6 h-6 animate-spin text-[#00288e] dark:text-blue-500" />
-                    <p className="text-[11px] text-[#757684] font-medium">Retrieving history log...</p>
+                    <Loader2 className="w-6 h-6 animate-spin text-[var(--color-control)] text-[var(--color-secondary)]" />
+                    <p className="text-[11px] text-[var(--color-secondary)] font-normal">Retrieving history log...</p>
                   </div>
                 ) : historyError ? (
-                  <div className="bg-[#ffdad6] text-[#ba1a1a] p-3 rounded text-xs font-semibold flex items-center gap-1.5 border border-[#ffb4ab]">
+                  <div className="bg-[var(--color-warning-surface)] text-[var(--color-warning)] p-3 rounded text-xs font-semibold flex items-center gap-1.5 border border-[var(--color-warning-surface)]">
                     <AlertTriangle className="w-4.5 h-4.5 shrink-0" />
                     <span className="text-[11px] leading-snug">{historyError}</span>
                   </div>
@@ -1493,9 +1493,9 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                     if (filteredDates.length === 0) {
                       return (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                          <Calendar className="w-8 h-8 text-[#c4c5d5] dark:text-gray-600 mb-2" />
-                          <p className="text-xs font-bold text-[#131b2e] dark:text-white mb-0.5">No log entries</p>
-                          <p className="text-[10px] text-[#757684] max-w-xs">
+                          <Calendar className="w-8 h-8 text-[var(--color-divider)] text-[var(--color-secondary)] mb-2" />
+                          <p className="text-xs font-semibold text-[var(--color-ink)] text-[var(--color-ink)] mb-0.5">No log entries</p>
+                          <p className="text-[10px] text-[var(--color-secondary)] max-w-xs">
                             No dates in this range fall within the habit's active timeline starting from {historyHabit.startDate}.
                           </p>
                         </div>
@@ -1515,14 +1515,14 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                       const formattedDate = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
                       return (
-                        <div 
+                        <div
                           key={date}
                           className={`p-2.5 rounded-lg border flex items-center justify-between gap-3 text-left ${
-                            isCompleted 
-                              ? 'bg-emerald-50/25 border-emerald-200/40 dark:bg-emerald-950/5 dark:border-emerald-800/15'
+                            isCompleted
+                              ? 'bg-[var(--color-success-surface)] border-[var(--color-success)] bg-[var(--color-success-surface)] border-[var(--color-success)]'
                               : !isScheduled
-                                ? 'bg-gray-50/40 border-gray-100 dark:bg-gray-900/5 dark:border-gray-800/20 opacity-60'
-                                : 'bg-white dark:bg-transparent border-[#eaedff] dark:border-[#283044]/60'
+                                ? 'bg-[var(--color-card)] border-[var(--color-divider)] bg-[var(--color-card)] border-[var(--color-divider)] '
+                                : 'bg-[var(--color-card)] bg-transparent border-[var(--color-divider)] border-[var(--color-divider)]/60'
                           }`}
                         >
                           <div className="flex items-center gap-3 min-w-0">
@@ -1533,38 +1533,38 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                               onClick={() => handleToggleHistoryEntry(date, isCompleted)}
                               className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${
                                 !isScheduled
-                                  ? 'border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-900 cursor-not-allowed text-transparent'
+                                  ? 'border-[var(--color-divider)] border-[var(--color-divider)] bg-[var(--color-card)] bg-[var(--color-card)] cursor-not-allowed text-transparent'
                                   : isCompleted
-                                    ? 'border-emerald-500 bg-emerald-500 text-white'
-                                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-[#131b2e] hover:border-[#00288e] cursor-pointer'
+                                    ? 'border-[var(--color-success)] bg-[var(--color-success-surface)] text-[var(--color-ink)]'
+                                    : 'border-[var(--color-divider)] border-[var(--color-divider)] bg-[var(--color-card)] bg-[var(--color-card)] hover:border-[var(--color-control)] cursor-pointer'
                               }`}
                             >
                               {isSaving ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--color-secondary)]" />
                               ) : isCompleted ? (
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                               ) : null}
                             </button>
 
                             <div className="min-w-0">
-                              <p className={`text-xs font-bold leading-tight ${isCompleted ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-[#131b2e] dark:text-white'}`}>
+                              <p className={`text-xs font-semibold leading-tight ${isCompleted ? 'text-[var(--color-secondary)] text-[var(--color-secondary)] line-through' : 'text-[var(--color-ink)] text-[var(--color-ink)]'}`}>
                                 {dayName}
                               </p>
-                              <p className="text-[10px] text-[#757684] mt-0.5 font-medium leading-none">
+                              <p className="text-[10px] text-[var(--color-secondary)] mt-0.5 font-normal leading-none">
                                 {formattedDate}
                               </p>
                             </div>
                           </div>
 
                           <div className="text-right shrink-0">
-                            <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
+                            <span className={`text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded ${
                               !isScheduled
-                                ? 'bg-gray-100 text-gray-500 dark:bg-gray-800/40'
+                                ? 'bg-[var(--color-card)] text-[var(--color-secondary)] bg-[var(--color-card)]'
                                 : isCompleted
-                                  ? 'bg-emerald-100/50 text-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-400'
+                                  ? 'bg-[var(--color-success-surface)] text-[var(--color-success)] bg-[var(--color-success-surface)] text-[var(--color-success)]'
                                   : isWeekly
-                                    ? 'bg-gray-100 text-gray-500 dark:bg-gray-800/40'
-                                    : 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400'
+                                    ? 'bg-[var(--color-card)] text-[var(--color-secondary)] bg-[var(--color-card)]'
+                                    : 'bg-[var(--color-warning-surface)] text-[var(--color-warning)] bg-[var(--color-warning-surface)] text-[var(--color-warning)]'
                             }`}>
                               {!isScheduled ? 'Not Scheduled' : isCompleted ? 'Completed' : isWeekly ? 'Not Completed' : 'Missed'}
                             </span>
@@ -1576,11 +1576,11 @@ export const HabitPanel: React.FC<HabitPanelProps> = ({ activeTab }) => {
                 )}
               </div>
 
-              <div className="flex justify-end pt-3 border-t border-[#eaedff] dark:border-[#283044]/50">
+              <div className="flex justify-end pt-3 border-t border-[var(--color-divider)] border-[var(--color-divider)]/50">
                 <button
                   type="button"
                   onClick={() => setIsHistoryModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-[#757684] hover:text-[#131b2e] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all cursor-pointer"
+                  className="px-4 py-2 text-xs font-semibold text-[var(--color-secondary)] hover:text-[var(--color-ink)] hover:text-[var(--color-ink)] hover:bg-[var(--color-card)] hover:bg-[var(--color-card)] rounded-lg transition-all cursor-pointer"
                 >
                   Close
                 </button>

@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Brain, 
-  Loader2, 
-  AlertTriangle, 
-  Plus, 
-  X, 
-  ExternalLink, 
-  RefreshCw, 
-  Folder, 
-  Search, 
+import {
+  Brain,
+  Loader2,
+  AlertTriangle,
+  Plus,
+  X,
+  ExternalLink,
+  RefreshCw,
+  Folder,
+  Search,
   CheckCircle2,
   ChevronUp,
   ChevronDown,
@@ -185,7 +185,7 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
 
         if (shouldContinuousSpin) {
           // Continuous smooth vertical auto-rotation (approximately 60s per full rotation)
-          const speed = (2 * Math.PI) / 60000; 
+          const speed = (2 * Math.PI) / 60000;
           progressRef.current = progressRef.current - speed * delta;
 
           // Align the highlighted targetIndex with the actual front-most card
@@ -200,7 +200,7 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
           // Snapping/lerping mode (on hover, focus, form open, editor open or reduced motion)
           const currentSteps = progressRef.current / step;
           const currentTargetIdx = targetIndexRef.current;
-          
+
           // Math helper to calculate the absolute closest step matching our index (preventing reverse spinning)
           const m = Math.round((currentSteps + currentTargetIdx) / total);
           const targetSteps = -currentTargetIdx + m * total;
@@ -296,8 +296,8 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
     setSaveSuccess(null);
 
     // Determine safe base filename
-    const baseName = noteTitle.trim() 
-      ? ObsidianClient.cleanFileName(noteTitle) 
+    const baseName = noteTitle.trim()
+      ? ObsidianClient.cleanFileName(noteTitle)
       : ObsidianClient.generateUniqueBaseName(noteContent);
 
     const ext = baseName.toLowerCase().endsWith('.md') ? '' : '.md';
@@ -351,7 +351,7 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
   };
 
   return (
-    <section 
+    <section
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
         setIsHovered(false);
@@ -361,23 +361,23 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
       onBlur={() => setIsFocused(false)}
       onKeyDown={handleKeyDown}
       tabIndex={0}
-      className="bg-white dark:bg-[#131b2e] rounded-xl border border-[#eaedff] dark:border-[#283044] shadow-sm p-4 sm:p-6 text-left flex flex-col h-full focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+      className="bg-[var(--color-card)] bg-[var(--color-card)] rounded-xl border border-[var(--color-divider)] border-[var(--color-divider)] shadow-sm p-4 sm:p-6 text-left flex flex-col h-full focus:outline-none focus:ring-1 focus:ring-[var(--color-secondary)]"
       aria-label="Thought Catcher Interactive Note Wheel"
     >
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h3 className="font-display text-lg font-bold text-[#00288e] dark:text-white uppercase flex items-center gap-2">
-            <Brain className="w-5 h-5 text-indigo-600 dark:text-[#a8b8ff]" />
+          <h3 className="font-display text-lg font-semibold text-[var(--color-control)] text-[var(--color-ink)] uppercase flex items-center gap-2">
+            <Brain className="w-5 h-5 text-[var(--color-secondary)] text-[var(--color-secondary)]" />
             THOUGHT CATCHER
           </h3>
-          <p className="text-xs text-[#757684] mt-0.5">Capture ideas in motion</p>
+          <p className="text-xs text-[var(--color-secondary)] mt-0.5">Capture ideas in motion</p>
         </div>
         <div className="flex items-center gap-1.5">
           {mode === 'desktop' && (
             <button
               onClick={fetchNotes}
               disabled={loading}
-              className="p-1.5 rounded-lg border border-[#eaedff] dark:border-[#283044] hover:bg-gray-100 dark:hover:bg-gray-800 text-[#757684] transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg border border-[var(--color-divider)] border-[var(--color-divider)] hover:bg-[var(--color-card)] hover:bg-[var(--color-card)] text-[var(--color-secondary)] transition-colors cursor-pointer"
               title="Refresh Thought Catcher"
               aria-label="Refresh Thought Catcher"
             >
@@ -390,7 +390,7 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
               setSaveError(null);
               setSaveSuccess(null);
             }}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#00288e] hover:bg-[#1e40af] text-white text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer shadow-sm"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[var(--color-card-raised)] hover:bg-[var(--color-card)] text-[var(--color-ink)] text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer shadow-sm"
             title="Catch a new thought"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -401,19 +401,19 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
 
       {/* Form: Catch a thought */}
       {isFormOpen && (
-        <form 
-          onSubmit={handleCreateThought} 
-          className="mb-4 p-4 rounded-xl border border-indigo-200 dark:border-indigo-500/20 bg-indigo-50/20 dark:bg-indigo-950/10 space-y-3 animate-fadeIn"
+        <form
+          onSubmit={handleCreateThought}
+          className="mb-4 p-4 rounded-xl border border-[var(--color-divider)] border-[var(--color-divider)] bg-[var(--color-card-raised)] bg-[var(--color-card-raised)] space-y-3 animate-fadeIn"
         >
-          <div className="flex justify-between items-center pb-2 border-b border-[#eaedff] dark:border-[#283044]">
-            <span className="text-xs font-bold text-indigo-600 dark:text-[#a8b8ff] uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-indigo-500" />
+          <div className="flex justify-between items-center pb-2 border-b border-[var(--color-divider)] border-[var(--color-divider)]">
+            <span className="text-xs font-semibold text-[var(--color-secondary)] text-[var(--color-secondary)] uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-[var(--color-secondary)]" />
               Catch a stream thought
             </span>
             <button
               type="button"
               onClick={() => setIsFormOpen(false)}
-              className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/5 text-[#757684]"
+              className="p-1 rounded-full hover:bg-[var(--color-card)]/5 hover:bg-[var(--color-card)]/5 text-[var(--color-secondary)]"
               title="Close form"
             >
               <X className="w-4 h-4" />
@@ -421,7 +421,7 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="thought-title" className="block text-[9px] font-extrabold text-[#757684] uppercase tracking-wider">
+            <label htmlFor="thought-title" className="block text-[9px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider">
               Thought Title (Optional)
             </label>
             <input
@@ -431,12 +431,12 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
               onChange={(e) => setNoteTitle(e.target.value)}
               disabled={saving}
               placeholder="E.g. Brainstorming session, flash idea..."
-              className="w-full p-2 border border-[#eaedff] dark:border-[#283044] rounded-lg bg-white dark:bg-[#131b2e] focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs text-[#131b2e] dark:text-white"
+              className="w-full p-2 border border-[var(--color-divider)] border-[var(--color-divider)] rounded-lg bg-[var(--color-card)] bg-[var(--color-card)] focus:outline-none focus:ring-1 focus:ring-[var(--color-secondary)] text-xs text-[var(--color-ink)] text-[var(--color-ink)]"
             />
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="thought-content" className="block text-[9px] font-extrabold text-[#757684] uppercase tracking-wider">
+            <label htmlFor="thought-content" className="block text-[9px] font-semibold text-[var(--color-secondary)] uppercase tracking-wider">
               Note Text (Required)
             </label>
             <textarea
@@ -446,19 +446,19 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
               disabled={saving}
               required
               placeholder="Start typing your thought flow..."
-              className="w-full p-2 border border-[#eaedff] dark:border-[#283044] rounded-lg bg-white dark:bg-[#131b2e] focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs text-[#131b2e] dark:text-white min-h-[4rem] resize-none"
+              className="w-full p-2 border border-[var(--color-divider)] border-[var(--color-divider)] rounded-lg bg-[var(--color-card)] bg-[var(--color-card)] focus:outline-none focus:ring-1 focus:ring-[var(--color-secondary)] text-xs text-[var(--color-ink)] text-[var(--color-ink)] min-h-[4rem] resize-none"
             />
           </div>
 
           {saveSuccess && (
-            <div className="text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold flex items-start gap-1.5 py-1">
+            <div className="text-[var(--color-success)] text-[var(--color-success)] text-[10px] font-semibold flex items-start gap-1.5 py-1">
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>{saveSuccess}</span>
             </div>
           )}
 
           {saveError && (
-            <div className="text-[#ba1a1a] dark:text-red-400 text-[10px] font-semibold flex items-start gap-1.5 py-1">
+            <div className="text-[var(--color-warning)] text-[var(--color-warning)] text-[10px] font-semibold flex items-start gap-1.5 py-1">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>{saveError}</span>
             </div>
@@ -469,7 +469,7 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
               <button
                 type="button"
                 onClick={handleClearDraft}
-                className="px-2.5 py-1 rounded text-[10px] font-bold uppercase text-[#ba1a1a] hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                className="px-2.5 py-1 rounded text-[10px] font-semibold uppercase text-[var(--color-warning)] hover:bg-[var(--color-warning-surface)] hover:bg-[var(--color-warning-surface)] transition-colors"
               >
                 Clear
               </button>
@@ -477,14 +477,14 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
             <button
               type="button"
               onClick={() => setIsFormOpen(false)}
-              className="px-2.5 py-1 rounded text-[10px] font-bold uppercase text-[#757684] hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              className="px-2.5 py-1 rounded text-[10px] font-semibold uppercase text-[var(--color-secondary)] hover:bg-[var(--color-card)] hover:bg-[var(--color-card)] transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving || !noteContent.trim()}
-              className="px-3 py-1 rounded bg-[#00288e] hover:bg-[#1e40af] disabled:opacity-40 text-white text-[10px] font-bold uppercase tracking-wider transition-colors"
+              className="px-3 py-1 rounded bg-[var(--color-card-raised)] hover:bg-[var(--color-card)] disabled:opacity-40 text-[var(--color-ink)] text-[10px] font-semibold uppercase tracking-wider transition-colors"
             >
               {saving ? 'Saving...' : 'Save Thought'}
             </button>
@@ -495,13 +495,13 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
       {/* Main Body content */}
       {mode === 'mobile' ? (
         <div className="flex-1 flex flex-col justify-between">
-          <div className="bg-[#faf8ff] dark:bg-[#0c1322]/40 border border-[#eaedff] dark:border-[#283044] rounded-xl p-4 flex-1 flex flex-col justify-between">
+          <div className="bg-[var(--color-card-raised)] bg-[var(--color-card)]/40 border border-[var(--color-divider)] border-[var(--color-divider)] rounded-xl p-4 flex-1 flex flex-col justify-between">
             <div className="space-y-2">
-              <h4 className="text-xs font-bold text-indigo-600 dark:text-[#a8b8ff] uppercase tracking-wider flex items-center gap-1.5">
+              <h4 className="text-xs font-semibold text-[var(--color-secondary)] text-[var(--color-secondary)] uppercase tracking-wider flex items-center gap-1.5">
                 <Folder className="w-4 h-4" />
                 Mobile Brain Stream
               </h4>
-              <p className="text-[11px] leading-relaxed text-[#757684] dark:text-[#a3a3b3]">
+              <p className="text-[11px] leading-relaxed text-[var(--color-secondary)] text-[var(--color-secondary)]">
                 Capture streams of consciousness straight into your mobile Obsidian app. Saved thoughts are synced to your computer using your vault sync provider.
               </p>
             </div>
@@ -509,24 +509,24 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
             <div className="space-y-2 mt-4">
               <a
                 href={ObsidianClient.buildObsidianOpenVaultUri(vaultName)}
-                className="flex items-center justify-between p-2.5 rounded-lg border border-[#eaedff] dark:border-[#283044] bg-white dark:bg-[#131b2e] hover:bg-[#eaedff]/40 dark:hover:bg-[#1e293b]/50 text-xs font-medium text-[#131b2e] dark:text-white transition-all cursor-pointer"
+                className="flex items-center justify-between p-2.5 rounded-lg border border-[var(--color-divider)] border-[var(--color-divider)] bg-[var(--color-card)] bg-[var(--color-card)] hover:bg-[var(--color-divider)]/40 hover:bg-[var(--color-divider)]/50 text-xs font-normal text-[var(--color-ink)] text-[var(--color-ink)] transition-all cursor-pointer"
               >
                 <span className="flex items-center gap-2">
-                  <ExternalLink className="w-3.5 h-3.5 text-indigo-500" />
+                  <ExternalLink className="w-3.5 h-3.5 text-[var(--color-secondary)]" />
                   <span>Open {vaultName} Vault</span>
                 </span>
-                <ChevronUp className="w-3.5 h-3.5 opacity-50 rotate-90" />
+                <ChevronUp className="w-3.5 h-3.5  rotate-90" />
               </a>
 
               <a
                 href={ObsidianClient.buildObsidianSearchUri(vaultName, `path:"Thought Catcher"`)}
-                className="flex items-center justify-between p-2.5 rounded-lg border border-[#eaedff] dark:border-[#283044] bg-white dark:bg-[#131b2e] hover:bg-[#eaedff]/40 dark:hover:bg-[#1e293b]/50 text-xs font-medium text-[#131b2e] dark:text-white transition-all cursor-pointer"
+                className="flex items-center justify-between p-2.5 rounded-lg border border-[var(--color-divider)] border-[var(--color-divider)] bg-[var(--color-card)] bg-[var(--color-card)] hover:bg-[var(--color-divider)]/40 hover:bg-[var(--color-divider)]/50 text-xs font-normal text-[var(--color-ink)] text-[var(--color-ink)] transition-all cursor-pointer"
               >
                 <span className="flex items-center gap-2">
-                  <Search className="w-3.5 h-3.5 text-purple-500" />
+                  <Search className="w-3.5 h-3.5 text-[var(--color-secondary)]" />
                   <span>Browse Folder</span>
                 </span>
-                <ChevronUp className="w-3.5 h-3.5 opacity-50 rotate-90" />
+                <ChevronUp className="w-3.5 h-3.5  rotate-90" />
               </a>
             </div>
           </div>
@@ -534,20 +534,20 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
       ) : (
         <div className="flex-1 flex flex-col justify-center min-h-[300px]">
           {loading && (
-            <div className="flex flex-col items-center justify-center py-12 gap-2 text-xs text-[#757684]">
-              <Loader2 className="w-6 h-6 animate-spin text-[#00288e]" />
+            <div className="flex flex-col items-center justify-center py-12 gap-2 text-xs text-[var(--color-secondary)]">
+              <Loader2 className="w-6 h-6 animate-spin text-[var(--color-control)]" />
               <span>Listening to your thought stream...</span>
             </div>
           )}
 
           {error && !loading && (
-            <div className="bg-[#ffdad6] text-[#ba1a1a] dark:bg-[#ef4444]/10 dark:text-[#f87171] p-4 rounded-xl text-xs leading-relaxed space-y-2">
+            <div className="bg-[var(--color-warning-surface)] text-[var(--color-warning)] bg-[var(--color-warning-surface)]/10 text-[var(--color-warning)] p-4 rounded-xl text-xs leading-relaxed space-y-2">
               <div className="flex items-start gap-2.5">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span className="flex-1">{error}</span>
               </div>
               {errorDetails && (
-                <div className="pt-2 border-t border-[#ba1a1a]/20 dark:border-[#f87171]/20 text-[10px] font-mono break-all opacity-80">
+                <div className="pt-2 border-t border-[var(--color-warning)]/20 border-[var(--color-warning)]/20 text-[10px] font-mono break-all ">
                   {errorDetails.method} {errorDetails.url} {errorDetails.status && `[${errorDetails.status}]`}
                 </div>
               )}
@@ -555,16 +555,16 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
           )}
 
           {!loading && !error && notes.length === 0 && (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-6 bg-[#faf8ff] dark:bg-[#0c1322]/20 border border-dashed border-[#eaedff] dark:border-[#283044] rounded-xl">
-              <Brain className="w-10 h-10 text-indigo-400 opacity-40 mb-2" />
-              <p className="text-xs font-medium text-[#757684] dark:text-[#a3a3b3]">No thoughts caught yet.</p>
-              <p className="text-[10px] text-[#757684]/80 mt-1 max-w-[200px]">Create files in your "Thought Catcher" folder to see them stream here.</p>
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-6 bg-[var(--color-card-raised)] bg-[var(--color-card)]/20 border border-dashed border-[var(--color-divider)] border-[var(--color-divider)] rounded-xl">
+              <Brain className="w-10 h-10 text-[var(--color-secondary)]  mb-2" />
+              <p className="text-xs font-normal text-[var(--color-secondary)] text-[var(--color-secondary)]">No thoughts caught yet.</p>
+              <p className="text-[10px] text-[var(--color-secondary)] mt-1 max-w-[200px]">Create files in your "Thought Catcher" folder to see them stream here.</p>
             </div>
           )}
 
           {/* Glowing Neural Brain Loop Interface */}
           {!loading && !error && notes.length > 0 && (
-            <div 
+            <div
               onTouchStart={handleTouchStart}
               onTouchEnd={handleTouchEnd}
               onWheel={handleWheel}
@@ -573,20 +573,20 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
               {/* Brain connection background network */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="relative w-72 h-72 flex items-center justify-center">
-                  <Brain className="absolute w-64 h-64 text-indigo-500/[0.04] dark:text-indigo-400/[0.06] blur-[2px]" />
-                  <svg className="absolute inset-0 w-full h-full text-indigo-500/10 dark:text-indigo-400/5 animate-pulse" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <Brain className="absolute w-64 h-64 text-[var(--color-secondary)]/[0.04] text-[var(--color-secondary)]/[0.06] blur-[2px]" />
+                  <svg className="absolute inset-0 w-full h-full text-[var(--color-secondary)] text-[var(--color-secondary)] animate-pulse" viewBox="0 0 100 100" preserveAspectRatio="none">
                     <path d="M15,50 Q30,25 50,50 T85,50" fill="none" stroke="currentColor" strokeWidth="0.4" strokeDasharray="2,3" />
                     <path d="M25,35 Q50,65 75,35" fill="none" stroke="currentColor" strokeWidth="0.4" strokeDasharray="3,2" />
-                    <circle cx="50" cy="50" r="1.5" className="fill-indigo-500/30 animate-ping" />
-                    <circle cx="35" cy="42" r="1" className="fill-purple-500/40" />
-                    <circle cx="65" cy="58" r="1" className="fill-indigo-500/40" />
+                    <circle cx="50" cy="50" r="1.5" className="fill-[var(--color-secondary)]/30 animate-ping" />
+                    <circle cx="35" cy="42" r="1" className="fill-[var(--color-secondary)]/40" />
+                    <circle cx="65" cy="58" r="1" className="fill-[var(--color-secondary)]/40" />
                   </svg>
                 </div>
               </div>
 
               {/* Kinetic container - Organic brain blob shape with neon indigo aura */}
-              <div 
-                className="w-full max-w-sm aspect-[4/3] relative flex items-center justify-center rounded-[40%_50%_35%_45%_/_45%_35%_55%_40%] bg-indigo-50/5 dark:bg-indigo-950/[0.08] border border-indigo-200/30 dark:border-indigo-500/10 shadow-[0_0_30px_-5px_rgba(99,102,241,0.06)] dark:shadow-[0_0_40px_-5px_rgba(99,102,241,0.12)] p-6 min-h-[280px]"
+              <div
+                className="w-full max-w-sm aspect-[4/3] relative flex items-center justify-center rounded-[40%_50%_35%_45%_/_45%_35%_55%_40%] bg-[var(--color-card-raised)] bg-[var(--color-card-raised)]/[0.08] border border-[var(--color-divider)] border-[var(--color-divider)] shadow-none shadow-none p-6 min-h-[280px]"
               >
                 {/* Manual rotation overlays (Subtle Up/Down controls) */}
                 <button
@@ -595,7 +595,7 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
                     e.stopPropagation();
                     handlePrev();
                   }}
-                  className="absolute top-2 left-1/2 -translate-x-1/2 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-indigo-600 dark:hover:text-[#a8b8ff] transition-all cursor-pointer z-[250]"
+                  className="absolute top-2 left-1/2 -translate-x-1/2 p-1.5 rounded-full hover:bg-[var(--color-card)] hover:bg-[var(--color-card)] text-[var(--color-secondary)] hover:text-[var(--color-secondary)] hover:text-[var(--color-secondary)] transition-all cursor-pointer z-[250]"
                   title="Previous Note (ArrowUp)"
                   aria-label="Previous Note"
                 >
@@ -608,7 +608,7 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
                     e.stopPropagation();
                     handleNext();
                   }}
-                  className="absolute bottom-2 left-1/2 -translate-x-1/2 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-indigo-600 dark:hover:text-[#a8b8ff] transition-all cursor-pointer z-[250]"
+                  className="absolute bottom-2 left-1/2 -translate-x-1/2 p-1.5 rounded-full hover:bg-[var(--color-card)] hover:bg-[var(--color-card)] text-[var(--color-secondary)] hover:text-[var(--color-secondary)] hover:text-[var(--color-secondary)] transition-all cursor-pointer z-[250]"
                   title="Next Note (ArrowDown)"
                   aria-label="Next Note"
                 >
@@ -619,7 +619,7 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
                 {notes.map((note, index) => {
                   const total = notes.length;
                   const step = (2 * Math.PI) / total;
-                  
+
                   // Compute dynamic angle of this note around the 3D looping cylinder
                   const theta = (index * step) + scrollProgress;
                   const cosTheta = Math.cos(theta); // Depth coordinate (-1 to 1)
@@ -628,7 +628,7 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
                   // Render physics calculations (scale, blur, opacity, zIndex, translateY)
                   const scale = 0.65 + 0.35 * ((cosTheta + 1) / 2); // Scales down as it recedes
                   const translateY = sinTheta * 85; // Moves up/down on cylinder loop
-                  
+
                   // Card opacity fades fully to 0 as it crosses to the back half to maintain clean visuals
                   const opacity = cosTheta >= -0.4 ? ((cosTheta + 0.4) / 1.4) : 0;
                   const blurAmount = Math.max(0, (1 - cosTheta) * 3); // blur increases as it moves to the back
@@ -644,44 +644,44 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
                         e.stopPropagation();
                         onOpenNote(note);
                       }}
-                      style={{ 
+                      style={{
                         transform: `translateY(${translateY}px) scale(${scale})`,
                         opacity: opacity,
                         filter: `blur(${blurAmount}px)`,
                         zIndex: zIndex,
                         pointerEvents: opacity > 0.15 ? 'auto' : 'none' // disable click for receding cards
                       }}
-                      className={`absolute w-[92%] max-w-[290px] p-4 text-left rounded-xl transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/80 group ${
-                        isActive 
-                          ? 'border-2 border-indigo-500 dark:border-indigo-400 bg-white dark:bg-[#131b2e] shadow-[0_8px_30px_rgb(99,102,241,0.12)] dark:shadow-[0_8px_30px_rgba(168,184,255,0.14)] scale-[1.03]' 
-                          : 'border border-gray-100 dark:border-gray-800 bg-white/90 dark:bg-[#131b2e]/90 shadow-[0_4px_12px_rgba(0,0,0,0.03)]'
+                      className={`absolute w-[92%] max-w-[290px] p-4 text-left rounded-xl transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--color-secondary)] group ${
+                        isActive
+                          ? 'border-2 border-[var(--color-divider)] border-[var(--color-divider)] bg-[var(--color-card)] bg-[var(--color-card)] shadow-none shadow-none scale-[1.03]'
+                          : 'border border-[var(--color-divider)] border-[var(--color-divider)] bg-[var(--color-card)]/90 bg-[var(--color-card)]/90 shadow-none'
                       }`}
                       aria-label={`Open thought: ${note.title}. ${isActive ? 'Currently focused.' : ''}`}
                       title={`Open thought: ${note.title}`}
                     >
                       <div className="flex justify-between items-start gap-1 w-full mb-1">
-                        <span className={`font-display font-bold text-xs line-clamp-1 transition-colors ${
-                          isActive 
-                            ? 'text-[#131b2e] dark:text-white text-sm font-extrabold' 
-                            : 'text-gray-500 dark:text-gray-400'
+                        <span className={`font-display font-semibold text-xs line-clamp-1 transition-colors ${
+                          isActive
+                            ? 'text-[var(--color-ink)] text-[var(--color-ink)] text-sm font-semibold'
+                            : 'text-[var(--color-secondary)] text-[var(--color-secondary)]'
                         }`}>
                           {note.title}
                         </span>
                         {isActive && (
-                          <ExternalLink className="w-3.5 h-3.5 shrink-0 text-indigo-500 animate-pulse" />
+                          <ExternalLink className="w-3.5 h-3.5 shrink-0 text-[var(--color-secondary)] animate-pulse" />
                         )}
                       </div>
-                      
+
                       <p className={`text-[11px] line-clamp-2 leading-relaxed transition-all ${
-                        isActive 
-                          ? 'text-[#757684] dark:text-gray-300' 
-                          : 'text-gray-400 dark:text-gray-500'
+                        isActive
+                          ? 'text-[var(--color-secondary)] text-[var(--color-secondary)]'
+                          : 'text-[var(--color-secondary)] text-[var(--color-secondary)]'
                       }`}>
-                        {note.preview || <span className="italic opacity-60">Empty thought note</span>}
+                        {note.preview || <span className="italic ">Empty thought note</span>}
                       </p>
 
                       {isActive && (
-                        <div className="flex justify-between items-center text-[9px] font-mono text-[#757684]/80 mt-2.5 uppercase pt-2 border-t border-gray-100 dark:border-gray-800">
+                        <div className="flex justify-between items-center text-[9px] font-mono text-[var(--color-secondary)] mt-2.5 uppercase pt-2 border-t border-[var(--color-divider)] border-[var(--color-divider)]">
                           <span>
                             {new Date(note.modifiedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
@@ -696,8 +696,8 @@ export const ThoughtCatcher: React.FC<ThoughtCatcherProps> = ({
               </div>
 
               {/* Source guide footer */}
-              <div className="mt-4 text-[10px] text-gray-400 dark:text-gray-500 font-mono flex items-center gap-1 uppercase tracking-wider">
-                <Sparkles className="w-3 h-3 text-indigo-400" />
+              <div className="mt-4 text-[10px] text-[var(--color-secondary)] text-[var(--color-secondary)] font-mono flex items-center gap-1 uppercase tracking-wider">
+                <Sparkles className="w-3 h-3 text-[var(--color-secondary)]" />
                 <span>Scroll wheel or touch swipe to rotate</span>
               </div>
             </div>
