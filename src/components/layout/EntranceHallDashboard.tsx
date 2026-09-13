@@ -201,10 +201,10 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
         aria-label="Welcome banner"
       >
         <div className="select-none">
-          <span className="text-[10px] font-mono tracking-widest text-[var(--color-secondary)] uppercase">
+          <span className="font-display text-[56px] leading-none tracking-[-0.03em] font-semibold text-[var(--color-ink)]">
             {getFormattedDate()}
           </span>
-          <h1 className="text-2xl font-display font-semibold text-[var(--color-ink)] tracking-wide uppercase mt-1">
+          <h1 className="text-[20px] font-display font-semibold text-[var(--color-ink)] tracking-wide uppercase mt-1">
             {getGreeting()},{' '}
             <span className="text-[var(--color-secondary)]">
               {username || 'Explorer'}
@@ -252,7 +252,7 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
           {focusElement ? (
             <div className="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-mono text-[var(--color-secondary)] uppercase">
+                <p className={`text-xs font-mono uppercase ${focusElement.type === 'overdue_task' ? 'text-[var(--color-overdue)]' : 'text-[var(--color-secondary)]'}`}>
                   {focusElement.subtext}
                 </p>
                 <h4 className="text-base font-semibold text-[var(--color-ink)] mt-1 group-hover:text-[var(--color-secondary)] transition-colors leading-snug">
@@ -363,12 +363,12 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
                     <p className="text-xs font-semibold text-[var(--color-secondary)] truncate">{task.title}</p>
                     <div className="flex items-center gap-2 mt-1">
                       {task.isOverdue && (
-                        <span className="text-[9px] font-mono font-semibold uppercase text-[var(--color-warning)] bg-[var(--color-warning-surface)] px-1.5 py-0.5 rounded tracking-wider shrink-0">
+                        <span className="text-[9px] font-mono font-semibold uppercase text-[var(--color-overdue)] bg-[var(--color-warning-surface)] px-1.5 py-0.5 rounded tracking-wider shrink-0">
                           Overdue
                         </span>
                       )}
                       {task.dueDate && (
-                        <span className="text-[9px] font-mono text-[var(--color-secondary)]">
+                        <span className={`text-[9px] font-mono ${task.isOverdue ? 'text-[var(--color-overdue)]' : 'text-[var(--color-secondary)]'}`}>
                           Due: {task.dueDate}
                         </span>
                       )}

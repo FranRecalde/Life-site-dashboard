@@ -236,7 +236,7 @@ export const TodoistTasksWorkspace: React.FC<TodoistTasksWorkspaceProps> = ({
 
                 {/* Due Date inside modal if available */}
                 {sub.dueDate && (
-                  <span className="text-[9px] font-semibold bg-[var(--color-card)] bg-[var(--color-card)] text-[var(--color-secondary)] px-1.5 py-0.5 rounded shrink-0">
+                  <span className={`text-[9px] font-semibold bg-[var(--color-card)] bg-[var(--color-card)] ${sub.isOverdue ? 'text-[var(--color-overdue)]' : 'text-[var(--color-secondary)]'} px-1.5 py-0.5 rounded shrink-0`}>
                     {sub.dueDate}
                   </span>
                 )}
@@ -362,7 +362,7 @@ export const TodoistTasksWorkspace: React.FC<TodoistTasksWorkspaceProps> = ({
           {/* Right badges & Comment Button */}
           <div className="flex items-center gap-2 shrink-0 ml-auto pl-8 sm:pl-0 mt-1 sm:mt-0">
             {isOverdueStyle && !isCommentOpen && (
-              <span className="text-[9px] font-semibold bg-[var(--color-warning-surface)] text-[var(--color-warning)] px-2 py-0.5 rounded">
+              <span className="text-[9px] font-semibold bg-[var(--color-warning-surface)] text-[var(--color-overdue)] px-2 py-0.5 rounded">
                 Overdue
               </span>
             )}

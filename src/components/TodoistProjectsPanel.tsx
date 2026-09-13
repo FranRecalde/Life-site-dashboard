@@ -244,7 +244,7 @@ export const TodoistProjectsPanel: React.FC<TodoistProjectsPanelProps> = ({
                                               {!isCompleted && task.dueDate && (
                                                 <span className={`px-1.5 py-0.5 rounded-sm ${
                                                   isOverdue
-                                                    ? 'bg-[var(--color-warning-surface)] bg-[var(--color-warning-surface)]/10 text-[var(--color-warning)] font-semibold animate-pulse'
+                                                    ? 'bg-[var(--color-warning-surface)] bg-[var(--color-warning-surface)]/10 text-[var(--color-overdue)] font-semibold animate-pulse'
                                                     : 'bg-[var(--color-card-raised)] bg-[var(--color-card)] text-[var(--color-secondary)]'
                                                 }`}>
                                                   Due {new Date(task.dueDate).toLocaleDateString('en-GB')}

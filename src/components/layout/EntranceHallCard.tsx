@@ -30,7 +30,7 @@ export const EntranceHallCard: React.FC<EntranceHallCardProps> = ({
             </div>
           )}
           <div>
-            <h3 className="font-display text-sm font-semibold tracking-wider text-[var(--color-ink)] uppercase">
+            <h3 className="font-display text-[20px] font-semibold tracking-wider text-[var(--color-ink)] uppercase">
               {title}
             </h3>
             {subtitle && (
