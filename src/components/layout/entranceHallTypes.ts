@@ -1,6 +1,7 @@
 export type EntranceHallView =
   | 'dashboard'
   | 'calendar'
+  | 'rundown'
   | 'tasks'
   | 'projects'
   | 'notes'

@@ -39,6 +39,12 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     ariaLabel: 'Go to Calendar panel',
   },
   {
+    id: 'rundown',
+    label: 'Rundown of the Day',
+    icon: CheckSquare,
+    ariaLabel: 'Go to Rundown of the Day',
+  },
+  {
     id: 'tasks',
     label: 'Tasks',
     icon: CheckSquare,

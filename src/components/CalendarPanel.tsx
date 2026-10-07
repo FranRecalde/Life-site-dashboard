@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Calendar, ChevronDown, Plus } from 'lucide-react';
+import { Calendar, ChevronDown, Plus, Minus, ExternalLink } from 'lucide-react';
 import { DashboardSnapshot, CalendarEvent, UserSettings, DashboardContext } from '../types';
+
+import { eventsOnDay } from './calendarWorkflow';
+import { WeeklyCalendar } from './WeeklyCalendar';
 
 export interface CalendarPanelProps {
   activeTab: DashboardContext;
@@ -39,6 +42,7 @@ export const CalendarPanel: React.FC<CalendarPanelProps> = ({
   onAddEventClick,
   onSlotClick,
 }) => {
+  const [hourHeight, setHourHeight] = useState(40);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [showCalendarsDropdown, setShowCalendarsDropdown] = useState(false);
 
@@ -56,8 +60,7 @@ export const CalendarPanel: React.FC<CalendarPanelProps> = ({
 
   const activeDayEvents = useMemo(() => {
     if (!filteredData) return [];
-    const dateStr = currentCalendarDate.toISOString().split('T')[0];
-    return filteredData.calendarEvents.filter(e => e.start.startsWith(dateStr));
+    return eventsOnDay(filteredData.calendarEvents, currentCalendarDate);
   }, [filteredData, currentCalendarDate]);
 
   const workingHoursList = useMemo(() => {
@@ -184,6 +187,14 @@ export const CalendarPanel: React.FC<CalendarPanelProps> = ({
             )}
           </div>
 
+          <a href={`https://calendar.google.com/calendar/u/0/r/${calendarView}/${currentCalendarDate.getFullYear()}/${currentCalendarDate.getMonth() + 1}/${currentCalendarDate.getDate()}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 px-3 py-1.5 text-xs border border-[var(--color-divider)] rounded-lg">
+            <ExternalLink className="w-3.5 h-3.5" />View on Google Calendar
+          </a>
+          {calendarView !== 'month' && <div className="flex items-center gap-2" aria-label="Calendar zoom controls">
+            <button type="button" aria-label="Zoom out calendar" disabled={hourHeight <= 24} onClick={() => setHourHeight(height => Math.max(24, height - 8))} className="p-2 border rounded disabled:opacity-40"><Minus className="w-4 h-4" /></button>
+            <span className="text-xs" aria-live="polite">{Math.round(hourHeight / 40 * 100)}%</span>
+            <button type="button" aria-label="Zoom in calendar" disabled={hourHeight >= 96} onClick={() => setHourHeight(height => Math.min(96, height + 8))} className="p-2 border rounded disabled:opacity-40"><Plus className="w-4 h-4" /></button>
+          </div>}
           {/* Day/Week/Month Switcher */}
           <div className="flex gap-2 bg-[var(--color-card-raised)] bg-[var(--color-card)] p-1 rounded-lg border border-[var(--color-divider)] border-[var(--color-divider)]/80">
             {(['day', 'week', 'month'] as const).map(view => (
@@ -216,7 +227,7 @@ export const CalendarPanel: React.FC<CalendarPanelProps> = ({
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-2 gap-2">
                 <button
-                  onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.setDate(currentCalendarDate.getDate() - 1)))}
+                  onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), currentCalendarDate.getDate() - 1))}
                   className="text-xs font-semibold text-[var(--color-control)] text-[var(--color-ink)] hover:underline shrink-0 cursor-pointer"
                 >
                   <span className="hidden sm:inline">← Previous Day</span>
@@ -226,7 +237,7 @@ export const CalendarPanel: React.FC<CalendarPanelProps> = ({
                   {currentCalendarDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
                 <button
-                  onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.setDate(currentCalendarDate.getDate() + 1)))}
+                  onClick={() => setCurrentCalendarDate(new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), currentCalendarDate.getDate() + 1))}
                   className="text-xs font-semibold text-[var(--color-control)] text-[var(--color-ink)] hover:underline shrink-0 cursor-pointer"
                 >
                   <span className="hidden sm:inline">Next Day →</span>
@@ -243,7 +254,7 @@ export const CalendarPanel: React.FC<CalendarPanelProps> = ({
                   });
 
                   return (
-                    <div key={hour} className="flex min-h-[4rem] group hover:bg-[var(--color-card-raised)] hover:bg-[var(--color-card)]/40 transition-colors">
+                    <div key={hour} style={{ minHeight: hourHeight }} className="flex group hover:bg-[var(--color-card-raised)] hover:bg-[var(--color-card)]/40 transition-colors">
                       <div className="w-16 flex justify-center items-start pt-2 text-[10px] font-semibold text-[var(--color-secondary)] font-mono border-r border-[var(--color-divider)] border-[var(--color-divider)]/40 shrink-0">
                         {hour}
                       </div>
@@ -289,38 +300,7 @@ export const CalendarPanel: React.FC<CalendarPanelProps> = ({
             </div>
           )}
 
-          {/* Week view */}
-          {calendarView === 'week' && (
-            <div className="text-center py-4">
-              <p className="text-xs font-semibold text-[var(--color-secondary)] mb-3">7-DAY WEEK VIEW</p>
-              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-                <div className="grid grid-cols-7 gap-2 border border-[var(--color-divider)] border-[var(--color-divider)] rounded-lg p-3 bg-[var(--color-card-raised)] bg-[var(--color-card)] min-w-[700px]">
-                  {Array.from({ length: 7 }).map((_, i) => {
-                    const d = new Date();
-                    d.setDate(d.getDate() - d.getDay() + (i + 1)); // start from monday
-                    const dateStr = d.toISOString().split('T')[0];
-                    const eventsForDay = filteredData?.calendarEvents.filter(e => e.start.startsWith(dateStr)) || [];
-
-                    return (
-                      <div key={i} className="bg-[var(--color-card)] bg-[var(--color-card)] rounded p-2 min-h-[8rem] border border-[var(--color-divider)] border-[var(--color-divider)]/60 min-w-0">
-                        <p className="text-[10px] font-semibold text-[var(--color-secondary)] font-mono truncate">{d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })}</p>
-                        <div className="space-y-1 mt-2 text-left">
-                          {eventsForDay.slice(0, 3).map(e => (
-                            <div key={e.id} onClick={(evt) => { evt.stopPropagation(); setSelectedEvent(e); }} className="bg-[var(--color-card-raised)] bg-[var(--color-card)] text-[10px] p-1 rounded cursor-pointer truncate font-normal" title={e.title}>
-                              {e.title}
-                            </div>
-                          ))}
-                          {eventsForDay.length > 3 && (
-                            <p className="text-[9px] text-[var(--color-secondary)] text-center mt-1 font-semibold">+{eventsForDay.length - 3} more</p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
+          {calendarView === 'week' && <WeeklyCalendar date={currentCalendarDate} firstDay={settings?.firstDayOfWeek} events={filteredData?.calendarEvents || []} hourHeight={hourHeight} onDateChange={setCurrentCalendarDate} onOpenEvent={setSelectedEvent} onSlotClick={onSlotClick} />}
 
           {/* Month view */}
           {calendarView === 'month' && (

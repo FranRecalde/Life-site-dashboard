@@ -72,6 +72,7 @@ export const LifeSiteShell: React.FC<LifeSiteShellProps> = ({
     switch (view) {
       case 'dashboard': return 'Entrance Hall Dashboard';
       case 'calendar': return 'Integrated Agenda Calendar';
+      case 'rundown': return 'Rundown of the Day';
       case 'tasks': return 'Mission Tasks Board';
       case 'projects': return 'Project Hub Directory';
       case 'notes': return 'Notes Inbox Repository';

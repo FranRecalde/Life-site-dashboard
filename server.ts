@@ -2107,6 +2107,28 @@ async function startServer() {
     }
   });
 
+  app.get('/api/tasks/:taskId/comments', authMiddleware, async (req: any, res) => {
+    const taskId = req.params.taskId?.trim();
+    if (!taskId) return res.status(400).json({ error: 'Task ID is required' });
+    const token = getTodoistToken();
+    if (!token) return res.status(400).json({ error: 'Todoist API token is not configured' });
+    try {
+      const comments = await fetchTodoistWithPagination('https://api.todoist.com/api/v1/comments', token, 'results', { task_id: taskId });
+      return res.json({ comments: comments.map(comment => ({
+        id: String(comment.id),
+        content: comment.content || '',
+        postedAt: comment.posted_at,
+        attachment: comment.attachment ? { fileName: comment.attachment.file_name, fileUrl: comment.attachment.file_url } : undefined,
+      })) });
+    } catch (error: any) {
+      const status = error.status || 500;
+      return res.status(status).json({
+        error: status === 401 ? 'Todoist rejected the saved connection. Reconnect Todoist in Settings.' : 'Unable to load Todoist comments. Please try again.',
+        todoistError: status === 401,
+      });
+    }
+  });
+
   app.post('/api/tasks/:taskId/comments', authMiddleware, async (req: any, res) => {
     const { taskId } = req.params;
     const { content } = req.body;

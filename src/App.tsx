@@ -40,6 +40,7 @@ import { ApiClient } from './services/apiClient';
 import { ObsidianClient, ObsidianNoteDetail, ObsidianApiError } from './services/obsidianClient';
 import { GlobalHeader } from './components/GlobalHeader';
 import { ContextTabs } from './components/ContextTabs';
+import { DailyRundown } from './components/DailyRundown';
 import { CalendarPanel } from './components/CalendarPanel';
 import { HabitPanel } from './components/HabitPanel';
 import { TodoistProjectsPanel } from './components/TodoistProjectsPanel';
@@ -1985,6 +1986,15 @@ export default function App() {
     }
   };
 
+  const requestTaskCompletion = (task: TodoistTask) => {
+    if (isOffline || task.completed || completingTaskIds.has(task.id)) return;
+    if (dashboardData?.tasks.some(child => child.parentId === task.id && !child.completed)) {
+      setConfirmingCompleteTask(task);
+    } else {
+      void handleCompleteTask(task.id);
+    }
+  };
+
   const handleSaveTaskDetails = async (
     taskId: string,
     details: { content: string; description: string; dueDate: string | null; priority: number }
@@ -2817,6 +2827,9 @@ export default function App() {
               onNavigate={handleEntranceHallViewChange}
               onOpenEvent={setSelectedEvent}
               onOpenTask={setSelectedTask}
+              onComplete={requestTaskCompletion}
+              completingTaskIds={completingTaskIds}
+              taskErrors={taskErrors}
               onOpenNote={(note) => {
                 setSelectedNote({
                   ...note,
@@ -2827,6 +2840,13 @@ export default function App() {
               }}
             />
           )}
+
+          {entranceHallView === 'rundown' && <DailyRundown
+            tasks={filteredData?.tasks || []} activeContext={activeTab} onContextChange={setActiveTab}
+            onOpen={setSelectedTask} onComplete={requestTaskCompletion} completingTaskIds={completingTaskIds}
+            taskErrors={taskErrors} isOffline={isOffline} loading={refreshing || !dashboardData} lastUpdated={lastUpdated}
+            unavailable={dashboardData?.serviceStatus.find(status => status.provider === 'todoist' && status.status !== 'connected')?.lastError || (dashboardData?.serviceStatus.some(status => status.provider === 'todoist' && status.status === 'disconnected') ? 'Connect Todoist in Settings to load your checklist.' : undefined)}
+          />}
 
           {entranceHallView === 'calendar' && (
             <div className="space-y-6">
@@ -3716,6 +3736,11 @@ export default function App() {
           await loadCalendarsList();
         }}
         selectedTask={selectedTask}
+        allTasks={dashboardData?.tasks || []}
+        onOpenTask={setSelectedTask}
+        onRequestCompleteTask={requestTaskCompletion}
+        completingTaskIds={completingTaskIds}
+        taskErrors={taskErrors}
         onCloseSelectedTask={() => setSelectedTask(null)}
         todoistProjects={dashboardData?.todoistProjects || []}
         todoistSections={dashboardData?.todoistSections || []}

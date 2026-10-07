@@ -2,7 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Loader2, AlertTriangle, Check } from 'lucide-react';
 import { TodoistTask, TodoistProjectSummary, TodoistSection } from '../types';
 
+import { TaskDetailsContent } from './TaskDetailsContent';
+
 interface TodoistTaskEditorProps {
+  allTasks: TodoistTask[];
+  onOpenTask: (task: TodoistTask) => void;
+  onCompleteTask: (task: TodoistTask) => void;
+  completingTaskIds: Set<string>;
+  taskErrors: Record<string, string>;
   task: TodoistTask;
   projects: TodoistProjectSummary[];
   sections: TodoistSection[];
@@ -20,6 +27,11 @@ interface TodoistTaskEditorProps {
 
 export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
   task,
+  allTasks,
+  onOpenTask,
+  onCompleteTask,
+  completingTaskIds,
+  taskErrors,
   projects,
   sections,
   onClose,
@@ -293,6 +305,8 @@ export const TodoistTaskEditor: React.FC<TodoistTaskEditorProps> = ({
 
         {/* Two Forms (Details & Location) separated cleanly */}
         <div className="space-y-6 flex-1 min-h-0 overflow-y-auto pr-1">
+
+          <TaskDetailsContent task={task} allTasks={allTasks} onOpen={onOpenTask} onComplete={onCompleteTask} completingTaskIds={completingTaskIds} taskErrors={taskErrors} isOffline={isOffline} />
 
           {/* Details Section Form */}
           <form id="editor-details-form" onSubmit={handleSaveDetails} className="space-y-4 border-t border-[var(--color-divider)] border-[var(--color-divider)]/40 pt-4 text-left">
