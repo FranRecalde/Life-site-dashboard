@@ -26,6 +26,11 @@ export interface AppOverlaysProps {
 
   // Todoist Task Editor
   selectedTask: TodoistTask | null;
+  allTasks: TodoistTask[];
+  onOpenTask: (task: TodoistTask) => void;
+  onRequestCompleteTask: (task: TodoistTask) => void;
+  completingTaskIds: Set<string>;
+  taskErrors: Record<string, string>;
   onCloseSelectedTask: () => void;
   todoistProjects: TodoistProjectSummary[];
   todoistSections: TodoistSection[];
@@ -102,6 +107,11 @@ export const AppOverlays: React.FC<AppOverlaysProps> = ({
   onSuccessSelectedEvent,
 
   selectedTask,
+  allTasks,
+  onOpenTask,
+  onRequestCompleteTask,
+  completingTaskIds,
+  taskErrors,
   onCloseSelectedTask,
   todoistProjects,
   todoistSections,
@@ -170,6 +180,11 @@ export const AppOverlays: React.FC<AppOverlaysProps> = ({
         <TodoistTaskEditor
           key={selectedTask.id}
           task={selectedTask}
+          allTasks={allTasks}
+          onOpenTask={onOpenTask}
+          onCompleteTask={onRequestCompleteTask}
+          completingTaskIds={completingTaskIds}
+          taskErrors={taskErrors}
           projects={todoistProjects}
           sections={todoistSections}
           onClose={onCloseSelectedTask}

@@ -35,6 +35,13 @@ export type TodoistSection = {
   isCollapsed?: boolean;
 };
 
+export type TodoistComment = {
+  id: string;
+  content: string;
+  postedAt?: string;
+  attachment?: { fileName?: string; fileUrl?: string };
+};
+
 export type TodoistTask = {
   id: string;
   provider: 'todoist';

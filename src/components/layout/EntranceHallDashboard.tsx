@@ -21,7 +21,9 @@ import { EntranceHallView } from './entranceHallTypes';
 import { EntranceHallCard } from './EntranceHallCard';
 import { CalendarEvent, TodoistTask, TodoistProjectSummary, ServiceStatus, ObsidianNote } from '../../types';
 
-interface EntranceHallDashboardProps {
+import { TaskChecklistRow, TaskChecklistActions } from '../TaskChecklistRow';
+
+interface EntranceHallDashboardProps extends Omit<TaskChecklistActions, 'onOpen'> {
   username?: string;
   activeContext: 'combined' | 'personal' | 'professional';
   onContextChange: (context: 'combined' | 'personal' | 'professional') => void;
@@ -56,6 +58,9 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
   onNavigate,
   onOpenEvent,
   onOpenTask,
+  onComplete,
+  completingTaskIds,
+  taskErrors,
   onOpenNote,
 }) => {
   // Helpers for local date calculation
@@ -346,39 +351,8 @@ export const EntranceHallDashboard: React.FC<EntranceHallDashboardProps> = ({
           {dashboardTasks.length > 0 ? (
             <div className="space-y-3" role="list">
               {dashboardTasks.map((task) => (
-                <div
-                  key={task.id}
-                  onClick={() => onOpenTask && onOpenTask(task)}
-                  className="flex items-start gap-3 p-2 rounded-lg border border-transparent hover:border-[var(--color-divider)] hover:bg-[var(--color-card)]/30 cursor-pointer transition-all"
-                  role="listitem"
-                >
-                  <div className="mt-0.5 shrink-0">
-                    <div className={`w-3.5 h-3.5 rounded-full border ${
-                      task.isOverdue
-                        ? 'border-[var(--color-warning)] bg-[var(--color-warning-surface)]'
-                        : 'border-[var(--color-secondary)]/60 bg-[var(--color-card-raised)]/10'
-                    } flex items-center justify-center`} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-[var(--color-secondary)] truncate">{task.title}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      {task.isOverdue && (
-                        <span className="text-[9px] font-mono font-semibold uppercase text-[var(--color-overdue)] bg-[var(--color-warning-surface)] px-1.5 py-0.5 rounded tracking-wider shrink-0">
-                          Overdue
-                        </span>
-                      )}
-                      {task.dueDate && (
-                        <span className={`text-[9px] font-mono ${task.isOverdue ? 'text-[var(--color-overdue)]' : 'text-[var(--color-secondary)]'}`}>
-                          Due: {task.dueDate}
-                        </span>
-                      )}
-                      {task.projectName && (
-                        <span className="text-[9px] text-[var(--color-secondary)] truncate">
-                          • {task.projectName}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                <div key={task.id} role="listitem">
+                  <TaskChecklistRow task={task} onOpen={onOpenTask || (() => {})} onComplete={onComplete} completingTaskIds={completingTaskIds} taskErrors={taskErrors} isOffline={isOffline} />
                 </div>
               ))}
             </div>

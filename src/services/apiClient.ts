@@ -2,6 +2,7 @@ import {
   DashboardSnapshot,
   UserSettings,
   TodoistProjectSummary,
+  TodoistComment,
   TodoistProjectTask,
   Habit,
   HabitEntry,
@@ -160,6 +161,11 @@ export class ApiClient {
     return this.request(`/api/tasks/${taskId}/complete`, {
       method: 'POST'
     });
+  }
+
+  static async getTodoistComments(taskId: string): Promise<TodoistComment[]> {
+    const response = await this.request<{ comments: TodoistComment[] }>(`/api/tasks/${encodeURIComponent(taskId)}/comments`);
+    return response.comments;
   }
 
   static async addTodoistComment(taskId: string, content: string): Promise<any> {
