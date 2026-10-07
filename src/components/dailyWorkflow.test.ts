@@ -26,3 +26,13 @@ test('daily checklist includes independently due subtasks, excludes future and u
   const task = (id: string, dueDate?: string, completed = false, parentId?: string): TodoistTask => ({ id, title: id, provider: 'todoist', dueDate, completed, parentId, labels: [], isOverdue: false });
   assert.deepEqual(dailyTasks([task('future', '2026-10-08'), task('today', '2026-10-07'), task('done', '2026-10-07', true), task('undated'), task('overdue', '2026-10-06'), task('child', '2026-10-07', false, 'today')], new Date(2026, 9, 7)).map(task => task.id), ['overdue', 'today', 'child', 'done']);
 });
+
+test('rundown selects local date, upcoming projects, overdue today and excludes completed children', async () => {
+  const { rundownTasks } = await import('./calendarWorkflow');
+  const task = (id: string, dueDate: string, extra = {}): TodoistTask => ({id, title:id, provider:'todoist', labels:[], completed:false, isOverdue:false, dueDate, ...extra});
+  const tasks = [task('tomorrow','2026-10-08T09:00:00',{projectId:'non-inbox'}),task('today','2026-10-07'),task('overdue','2026-10-06',{isOverdue:true}),task('child','2026-10-08',{parentId:'tomorrow'}),task('done','2026-10-08',{completed:true}),task('later','2026-10-09')];
+  assert.deepEqual(rundownTasks(tasks,'2026-10-07','2026-10-07').map(t=>t.id),['overdue','today']);
+  assert.deepEqual(rundownTasks(tasks,'2026-10-08','2026-10-07').map(t=>t.id),['tomorrow']);
+  assert.deepEqual(rundownTasks(tasks,'2026-10-08','2026-10-07',true).map(t=>t.id),['tomorrow','later']);
+  assert.deepEqual(rundownTasks(tasks,'2026-10-06','2026-10-07').map(t=>t.id),['overdue']);
+});

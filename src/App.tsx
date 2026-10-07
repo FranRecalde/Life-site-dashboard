@@ -2843,6 +2843,11 @@ export default function App() {
 
           {entranceHallView === 'rundown' && <DailyRundown
             tasks={filteredData?.tasks || []} activeContext={activeTab} onContextChange={setActiveTab}
+            onAddTask={async (content, context, options) => {
+              const currentGen = authGenerationRef.current;
+              await ApiClient.createTodoistTask(content, context, options);
+              if (isAuthGenerationCurrent(currentGen)) await triggerRefresh();
+            }}
             onOpen={setSelectedTask} onComplete={requestTaskCompletion} completingTaskIds={completingTaskIds}
             taskErrors={taskErrors} isOffline={isOffline} loading={refreshing || !dashboardData} lastUpdated={lastUpdated}
             unavailable={dashboardData?.serviceStatus.find(status => status.provider === 'todoist' && status.status !== 'connected')?.lastError || (dashboardData?.serviceStatus.some(status => status.provider === 'todoist' && status.status === 'disconnected') ? 'Connect Todoist in Settings to load your checklist.' : undefined)}
