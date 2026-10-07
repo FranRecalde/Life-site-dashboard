@@ -21,3 +21,11 @@ export function dailyTasks(tasks: TodoistTask[], date = new Date()) {
   return tasks.filter(task => task.dueDate && task.dueDate <= today)
     .sort((a, b) => Number(Boolean(a.completed)) - Number(Boolean(b.completed)) || (a.dueDate || '').localeCompare(b.dueDate || '') || (b.priority || 1) - (a.priority || 1));
 }
+
+export function rundownTasks(tasks: TodoistTask[], day: string, today: string, upcoming = false) {
+  return tasks.filter(task => {
+    if (task.completed || task.parentId || !task.dueDate) return false;
+    const due = task.dueDate.slice(0, 10);
+    return upcoming ? due >= day : due === day || (day === today && (task.isOverdue || due < today));
+  }).sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
+}
