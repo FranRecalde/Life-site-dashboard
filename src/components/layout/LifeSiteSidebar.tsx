@@ -56,6 +56,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: Folder,
     ariaLabel: 'Go to Projects overview',
   },
+  { id: 'projects-timeline', label: 'Projects Timeline', icon: Calendar, ariaLabel: 'Go to Projects Timeline' },
   {
     id: 'notes',
     label: 'Notes Inbox',

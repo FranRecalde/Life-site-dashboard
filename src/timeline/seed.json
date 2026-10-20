@@ -1,0 +1,1468 @@
+{
+  "projects": [
+    {
+      "id": "6hpVF7Ch8Cp78J8V",
+      "name": "Downstairs toilet",
+      "target": "2026-10-23",
+      "fallback": "2026-10-24",
+      "priority": true,
+      "selected": true
+    },
+    {
+      "id": "6hpVG7fv8RHP9rVW",
+      "name": "Piano",
+      "target": "2026-10-31",
+      "fallback": null,
+      "priority": false,
+      "selected": true
+    },
+    {
+      "id": "6hpVGCqPHmj99Wfr",
+      "name": "Patio doors",
+      "target": "2026-10-31",
+      "fallback": null,
+      "priority": false,
+      "selected": true
+    },
+    {
+      "id": "6hpVGWCRxJXVfWjQ",
+      "name": "Top bathroom",
+      "target": "2026-10-31",
+      "fallback": null,
+      "priority": false,
+      "selected": true
+    },
+    {
+      "id": "6hpVGjXPG9FgcGX7",
+      "name": "Catch up with the budget",
+      "target": "2026-10-31",
+      "fallback": null,
+      "priority": false,
+      "selected": true
+    },
+    {
+      "id": "6hpVHM7973FpvpWx",
+      "name": "Sell the car",
+      "target": "2026-10-31",
+      "fallback": null,
+      "priority": false,
+      "selected": true
+    },
+    {
+      "id": "6hpVHM79m7XF72cV",
+      "name": "Half-term work project",
+      "target": "2026-10-31",
+      "fallback": null,
+      "priority": false,
+      "selected": true
+    },
+    {
+      "id": "6hpVHgmXg2PQXJxf",
+      "name": "Setup Kindstack",
+      "target": "2026-10-31",
+      "fallback": null,
+      "priority": false,
+      "selected": true
+    },
+    {
+      "id": "6hpVHgjF8Cv3277q",
+      "name": "Personal life project",
+      "target": "2026-10-31",
+      "fallback": null,
+      "priority": false,
+      "selected": true
+    },
+    {
+      "id": "6hpVP6crqr9x6jRM",
+      "name": "Converting the Shed",
+      "target": "2026-10-31",
+      "fallback": null,
+      "priority": false,
+      "selected": true
+    },
+    {
+      "id": "6hpVPpH2QvFQC2X5",
+      "name": "Teaching my daughter Spanish — this week",
+      "target": "2026-10-24",
+      "fallback": null,
+      "priority": false,
+      "selected": true
+    }
+  ],
+  "tasks": [
+    {
+      "id": "6hpVFvV55Fgf7443",
+      "title": "Decide on a paint colour",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVFvQQjQRFfPf3",
+      "title": "Gather all decorating equipment",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVFvWHFX2vC56V",
+      "title": "Move the little cabinet upstairs",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVFvVMWCw3HFr3",
+      "title": "Prepare the walls",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": true
+    },
+    {
+      "id": "6hpVFwMG8WgvCx8V",
+      "title": "Get a sander",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVFwHH3XM9j7xV",
+      "title": "Fill holes and cracks in the walls",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVFwHJhxPgRH7V",
+      "title": "Sand down the walls",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVFvV7hhgVV6cV",
+      "title": "Paint the walls",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVFvf2Qmh88HfV",
+      "title": "Allow the paint to dry",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVFvg9WHWGfjqV",
+      "title": "Buy a new sink",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVFvgWgx68V993",
+      "title": "Buy new paintings for the downstairs toilet",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVFvmP3GQVR7WV",
+      "title": "Buy a toilet roll holder",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVFvh7MgPw9CgV",
+      "title": "Buy a towel holder",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVFvhxR862pFX3",
+      "title": "Arrange the plumber",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": true
+    },
+    {
+      "id": "6hpVFwJ6rPHP8MC3",
+      "title": "Find a plumber",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVFwM3WggCjFmV",
+      "title": "Get plumbing quotes",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVFwMMfHV2M4pV",
+      "title": "Choose a plumber and book a day",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVFwP6HVQQWgc3",
+      "title": "Have the plumber carry out the work",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVFvr2pVHx8H83",
+      "title": "Fit the cabinet",
+      "projectId": "6hpVF7Ch8Cp78J8V",
+      "grouping": false
+    },
+    {
+      "id": "6hpVG84j556xRJ6W",
+      "title": "Get piano removal quote 1",
+      "projectId": "6hpVG7fv8RHP9rVW",
+      "grouping": false
+    },
+    {
+      "id": "6hpVG856mjP2jQhW",
+      "title": "Get piano removal quote 2",
+      "projectId": "6hpVG7fv8RHP9rVW",
+      "grouping": false
+    },
+    {
+      "id": "6hpVG86vwFjHxXrW",
+      "title": "Get piano removal quote 3",
+      "projectId": "6hpVG7fv8RHP9rVW",
+      "grouping": false
+    },
+    {
+      "id": "6hpVG878Rcj4XVPW",
+      "title": "Get the piano out of the room",
+      "projectId": "6hpVG7fv8RHP9rVW",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGFPp842vx4xr",
+      "title": "Find locksmiths who repair patio doors",
+      "projectId": "6hpVGCqPHmj99Wfr",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGFQMPJv2hfvr",
+      "title": "Get patio door repair quote 1",
+      "projectId": "6hpVGCqPHmj99Wfr",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGFW3XxPvP7Gr",
+      "title": "Get patio door repair quote 2",
+      "projectId": "6hpVGCqPHmj99Wfr",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGFWf9Xm3QGXJ",
+      "title": "Get patio door repair quote 3",
+      "projectId": "6hpVGCqPHmj99Wfr",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGFgqG625gQ3J",
+      "title": "Choose a locksmith and agree a price",
+      "projectId": "6hpVGCqPHmj99Wfr",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGFqfxF5qRvpJ",
+      "title": "Book the locksmith to come in",
+      "projectId": "6hpVGCqPHmj99Wfr",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGFp6W2Mwx74J",
+      "title": "Have the patio door repaired",
+      "projectId": "6hpVGCqPHmj99Wfr",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGWpvvPrJQHVx",
+      "title": "Watch YouTube videos on regrouting and resealing a bathroom",
+      "projectId": "6hpVGWCRxJXVfWjQ",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGWqMRhG257Vx",
+      "title": "Make a list of the equipment and materials needed",
+      "projectId": "6hpVGWCRxJXVfWjQ",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGWrcWvVhR2QQ",
+      "title": "Buy the equipment and materials",
+      "projectId": "6hpVGWCRxJXVfWjQ",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGWrXFW86m2MQ",
+      "title": "Remove the old sealant",
+      "projectId": "6hpVGWCRxJXVfWjQ",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGWxfPQ4hVrCQ",
+      "title": "Remove the old grout",
+      "projectId": "6hpVGWCRxJXVfWjQ",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGX23fWg6m5cx",
+      "title": "Clean and prepare the surfaces",
+      "projectId": "6hpVGWCRxJXVfWjQ",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGWxxQP66gPRx",
+      "title": "Regrout the bathroom",
+      "projectId": "6hpVGWCRxJXVfWjQ",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGX5hm65CM3GQ",
+      "title": "Allow the grout to cure according to the product instructions",
+      "projectId": "6hpVGWCRxJXVfWjQ",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGX4grGp6Pf2Q",
+      "title": "Reseal the bathroom",
+      "projectId": "6hpVGWCRxJXVfWjQ",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGX3qmRP9pFcQ",
+      "title": "Allow the sealant to cure before using the bathroom",
+      "projectId": "6hpVGWCRxJXVfWjQ",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGjxrwvPQc89f",
+      "title": "Download expenses from the last two and a half weeks",
+      "projectId": "6hpVGjXPG9FgcGX7",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGm3hXH63xR37",
+      "title": "Print the expenses",
+      "projectId": "6hpVGjXPG9FgcGX7",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGm6xmqwXPQM7",
+      "title": "Label the expenses",
+      "projectId": "6hpVGjXPG9FgcGX7",
+      "grouping": false
+    },
+    {
+      "id": "6hpVGm6v8HGr3RVf",
+      "title": "Ask Codex to upload the labelled expenses",
+      "projectId": "6hpVGjXPG9FgcGX7",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHPMj3VwG7mxx",
+      "title": "Find someone who can clean the car interior",
+      "projectId": "6hpVHM7973FpvpWx",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHPMpH3p8vxMQ",
+      "title": "Get quotes for cleaning the car interior",
+      "projectId": "6hpVHM7973FpvpWx",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHPQj6cGHqV6Q",
+      "title": "Gather all documentation for the Kia",
+      "projectId": "6hpVHM7973FpvpWx",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHPWpc4jXVwhQ",
+      "title": "Have the car cleaned",
+      "projectId": "6hpVHM7973FpvpWx",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHPcVWmq6c7QQ",
+      "title": "Take photos of the car",
+      "projectId": "6hpVHM7973FpvpWx",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHPXF5QR5VmMx",
+      "title": "List the car on AutoTrader",
+      "projectId": "6hpVHM7973FpvpWx",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHPfGCv6HxWXQ",
+      "title": "List the car on Facebook",
+      "projectId": "6hpVHM7973FpvpWx",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHPfPqj4CmWpQ",
+      "title": "Sell the car",
+      "projectId": "6hpVHM7973FpvpWx",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHPPfqR6pGFR3",
+      "title": "Update the DUA app",
+      "projectId": "6hpVHM79m7XF72cV",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHQ89W2797M73",
+      "title": "List all the updates and tasks I want for the DUA app",
+      "projectId": "6hpVHM79m7XF72cV",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHPMQVqC3fPgV",
+      "title": "Upload the morning meeting slides",
+      "projectId": "6hpVHM79m7XF72cV",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHPQr4CVpfxP3",
+      "title": "Create lesson plans for my students and year groups",
+      "projectId": "6hpVHM79m7XF72cV",
+      "grouping": true
+    },
+    {
+      "id": "6hpVHQ85XH9CmgmV",
+      "title": "Identify the students and year groups needing lesson plans",
+      "projectId": "6hpVHM79m7XF72cV",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHQ9MXwwwWcJ3",
+      "title": "Write lesson plans for each year group",
+      "projectId": "6hpVHM79m7XF72cV",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHPWfXCQ8Q6j3",
+      "title": "Fix the intervention planning app so it is ready to use",
+      "projectId": "6hpVHM79m7XF72cV",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHPcpmrC3756V",
+      "title": "Take risk with Robin?",
+      "projectId": "6hpVHM79m7XF72cV",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHPXXMF3hgRPV",
+      "title": "Recreate the revision app",
+      "projectId": "6hpVHM79m7XF72cV",
+      "grouping": false
+    },
+    {
+      "id": "6hVP696FQFJJHJ7X",
+      "title": "Create my Kindstack site",
+      "projectId": "6hpVHgmXg2PQXJxf",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHhVJjJ88Xv4f",
+      "title": "Agree on an overall plan for Kindstack",
+      "projectId": "6hpVHgmXg2PQXJxf",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHhXR6FRC3fff",
+      "title": "Create a content strategy",
+      "projectId": "6hpVHgmXg2PQXJxf",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHhXRqXgXx9H7",
+      "title": "Create a business timeline",
+      "projectId": "6hpVHgmXg2PQXJxf",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHhWJxMV8QgCq",
+      "title": "Adapt my ideal week",
+      "projectId": "6hpVHgjF8Cv3277q",
+      "grouping": false
+    },
+    {
+      "id": "6hpVHhVRH9prr68H",
+      "title": "Fit my projects into my ideal week",
+      "projectId": "6hpVHgjF8Cv3277q",
+      "grouping": false
+    },
+    {
+      "id": "6hpVP7FfM4qwR79M",
+      "title": "Empty the cellar",
+      "projectId": "6hpVP6crqr9x6jRM",
+      "grouping": false
+    },
+    {
+      "id": "6hpVP7McR2j5Gq6v",
+      "title": "Take rubbish from the cellar to the tip",
+      "projectId": "6hpVP6crqr9x6jRM",
+      "grouping": false
+    },
+    {
+      "id": "6hpVP7JVFqQgG84v",
+      "title": "Empty the sheds",
+      "projectId": "6hpVP6crqr9x6jRM",
+      "grouping": false
+    },
+    {
+      "id": "6hpVP7HHPrXXG7vM",
+      "title": "Take rubbish from the sheds to the tip",
+      "projectId": "6hpVP6crqr9x6jRM",
+      "grouping": false
+    },
+    {
+      "id": "6hpVP7P49PRwCVhM",
+      "title": "Move items to keep from the sheds into the cellar",
+      "projectId": "6hpVP6crqr9x6jRM",
+      "grouping": false
+    },
+    {
+      "id": "6hpVP7PXJRgFJJXM",
+      "title": "List unwanted items on Facebook for free",
+      "projectId": "6hpVP6crqr9x6jRM",
+      "grouping": false
+    },
+    {
+      "id": "6hpVP7QjP7rqWGgM",
+      "title": "List approximately 12 items for sale on Facebook",
+      "projectId": "6hpVP6crqr9x6jRM",
+      "grouping": false
+    },
+    {
+      "id": "6hpVP7RqCRqCRx5M",
+      "title": "Buy a portable light",
+      "projectId": "6hpVP6crqr9x6jRM",
+      "grouping": false
+    },
+    {
+      "id": "6hpVPrjQcCjx69W5",
+      "title": "Teach my daughter Spanish — Tuesday 20 October",
+      "projectId": "6hpVPpH2QvFQC2X5",
+      "grouping": false
+    },
+    {
+      "id": "6hpVPrjgXxG5C2p5",
+      "title": "Teach my daughter Spanish — Thursday 22 October",
+      "projectId": "6hpVPpH2QvFQC2X5",
+      "grouping": false
+    },
+    {
+      "id": "6hpVPrgpfMwFHPhX",
+      "title": "Teach my daughter Spanish — Saturday 24 October",
+      "projectId": "6hpVPpH2QvFQC2X5",
+      "grouping": false
+    }
+  ],
+  "blocks": [
+    {
+      "id": "6hpVFvV55Fgf7443-0",
+      "taskId": "6hpVFvV55Fgf7443",
+      "date": "2026-10-20",
+      "start": "10:30",
+      "end": "10:45",
+      "kind": "Computer",
+      "activeMinutes": 15,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVFvQQjQRFfPf3-0",
+      "taskId": "6hpVFvQQjQRFfPf3",
+      "date": "2026-10-21",
+      "start": "10:30",
+      "end": "11:00",
+      "kind": "In person",
+      "activeMinutes": 30,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVFvWHFX2vC56V-0",
+      "taskId": "6hpVFvWHFX2vC56V",
+      "date": "2026-10-22",
+      "start": "09:30",
+      "end": "09:45",
+      "kind": "In person",
+      "activeMinutes": 15,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVFwMG8WgvCx8V-0",
+      "taskId": "6hpVFwMG8WgvCx8V",
+      "date": "2026-10-21",
+      "start": "10:10",
+      "end": "10:30",
+      "kind": "In person",
+      "activeMinutes": 20,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVFwHH3XM9j7xV-0",
+      "taskId": "6hpVFwHH3XM9j7xV",
+      "date": "2026-10-22",
+      "start": "09:45",
+      "end": "10:30",
+      "kind": "In person",
+      "activeMinutes": 45,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVFwHJhxPgRH7V-0",
+      "taskId": "6hpVFwHJhxPgRH7V",
+      "date": "2026-10-22",
+      "start": "12:45",
+      "end": "13:45",
+      "kind": "In person",
+      "activeMinutes": 60,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVFvV7hhgVV6cV-0",
+      "taskId": "6hpVFvV7hhgVV6cV",
+      "date": "2026-10-22",
+      "start": "14:00",
+      "end": "15:30",
+      "kind": "In person",
+      "activeMinutes": 90,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVFvV7hhgVV6cV-1",
+      "taskId": "6hpVFvV7hhgVV6cV",
+      "date": "2026-10-23",
+      "start": "09:30",
+      "end": "10:30",
+      "kind": "In person",
+      "activeMinutes": 60,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVFvf2Qmh88HfV-0",
+      "taskId": "6hpVFvf2Qmh88HfV",
+      "date": "2026-10-23",
+      "start": "13:45",
+      "end": "14:00",
+      "kind": "In person",
+      "activeMinutes": 15,
+      "note": "Readiness check; elapsed curing time is separate"
+    },
+    {
+      "id": "6hpVFvg9WHWGfjqV-0",
+      "taskId": "6hpVFvg9WHWGfjqV",
+      "date": "2026-10-21",
+      "start": "09:30",
+      "end": "10:10",
+      "kind": "In person",
+      "activeMinutes": 40,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVFvgWgx68V993-0",
+      "taskId": "6hpVFvgWgx68V993",
+      "date": "2026-10-21",
+      "start": "11:00",
+      "end": "11:20",
+      "kind": "In person",
+      "activeMinutes": 20,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVFvmP3GQVR7WV-0",
+      "taskId": "6hpVFvmP3GQVR7WV",
+      "date": "2026-10-21",
+      "start": "11:20",
+      "end": "11:30",
+      "kind": "In person",
+      "activeMinutes": 10,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVFvh7MgPw9CgV-0",
+      "taskId": "6hpVFvh7MgPw9CgV",
+      "date": "2026-10-21",
+      "start": "11:30",
+      "end": "11:40",
+      "kind": "In person",
+      "activeMinutes": 10,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVFwJ6rPHP8MC3-0",
+      "taskId": "6hpVFwJ6rPHP8MC3",
+      "date": "2026-10-21",
+      "start": "06:30",
+      "end": "06:40",
+      "kind": "Computer",
+      "activeMinutes": 10,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVFwM3WggCjFmV-0",
+      "taskId": "6hpVFwM3WggCjFmV",
+      "date": "2026-10-21",
+      "start": "06:40",
+      "end": "07:00",
+      "kind": "Computer",
+      "activeMinutes": 20,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVFwMMfHV2M4pV-0",
+      "taskId": "6hpVFwMMfHV2M4pV",
+      "date": "2026-10-21",
+      "start": "09:10",
+      "end": "09:25",
+      "kind": "Computer",
+      "activeMinutes": 15,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVFwP6HVQQWgc3-0",
+      "taskId": "6hpVFwP6HVQQWgc3",
+      "date": "2026-10-23",
+      "start": "14:00",
+      "end": "15:30",
+      "kind": "Visit",
+      "activeMinutes": 90,
+      "note": "Provisional: confirm booking / dependency"
+    },
+    {
+      "id": "6hpVFvr2pVHx8H83-0",
+      "taskId": "6hpVFvr2pVHx8H83",
+      "date": "2026-10-23",
+      "start": "18:00",
+      "end": "19:30",
+      "kind": "In person",
+      "activeMinutes": 90,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVG84j556xRJ6W-0",
+      "taskId": "6hpVG84j556xRJ6W",
+      "date": "2026-10-21",
+      "start": "07:00",
+      "end": "07:10",
+      "kind": "Computer",
+      "activeMinutes": 10,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVG856mjP2jQhW-0",
+      "taskId": "6hpVG856mjP2jQhW",
+      "date": "2026-10-21",
+      "start": "07:10",
+      "end": "07:20",
+      "kind": "Computer",
+      "activeMinutes": 10,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVG86vwFjHxXrW-0",
+      "taskId": "6hpVG86vwFjHxXrW",
+      "date": "2026-10-21",
+      "start": "07:20",
+      "end": "07:30",
+      "kind": "Computer",
+      "activeMinutes": 10,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVG878Rcj4XVPW-0",
+      "taskId": "6hpVG878Rcj4XVPW",
+      "date": "2026-10-28",
+      "start": "13:00",
+      "end": "14:00",
+      "kind": "Visit",
+      "activeMinutes": 60,
+      "note": "Provisional: confirm booking / dependency"
+    },
+    {
+      "id": "6hpVGFPp842vx4xr-0",
+      "taskId": "6hpVGFPp842vx4xr",
+      "date": "2026-10-21",
+      "start": "07:30",
+      "end": "07:40",
+      "kind": "Computer",
+      "activeMinutes": 10,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGFQMPJv2hfvr-0",
+      "taskId": "6hpVGFQMPJv2hfvr",
+      "date": "2026-10-21",
+      "start": "07:40",
+      "end": "07:50",
+      "kind": "Computer",
+      "activeMinutes": 10,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGFW3XxPvP7Gr-0",
+      "taskId": "6hpVGFW3XxPvP7Gr",
+      "date": "2026-10-21",
+      "start": "07:50",
+      "end": "08:00",
+      "kind": "Computer",
+      "activeMinutes": 10,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGFWf9Xm3QGXJ-0",
+      "taskId": "6hpVGFWf9Xm3QGXJ",
+      "date": "2026-10-21",
+      "start": "08:00",
+      "end": "08:10",
+      "kind": "Computer",
+      "activeMinutes": 10,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGFgqG625gQ3J-0",
+      "taskId": "6hpVGFgqG625gQ3J",
+      "date": "2026-10-22",
+      "start": "09:00",
+      "end": "09:15",
+      "kind": "Computer",
+      "activeMinutes": 15,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGFqfxF5qRvpJ-0",
+      "taskId": "6hpVGFqfxF5qRvpJ",
+      "date": "2026-10-22",
+      "start": "09:15",
+      "end": "09:30",
+      "kind": "Computer",
+      "activeMinutes": 15,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGFp6W2Mwx74J-0",
+      "taskId": "6hpVGFp6W2Mwx74J",
+      "date": "2026-10-28",
+      "start": "14:00",
+      "end": "15:30",
+      "kind": "Visit",
+      "activeMinutes": 90,
+      "note": "Provisional: confirm booking / dependency"
+    },
+    {
+      "id": "6hpVGWpvvPrJQHVx-0",
+      "taskId": "6hpVGWpvvPrJQHVx",
+      "date": "2026-10-20",
+      "start": "10:45",
+      "end": "11:15",
+      "kind": "Computer",
+      "activeMinutes": 30,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGWqMRhG257Vx-0",
+      "taskId": "6hpVGWqMRhG257Vx",
+      "date": "2026-10-20",
+      "start": "11:15",
+      "end": "11:30",
+      "kind": "Computer",
+      "activeMinutes": 15,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGWrcWvVhR2QQ-0",
+      "taskId": "6hpVGWrcWvVhR2QQ",
+      "date": "2026-10-21",
+      "start": "12:00",
+      "end": "12:30",
+      "kind": "In person",
+      "activeMinutes": 30,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGWrXFW86m2MQ-0",
+      "taskId": "6hpVGWrXFW86m2MQ",
+      "date": "2026-10-27",
+      "start": "09:30",
+      "end": "10:30",
+      "kind": "In person",
+      "activeMinutes": 60,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGWxfPQ4hVrCQ-0",
+      "taskId": "6hpVGWxfPQ4hVrCQ",
+      "date": "2026-10-27",
+      "start": "10:30",
+      "end": "12:30",
+      "kind": "In person",
+      "activeMinutes": 120,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGX23fWg6m5cx-0",
+      "taskId": "6hpVGX23fWg6m5cx",
+      "date": "2026-10-27",
+      "start": "13:00",
+      "end": "13:30",
+      "kind": "In person",
+      "activeMinutes": 30,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGWxxQP66gPRx-0",
+      "taskId": "6hpVGWxxQP66gPRx",
+      "date": "2026-10-27",
+      "start": "13:30",
+      "end": "15:30",
+      "kind": "In person",
+      "activeMinutes": 120,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGX5hm65CM3GQ-0",
+      "taskId": "6hpVGX5hm65CM3GQ",
+      "date": "2026-10-30",
+      "start": "12:45",
+      "end": "13:00",
+      "kind": "In person",
+      "activeMinutes": 15,
+      "note": "Readiness check; elapsed curing time is separate"
+    },
+    {
+      "id": "6hpVGX4grGp6Pf2Q-0",
+      "taskId": "6hpVGX4grGp6Pf2Q",
+      "date": "2026-10-30",
+      "start": "13:00",
+      "end": "14:00",
+      "kind": "In person",
+      "activeMinutes": 60,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGX3qmRP9pFcQ-0",
+      "taskId": "6hpVGX3qmRP9pFcQ",
+      "date": "2026-10-31",
+      "start": "14:00",
+      "end": "14:15",
+      "kind": "In person",
+      "activeMinutes": 15,
+      "note": "Readiness check; elapsed curing time is separate"
+    },
+    {
+      "id": "6hpVGjxrwvPQc89f-0",
+      "taskId": "6hpVGjxrwvPQc89f",
+      "date": "2026-10-24",
+      "start": "06:30",
+      "end": "06:45",
+      "kind": "Computer",
+      "activeMinutes": 15,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGm3hXH63xR37-0",
+      "taskId": "6hpVGm3hXH63xR37",
+      "date": "2026-10-24",
+      "start": "10:00",
+      "end": "10:15",
+      "kind": "In person",
+      "activeMinutes": 15,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGm6xmqwXPQM7-0",
+      "taskId": "6hpVGm6xmqwXPQM7",
+      "date": "2026-10-24",
+      "start": "18:30",
+      "end": "19:15",
+      "kind": "In person",
+      "activeMinutes": 45,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVGm6v8HGr3RVf-0",
+      "taskId": "6hpVGm6v8HGr3RVf",
+      "date": "2026-10-26",
+      "start": "08:30",
+      "end": "09:00",
+      "kind": "Computer",
+      "activeMinutes": 30,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHPMj3VwG7mxx-0",
+      "taskId": "6hpVHPMj3VwG7mxx",
+      "date": "2026-10-21",
+      "start": "08:10",
+      "end": "08:20",
+      "kind": "Computer",
+      "activeMinutes": 10,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHPMpH3p8vxMQ-0",
+      "taskId": "6hpVHPMpH3p8vxMQ",
+      "date": "2026-10-21",
+      "start": "08:20",
+      "end": "08:40",
+      "kind": "Computer",
+      "activeMinutes": 20,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHPQj6cGHqV6Q-0",
+      "taskId": "6hpVHPQj6cGHqV6Q",
+      "date": "2026-10-24",
+      "start": "09:30",
+      "end": "10:00",
+      "kind": "In person",
+      "activeMinutes": 30,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHPWpc4jXVwhQ-0",
+      "taskId": "6hpVHPWpc4jXVwhQ",
+      "date": "2026-10-24",
+      "start": "10:15",
+      "end": "12:15",
+      "kind": "Visit",
+      "activeMinutes": 120,
+      "note": "Provisional: confirm booking / dependency"
+    },
+    {
+      "id": "6hpVHPcVWmq6c7QQ-0",
+      "taskId": "6hpVHPcVWmq6c7QQ",
+      "date": "2026-10-24",
+      "start": "12:15",
+      "end": "12:45",
+      "kind": "In person",
+      "activeMinutes": 30,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHPXF5QR5VmMx-0",
+      "taskId": "6hpVHPXF5QR5VmMx",
+      "date": "2026-10-25",
+      "start": "06:30",
+      "end": "07:00",
+      "kind": "Computer",
+      "activeMinutes": 30,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHPfGCv6HxWXQ-0",
+      "taskId": "6hpVHPfGCv6HxWXQ",
+      "date": "2026-10-25",
+      "start": "07:00",
+      "end": "07:20",
+      "kind": "Computer",
+      "activeMinutes": 20,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHPfPqj4CmWpQ-0",
+      "taskId": "6hpVHPfPqj4CmWpQ",
+      "date": "2026-10-31",
+      "start": "10:00",
+      "end": "11:00",
+      "kind": "In person",
+      "activeMinutes": 60,
+      "note": "Provisional: confirm booking / dependency"
+    },
+    {
+      "id": "6hpVHPPfqR6pGFR3-0",
+      "taskId": "6hpVHPPfqR6pGFR3",
+      "date": "2026-10-24",
+      "start": "06:45",
+      "end": "09:30",
+      "kind": "Computer",
+      "activeMinutes": 165,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHPPfqR6pGFR3-1",
+      "taskId": "6hpVHPPfqR6pGFR3",
+      "date": "2026-10-26",
+      "start": "09:30",
+      "end": "12:00",
+      "kind": "Computer",
+      "activeMinutes": 150,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHPPfqR6pGFR3-2",
+      "taskId": "6hpVHPPfqR6pGFR3",
+      "date": "2026-10-26",
+      "start": "12:45",
+      "end": "14:15",
+      "kind": "Computer",
+      "activeMinutes": 90,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHQ89W2797M73-0",
+      "taskId": "6hpVHQ89W2797M73",
+      "date": "2026-10-22",
+      "start": "06:30",
+      "end": "07:00",
+      "kind": "Computer",
+      "activeMinutes": 30,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHPMQVqC3fPgV-0",
+      "taskId": "6hpVHPMQVqC3fPgV",
+      "date": "2026-10-22",
+      "start": "07:30",
+      "end": "08:00",
+      "kind": "Computer",
+      "activeMinutes": 30,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHQ85XH9CmgmV-0",
+      "taskId": "6hpVHQ85XH9CmgmV",
+      "date": "2026-10-22",
+      "start": "07:00",
+      "end": "07:30",
+      "kind": "Computer",
+      "activeMinutes": 30,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHQ9MXwwwWcJ3-0",
+      "taskId": "6hpVHQ9MXwwwWcJ3",
+      "date": "2026-10-29",
+      "start": "06:30",
+      "end": "09:30",
+      "kind": "Computer",
+      "activeMinutes": 180,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHQ9MXwwwWcJ3-1",
+      "taskId": "6hpVHQ9MXwwwWcJ3",
+      "date": "2026-10-29",
+      "start": "09:30",
+      "end": "10:30",
+      "kind": "Computer",
+      "activeMinutes": 60,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHPWfXCQ8Q6j3-0",
+      "taskId": "6hpVHPWfXCQ8Q6j3",
+      "date": "2026-10-26",
+      "start": "14:15",
+      "end": "15:30",
+      "kind": "Computer",
+      "activeMinutes": 75,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHPWfXCQ8Q6j3-1",
+      "taskId": "6hpVHPWfXCQ8Q6j3",
+      "date": "2026-10-26",
+      "start": "18:00",
+      "end": "19:45",
+      "kind": "Computer",
+      "activeMinutes": 105,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHPcpmrC3756V-0",
+      "taskId": "6hpVHPcpmrC3756V",
+      "date": "2026-10-29",
+      "start": "18:00",
+      "end": "18:15",
+      "kind": "Computer",
+      "activeMinutes": 15,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHPXXMF3hgRPV-0",
+      "taskId": "6hpVHPXXMF3hgRPV",
+      "date": "2026-10-29",
+      "start": "10:30",
+      "end": "12:00",
+      "kind": "Computer",
+      "activeMinutes": 90,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHPXXMF3hgRPV-1",
+      "taskId": "6hpVHPXXMF3hgRPV",
+      "date": "2026-10-29",
+      "start": "12:45",
+      "end": "15:30",
+      "kind": "Computer",
+      "activeMinutes": 165,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHPXXMF3hgRPV-2",
+      "taskId": "6hpVHPXXMF3hgRPV",
+      "date": "2026-10-30",
+      "start": "06:30",
+      "end": "08:15",
+      "kind": "Computer",
+      "activeMinutes": 105,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hVP696FQFJJHJ7X-0",
+      "taskId": "6hVP696FQFJJHJ7X",
+      "date": "2026-10-23",
+      "start": "06:30",
+      "end": "09:30",
+      "kind": "Computer",
+      "activeMinutes": 180,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hVP696FQFJJHJ7X-1",
+      "taskId": "6hVP696FQFJJHJ7X",
+      "date": "2026-10-26",
+      "start": "06:30",
+      "end": "08:30",
+      "kind": "Computer",
+      "activeMinutes": 120,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHhVJjJ88Xv4f-0",
+      "taskId": "6hpVHhVJjJ88Xv4f",
+      "date": "2026-10-22",
+      "start": "08:00",
+      "end": "09:00",
+      "kind": "Computer",
+      "activeMinutes": 60,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHhXR6FRC3fff-0",
+      "taskId": "6hpVHhXR6FRC3fff",
+      "date": "2026-10-27",
+      "start": "06:30",
+      "end": "07:30",
+      "kind": "Computer",
+      "activeMinutes": 60,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHhXRqXgXx9H7-0",
+      "taskId": "6hpVHhXRqXgXx9H7",
+      "date": "2026-10-27",
+      "start": "07:30",
+      "end": "08:15",
+      "kind": "Computer",
+      "activeMinutes": 45,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHhWJxMV8QgCq-0",
+      "taskId": "6hpVHhWJxMV8QgCq",
+      "date": "2026-10-27",
+      "start": "08:15",
+      "end": "09:30",
+      "kind": "Computer",
+      "activeMinutes": 75,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVHhVRH9prr68H-0",
+      "taskId": "6hpVHhVRH9prr68H",
+      "date": "2026-10-30",
+      "start": "08:15",
+      "end": "09:30",
+      "kind": "Computer",
+      "activeMinutes": 75,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVP7FfM4qwR79M-0",
+      "taskId": "6hpVP7FfM4qwR79M",
+      "date": "2026-10-25",
+      "start": "09:30",
+      "end": "11:30",
+      "kind": "In person",
+      "activeMinutes": 120,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVP7McR2j5Gq6v-0",
+      "taskId": "6hpVP7McR2j5Gq6v",
+      "date": "2026-10-25",
+      "start": "11:30",
+      "end": "12:30",
+      "kind": "In person",
+      "activeMinutes": 60,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVP7JVFqQgG84v-0",
+      "taskId": "6hpVP7JVFqQgG84v",
+      "date": "2026-10-25",
+      "start": "13:00",
+      "end": "15:30",
+      "kind": "In person",
+      "activeMinutes": 150,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVP7HHPrXXG7vM-0",
+      "taskId": "6hpVP7HHPrXXG7vM",
+      "date": "2026-10-28",
+      "start": "09:30",
+      "end": "10:30",
+      "kind": "In person",
+      "activeMinutes": 60,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVP7P49PRwCVhM-0",
+      "taskId": "6hpVP7P49PRwCVhM",
+      "date": "2026-10-28",
+      "start": "10:30",
+      "end": "12:00",
+      "kind": "In person",
+      "activeMinutes": 90,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVP7PXJRgFJJXM-0",
+      "taskId": "6hpVP7PXJRgFJJXM",
+      "date": "2026-10-25",
+      "start": "18:00",
+      "end": "18:20",
+      "kind": "In person",
+      "activeMinutes": 20,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVP7PXJRgFJJXM-1",
+      "taskId": "6hpVP7PXJRgFJJXM",
+      "date": "2026-10-28",
+      "start": "06:30",
+      "end": "07:00",
+      "kind": "Computer",
+      "activeMinutes": 30,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVP7QjP7rqWGgM-0",
+      "taskId": "6hpVP7QjP7rqWGgM",
+      "date": "2026-10-25",
+      "start": "18:20",
+      "end": "19:00",
+      "kind": "In person",
+      "activeMinutes": 40,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVP7QjP7rqWGgM-1",
+      "taskId": "6hpVP7QjP7rqWGgM",
+      "date": "2026-10-28",
+      "start": "07:00",
+      "end": "09:30",
+      "kind": "Computer",
+      "activeMinutes": 150,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVP7RqCRqCRx5M-0",
+      "taskId": "6hpVP7RqCRqCRx5M",
+      "date": "2026-10-21",
+      "start": "11:40",
+      "end": "12:00",
+      "kind": "In person",
+      "activeMinutes": 20,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVPrjQcCjx69W5-0",
+      "taskId": "6hpVPrjQcCjx69W5",
+      "date": "2026-10-20",
+      "start": "18:00",
+      "end": "18:30",
+      "kind": "Teaching",
+      "activeMinutes": 30,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVPrjgXxG5C2p5-0",
+      "taskId": "6hpVPrjgXxG5C2p5",
+      "date": "2026-10-22",
+      "start": "18:00",
+      "end": "18:30",
+      "kind": "Teaching",
+      "activeMinutes": 30,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "6hpVPrgpfMwFHPhX-0",
+      "taskId": "6hpVPrgpfMwFHPhX",
+      "date": "2026-10-24",
+      "start": "18:00",
+      "end": "18:30",
+      "kind": "Teaching",
+      "activeMinutes": 30,
+      "note": "Draft estimate"
+    },
+    {
+      "id": "buffer-0",
+      "date": "2026-10-21",
+      "start": "13:00",
+      "end": "14:00",
+      "kind": "Buffer",
+      "activeMinutes": 0,
+      "note": "Quote replies / booking follow-up"
+    },
+    {
+      "id": "buffer-1",
+      "date": "2026-10-22",
+      "start": "10:30",
+      "end": "12:45",
+      "kind": "Wait",
+      "activeMinutes": 0,
+      "note": "Filler drying + break"
+    },
+    {
+      "id": "buffer-2",
+      "date": "2026-10-24",
+      "start": "13:00",
+      "end": "15:30",
+      "kind": "Buffer",
+      "activeMinutes": 0,
+      "note": "Downstairs toilet fallback"
+    },
+    {
+      "id": "buffer-3",
+      "date": "2026-10-30",
+      "start": "09:30",
+      "end": "12:00",
+      "kind": "Buffer",
+      "activeMinutes": 0,
+      "note": "Catch-up / collections buffer"
+    },
+    {
+      "id": "buffer-4",
+      "date": "2026-10-31",
+      "start": "09:30",
+      "end": "10:00",
+      "kind": "Buffer",
+      "activeMinutes": 0,
+      "note": "Final project checks"
+    },
+    {
+      "id": "buffer-5",
+      "date": "2026-10-31",
+      "start": "11:00",
+      "end": "13:00",
+      "kind": "Buffer",
+      "activeMinutes": 0,
+      "note": "Final catch-up buffer"
+    }
+  ]
+}
