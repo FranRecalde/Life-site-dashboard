@@ -32,3 +32,11 @@ Official reference: https://developer.todoist.com/api/v1/ . Confirmed POST `/tas
 
 ## Review harness
 `npm run preview:timeline` runs the same app/component and authenticated-route contract on port 3100 with controlled local test data, a prominent fixture banner, and persistence exclusively under ignored `data/timeline-verification/`. It does not load production credentials or contact Todoist. Normal connected app remains port 3000. This harness proves browser workflows, not live account writes.
+
+## Project picker and drag revision
+
+Reuse the existing Todoist project/task reader, owner-scoped plan store and revision/conflict validation. Snapshot exposes the accessible project catalog. A serialized POST /api/timeline/projects validates the server catalog and appends or enables a project, then reloads selected-project history. Target date defaults visibly to the calendar range end and can be edited before adding. No project or task is created in Todoist.
+
+Render individual calendar blocks. Pointer capture supports mouse and touch dragging to date headers or day cells, preserving start/end. A six-pixel threshold preserves ordinary click-to-edit; rejected saves retain server state. No dependency is added. Existing Edit block dialog remains the keyboard fallback. Date movement remains local planning; Review Todoist dates is still required for Todoist writes.
+
+Verification: npm run lint; npm run build; npm test; background browser using the controlled fixture on port 3101 for adding a project, dragging, rejection and reload persistence. Live release uses a committed-only archive, one Buildpacks image, immutable digest, production readiness checks and exact revision traffic verification. Explicit user direction overrides the release skill's staging workflow and repeated approval phrases; no staging deployment, credentials, rules, IAM or environment changes are authorized.

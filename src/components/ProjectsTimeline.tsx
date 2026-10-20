@@ -26,6 +26,12 @@ export function ProjectsTimeline({ onChanged, onSettings }: { onChanged(): Promi
   const [availability, setAvailability] = useState<TimelinePlan | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [pending, setPending] = useState<Set<string>>(new Set());
+  const [projectId, setProjectId] = useState('');
+  const [projectTarget, setProjectTarget] = useState('');
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [dropDate, setDropDate] = useState<string | null>(null);
+  const pointer = useRef<{ id: string; x: number; y: number; moved: boolean; date?: string } | null>(null);
+  const suppressClick = useRef(false);
   const locks = useRef(new Set<string>());
   const flight = useRef<Promise<any> | null>(null);
   const mounted = useRef(true);
@@ -116,6 +122,39 @@ export function ProjectsTimeline({ onChanged, onSettings }: { onChanged(): Promi
     </article>;
   };
   const preview = plan.preview;
+  const availableProjects = data.availableProjects.filter(p => !plan.projects.some(selected => selected.id === p.id && selected.selected));
+  const moveBlock = (id: string, nextDate: string) => {
+    setDragging(null); setDropDate(null);
+    const block = plan.blocks.find(b => b.id === id);
+    if (!block || block.date === nextDate || pending.size || data.connectionError) return;
+    void act('plan', async () => {
+      await save({ ...plan, blocks: plan.blocks.map(b => b.id === id ? { ...b, date: nextDate } : b) });
+      chooseDate(nextDate);
+    });
+  };
+  const dragProps = (id: string) => ({
+    onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (event.button !== 0 || pending.size || data.connectionError) return;
+      suppressClick.current = false;
+      pointer.current = { id, x: event.clientX, y: event.clientY, moved: false };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    onPointerMove: (event: React.PointerEvent) => {
+      const current = pointer.current;
+      if (!current || current.id !== id) return;
+      if (!current.moved && Math.hypot(event.clientX - current.x, event.clientY - current.y) < 6) return;
+      current.moved = true;
+      current.date = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-timeline-date]')?.getAttribute('data-timeline-date') || undefined;
+      setDragging(id); setDropDate(current.date || null);
+    },
+    onPointerUp: () => {
+      const current = pointer.current; pointer.current = null;
+      setDragging(null); setDropDate(null);
+      suppressClick.current = !!current?.moved;
+      if (current?.moved && current.date) moveBlock(id, current.date);
+    },
+    onPointerCancel: () => { pointer.current = null; setDragging(null); setDropDate(null); suppressClick.current = true; },
+  });
   return <section className="projects-timeline" aria-label="Projects Timeline">
     <header className="tl-header"><div><p className="tl-eyebrow">YOUR PROJECTS, IN MOTION</p><h1>Projects Timeline<span className="tl-draft">Draft plan</span></h1><p>Make room for what matters. One clear next step at a time.</p></div><div className="tl-actions"><button disabled={loading || pending.size > 0} onClick={() => void load()}><RefreshCw size={15} className={loading ? 'tl-spin' : ''} />Refresh</button><button onClick={() => setAvailability(structuredClone(plan))}>Availability & targets</button><button disabled={pending.size > 0 || !!data.connectionError} onClick={() => void act('preview', async () => { const result = await request<NonNullable<TimelinePlan['preview']>>('/preview', 'POST'); setData(d => d && { ...d, plan: { ...d.plan, preview: result } }); setShowPreview(true); })}>Review Todoist dates</button></div></header>
     {data.verificationNotice && <div role="status" className="tl-warning"><strong>{data.verificationNotice}</strong></div>}
@@ -125,9 +164,11 @@ export function ProjectsTimeline({ onChanged, onSettings }: { onChanged(): Promi
     {data.warnings.length > 0 && <details className="tl-warning"><summary>Data needs attention · {data.warnings.length} notice{data.warnings.length > 1 ? 's' : ''}</summary>{data.warnings.map(w => <p key={w}>{w}</p>)}</details>}
     <div className="tl-summary"><div><Target size={22} /><span><strong>{selectedProjects.length}</strong>projects in focus</span></div><div><CheckCircle2 size={22} /><span><strong>{total.percent === null ? '—' : `${total.percent}%`}</strong>{total.done} / {total.total} known actionable steps · {total.percent === null ? 'Incomplete data' : 'Actual completion'}</span></div><div><Sun size={22} /><span><strong>{allTasks.filter(t => taskDate(t, plan.timezone) === today && !t.completed).length}</strong>Today · {dayLabel(today)}</span></div><div><Flag size={22} /><span><strong>{priorityProject ? dayLabel(priorityProject.target) : "—"}</strong>Downstairs target{priorityProject?.fallback && ` · ${dayLabel(priorityProject.fallback)} fallback`}</span></div></div>
     <div className="tl-toolbar"><div><button aria-label="Previous 12 days" onClick={() => setRange(addDays(range, -12))}><ChevronLeft size={18} /></button><strong>{dayLabel(range)} — {dayLabel(addDays(range, 11))} {range.slice(0, 4)}</strong><button aria-label="Next 12 days" onClick={() => setRange(addDays(range, 12))}><ChevronRight size={18} /></button></div><div><button onClick={() => chooseDate(today)}><Sun size={14} />Today</button><label>Selected date <input aria-label="Selected date" type="date" value={date} onChange={e => e.target.value && chooseDate(e.target.value)} /></label></div></div>
+    <details className="tl-add-project"><summary>Add projects to timeline</summary><form onSubmit={event => { event.preventDefault(); void act('plan', async () => { const result = await request<TimelineSnapshot>('/projects', 'POST', { projectId, target: projectTarget || addDays(range, 11), revision: plan.revision }); setData(result); setExpanded(previous => new Set([...previous, projectId])); setProjectId(''); setNotice('Project added to the timeline. Expand its tasks to add work blocks.'); }); }}><label>Todoist project<select aria-label="Todoist project" required value={projectId} onChange={e => setProjectId(e.target.value)}><option value="">Choose a project</option>{availableProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>Target date<input aria-label="New project target date" type="date" required value={projectTarget || addDays(range, 11)} onChange={e => setProjectTarget(e.target.value)} /></label><button disabled={!projectId || pending.size > 0 || !!data.connectionError}>Add project</button></form>{!availableProjects.length && <p>All available Todoist projects are already on this timeline.</p>}</details>
+    <p className="tl-footnote">Drag a work block onto a date to move it, keeping its time. Click a block to edit its date or time.</p>
     <div className="tl-scroll" tabIndex={0} role="region" aria-label="Project by day timeline, scroll horizontally">
       <div className="tl-grid" style={{ gridTemplateColumns: 'var(--tl-project-width, 280px) repeat(12, minmax(78px, 1fr))' }}>
-        <div className="tl-corner">PROJECT / ACTUAL PROGRESS</div>{dates.map(d => <button className={`tl-date ${date === d ? 'tl-selected' : ''} ${d === today ? 'tl-is-today' : ''}`} key={d} onClick={() => chooseDate(d)}><span>{dayLabel(d).split(' ')[0]}</span><strong>{Number(d.slice(-2))}</strong>{d === today && <small>Today</small>}</button>)}
+        <div className="tl-corner">PROJECT / ACTUAL PROGRESS</div>{dates.map(d => <button data-timeline-date={d} className={`tl-date ${date === d ? 'tl-selected' : ''} ${d === today ? 'tl-is-today' : ''} ${dropDate === d ? 'tl-drop-target' : ''}`} key={d} onClick={() => chooseDate(d)}><span>{dayLabel(d).split(' ')[0]}</span><strong>{Number(d.slice(-2))}</strong>{d === today && <small>Today</small>}</button>)}
         {selectedProjects.map((p, i) => {
           const projectTasks = tasks.filter(t => t.projectId === p.id);
           const actual = progress(projectTasks, data.historyComplete);
@@ -135,10 +176,11 @@ export function ProjectsTimeline({ onChanged, onSettings }: { onChanged(): Promi
           const state = projectTasks.some(t => t.missing) || !data.historyComplete ? 'Data incomplete' : !actual.total ? 'No tasks' : actual.percent === 100 ? '✓ Complete' : p.target < today ? 'Past target' : projectTasks.some(t => plan.started[t.id] || t.completed) ? 'In progress' : 'Not started';
           return <React.Fragment key={p.id}><button className={`tl-project ${p.priority ? 'tl-priority' : ''}`} style={{ '--lane': `var(--tl-lane-${i % 5})` } as React.CSSProperties} onClick={() => { toggleProject(p.id); document.getElementById(`tl-project-${p.id}`)?.scrollIntoView({ behavior: 'instant', block: 'nearest' }); }} aria-expanded={expanded.has(p.id)}><span className="tl-project-top">{p.priority && <span className="tl-badge"><Flag size={11} />Priority</span>}<span>{state}</span></span><strong>{p.name}</strong><div className="tl-progress-label"><b>{actual.percent === null ? '—' : `${actual.percent}%`}</b><span>{actual.done} / {actual.total} steps{actual.percent === null && ' · incomplete data'}</span></div><progress aria-label={`${p.name} actual completion`} max={100} value={actual.percent ?? undefined} /><small>Target {dayLabel(p.target)}{p.fallback && ` · fallback ${dayLabel(p.fallback)}`}</small><small>{next ? `Next: ${taskMap.get(next.taskId!)?.title} · ${dayLabel(next.date)} ${next.start}` : 'No upcoming scheduled action'}</small></button>{dates.map(d => {
             const dayBlocks = visibleBlocks.filter(b => b.date === d && projectTasks.some(t => t.id === b.taskId));
-            return <button key={d} onClick={() => chooseDate(d)} className={`tl-cell ${date === d ? 'tl-cell-selected' : ''}`} style={{ '--lane': `var(--tl-lane-${i % 5})` } as React.CSSProperties} aria-label={`${p.name}, ${dayLabel(d)}, ${dayBlocks.length} blocks`}>
+            return <div data-timeline-date={d} key={d} className={`tl-cell ${date === d ? 'tl-cell-selected' : ''} ${dropDate === d ? 'tl-drop-target' : ''}`} style={{ '--lane': `var(--tl-lane-${i % 5})` } as React.CSSProperties}>
+              <button className="tl-cell-date" onClick={() => chooseDate(d)} aria-label={`${p.name}, ${dayLabel(d)}, ${dayBlocks.length} blocks`}>View day</button>
               {p.target === d && <span className="tl-target"><Target size={12} />Target</span>}{p.fallback === d && <span className="tl-target">↪ Fallback</span>}
-              {dayBlocks.length > 0 && <span className={`tl-day-block ${dayBlocks.every(b => taskMap.get(b.taskId!)?.completed) ? 'tl-completed-block' : ''}`}><b>{duration(dayBlocks.reduce((sum, b) => sum + b.activeMinutes, 0))}</b><small>{dayBlocks.length} block{dayBlocks.length > 1 ? 's' : ''}</small>{dayBlocks.some(b => plan.started[b.taskId!] && !taskMap.get(b.taskId!)?.completed) && <small>▶ Active</small>}{dayBlocks.every(b => taskMap.get(b.taskId!)?.completed) && <small>✓ Complete</small>}</span>}
-            </button>;
+              {dayBlocks.map(b => <button key={b.id} data-block-id={b.id} {...dragProps(b.id)} disabled={pending.size > 0 || !!data.connectionError} onClick={() => { if (suppressClick.current) { suppressClick.current = false; return; } setEditing({ ...b }); }} title={`${taskMap.get(b.taskId!)?.title} · ${b.start}–${b.end}. Drag to another date or click to edit.`} aria-label={`${taskMap.get(b.taskId!)?.title}, ${d}, ${b.start}–${b.end}. Move or edit block`} className={`tl-day-block ${taskMap.get(b.taskId!)?.completed ? 'tl-completed-block' : ''} ${dragging === b.id ? 'tl-dragging' : ''}`}><b>{duration(b.activeMinutes)}</b><small>{b.start}–{b.end}</small><small className="tl-block-title">{taskMap.get(b.taskId!)?.title}</small>{plan.started[b.taskId!] && !taskMap.get(b.taskId!)?.completed && <small>▶ Active</small>}{taskMap.get(b.taskId!)?.completed && <small>✓ Complete</small>}</button>)}
+            </div>;
           })}</React.Fragment>;
         })}
         <div className="tl-effort-label">Daily active effort · spare capacity</div>{dates.map(d => { const items = plan.blocks.filter(b => b.date === d); const active = items.reduce((s, b) => s + b.activeMinutes, 0); const held = items.reduce((s, b) => s + mins(b.end) - mins(b.start), 0); return <button key={d} className="tl-day-total" onClick={() => chooseDate(d)}><b>{duration(active)}</b><small>{duration(Math.max(0, capacity - held))} spare</small></button>; })}

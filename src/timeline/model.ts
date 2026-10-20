@@ -11,7 +11,7 @@ export type TimelinePlan = {
   occurrences: Record<string, TimelineTask>;
   preview?: { id: string; revision: number; changes: ScheduleChange[] };
 };
-export type TimelineSnapshot = { plan: TimelinePlan; tasks: TimelineTask[]; todayTasks: TimelineTask[]; today: string; historyComplete: boolean; warnings: string[]; fetchedAt: string; connectionError?: string; verificationNotice?: string };
+export type TimelineSnapshot = { plan: TimelinePlan; availableProjects: { id: string; name: string }[]; tasks: TimelineTask[]; todayTasks: TimelineTask[]; today: string; historyComplete: boolean; warnings: string[]; fetchedAt: string; connectionError?: string; verificationNotice?: string };
 export const groupingIds = new Set(seed.tasks.filter(t => t.grouping).map(t => t.id));
 export const initialPlan = (): TimelinePlan => ({ revision: 0, timezone: 'Europe/London', projects: structuredClone(seed.projects), blocks: structuredClone(seed.blocks), windows: [{ name: 'Morning', start: '06:30', end: '09:30', computerOnly: true }, { name: 'Daytime', start: '09:30', end: '15:30', computerOnly: false }, { name: 'Evening', start: '18:00', end: '20:00', computerOnly: false }], computerOnlyDates: ['2026-10-26', '2026-10-29'], started: {}, occurrences: {} });
 export const localDate = (now = new Date(), timezone = 'Europe/London') => new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
@@ -59,7 +59,7 @@ export function reconcile(raw: any[], history: any[], projects: any[], plan: Tim
       list.push(task);
     }
   }
-  return { tasks, todayTasks, today, missingProjects: plan.projects.filter(p => p.selected && !accessible.has(p.id)).map(p => p.name) };
+  return { tasks, todayTasks, today, availableProjects: [...accessible.values()].map(p => ({ id: p.id, name: p.name })).sort((a, b) => a.name.localeCompare(b.name)), missingProjects: plan.projects.filter(p => p.selected && !accessible.has(p.id)).map(p => p.name) };
 }
 
 // Wall-clock values remain local; Intl resolves DST separately for each date.

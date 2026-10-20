@@ -1,6 +1,5 @@
 import 'dotenv/config';
 import { createTimelineRouter } from './server/timeline/timelineRoutes';
-import { initialPlan as initialTimelinePlan } from './src/timeline/model';
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -2483,12 +2482,12 @@ async function startServer() {
 
   app.use('/api/timeline', authMiddleware, createTimelineRouter({
     loadSettings, saveSettings,
-    read: async () => {
+    read: async (selectedProjectIds) => {
       const token = getTodoistToken();
       if (!token) throw Object.assign(new Error('Connect Todoist in Settings → Connections, then retry.'), { status: 400 });
       const projects = await fetchTodoistWithPagination('https://api.todoist.com/api/v1/projects', token);
       const active = await fetchTodoistWithPagination('https://api.todoist.com/api/v1/tasks', token);
-      const selection = new Set(initialTimelinePlan().projects.map(p => p.id));
+      const selection = new Set(selectedProjectIds);
       const selectedProjects = projects.filter(p => selection.has(p.id));
       const history = await getCompletedTasksHistory(token, selectedProjects, true);
       return { projects, active, history: history.items, historyComplete: history.progressScope === 'lifetime' && selectedProjects.length > 0 && selectedProjects.every(p => !!p.created_at) };

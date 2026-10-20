@@ -6,7 +6,7 @@ import { conflicts, dueKey, initialPlan, localDate, reconcile, taskDate, zonedIS
 type Dependencies = {
   now?(): Date;
   loadSettings(): Promise<UserSettings>; saveSettings(settings: UserSettings): Promise<void>;
-  read(): Promise<{ active: any[]; projects: any[]; history: any[]; historyComplete: boolean; verificationNotice?: string }>;
+  read(selectedProjectIds: string[]): Promise<{ active: any[]; projects: any[]; history: any[]; historyComplete: boolean; verificationNotice?: string }>;
   command(taskId: string, action: 'complete' | 'schedule' | 'reopen', payload?: object): Promise<void>;
 };
 export function createTimelineRouter(deps: Dependencies) {
@@ -26,7 +26,7 @@ export function createTimelineRouter(deps: Dependencies) {
     const plan = await getPlan(req);
     let data: Awaited<ReturnType<Dependencies['read']>>;
     let connectionError: string | undefined;
-    try { data = await deps.read(); } catch (error: any) {
+    try { data = await deps.read(plan.projects.filter(p => p.selected).map(p => p.id)); } catch (error: any) {
       connectionError = error.status === 401 ? 'Todoist connection expired. Reconnect in Settings → Connections, then Refresh.' : error.status === 429 ? 'Todoist rate limited this request. Wait before refreshing.' : 'Todoist data unavailable. Retry or reconnect in Settings → Connections.';
       data = { active: [], projects: [], history: [], historyComplete: false };
     }
@@ -51,6 +51,21 @@ export function createTimelineRouter(deps: Dependencies) {
     return data;
   };
   router.get('/', handle(async (req, res) => res.json(await snapshot(req))));
+  router.post('/projects', handle((req, res) => exclusive(async () => {
+    const data = await connectedSnapshot(req);
+    if (req.body.revision !== data.plan.revision) return res.status(409).json({ error: 'Plan changed. Refresh before adding a project.' });
+    const project = data.availableProjects.find(p => p.id === req.body.projectId);
+    if (!project) return res.status(403).json({ error: 'Project is not available in the connected Todoist account.' });
+    const target = req.body.target;
+    if (typeof target !== 'string' || !/^\d{4}-\d\d-\d\d$/.test(target) || Number.isNaN(Date.parse(target)) || new Date(target).toISOString().slice(0, 10) !== target) return res.status(400).json({ error: 'Choose a valid project target date.' });
+    const existing = data.plan.projects.find(p => p.id === project.id);
+    if (existing) existing.selected = true;
+    else data.plan.projects.push({ ...project, target, fallback: null, priority: false, selected: true });
+    data.plan.revision++;
+    delete data.plan.preview;
+    await savePlan(req, data.plan);
+    res.json(await snapshot(req));
+  })));
   router.put('/plan', handle((req, res) => exclusive(async () => {
     const plan = await getPlan(req);
     if (req.body.revision !== plan.revision) return res.status(409).json({ error: 'Plan changed. Refresh before saving.' });

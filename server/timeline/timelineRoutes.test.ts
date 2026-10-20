@@ -12,13 +12,16 @@ async function fixture(run: (f: any) => Promise<void>) {
   let history: any[] = [];
   let fail = false;
   let failRead = false;
+  const selections: string[][] = [];
+  const projects = [...seed.projects.map(p => ({ id: p.id, name: p.name })), { id: 'extra', name: 'Additional project' }, { id: 'inbox', name: 'Renamed Inbox', is_inbox_project: true }, { id: 'archived', name: 'Archived', is_archived: true }];
+  active.push({ id: 'extra-task', content: 'New project task', project_id: 'extra' });
   const calls: any[] = [];
   const app = express(); app.use(express.json());
   app.use((req: any, _res, next) => { req.user = req.headers['x-user'] || 'one'; next(); });
   app.use('/api/timeline', createTimelineRouter({
     now: () => new Date('2026-10-20T09:00:00Z'),
     loadSettings: async () => structuredClone(settings), saveSettings: async s => { settings = structuredClone(s); },
-    read: async () => { if (failRead) throw Object.assign(new Error('Expired credential'), { status: 401 }); return { active, history, projects: seed.projects.map(p => ({ id: p.id, name: p.name })), historyComplete: true }; },
+    read: async ids => { selections.push(ids); if (failRead) throw Object.assign(new Error('Expired credential'), { status: 401 }); return { active, history, projects, historyComplete: true }; },
     command: async (taskId, action, payload: any) => {
       calls.push({ taskId, action, payload });
       if (fail) throw new Error('Controlled Todoist failure');
@@ -36,7 +39,7 @@ async function fixture(run: (f: any) => Promise<void>) {
     const res = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', 'x-user': user }, ...(body ? { body: JSON.stringify(body) } : {}) });
     return { status: res.status, body: await res.json() };
   };
-  try { await run({ req, calls, setFail: (v: boolean) => fail = v, setFailRead: (v: boolean) => failRead = v, active: () => active }); }
+  try { await run({ req, calls, selections, setFail: (v: boolean) => fail = v, setFailRead: (v: boolean) => failRead = v, active: () => active }); }
   finally { await new Promise<void>(r => server.close(() => r())); }
 }
 
@@ -94,5 +97,41 @@ test('expired Todoist connection retains an honest draft and blocks all task wri
   const start = await req(`/tasks/${seed.tasks[0].id}/start`, 'POST');
   assert.equal(start.status, 503); assert.match(start.body.error, /Reconnect/);
   assert.equal((await req('/preview', 'POST')).status, 503);
+  assert.equal(calls.length, 0);
+}));
+
+test('project picker accepts only accessible projects, loads their tasks/history and persists per owner', () => fixture(async ({ req, calls, selections }) => {
+  const before = (await req()).body;
+  assert.ok(before.availableProjects.some(p => p.id === 'extra'));
+  assert.ok(!before.availableProjects.some(p => ['inbox', 'archived'].includes(p.id)));
+  for (const projectId of ['inbox', 'archived', 'foreign']) assert.equal((await req('/projects', 'POST', { projectId, target: '2026-11-30', revision: 0 })).status, 403);
+  assert.equal((await req('/projects', 'POST', { projectId: 'extra', target: '2026-02-30', revision: 0 })).status, 400);
+  const added = await req('/projects', 'POST', { projectId: 'extra', target: '2026-11-30', revision: 0 });
+  assert.equal(added.status, 200);
+  assert.equal(added.body.plan.projects.length, before.plan.projects.length + 1);
+  assert.ok(added.body.tasks.some(t => t.id === 'extra-task'));
+  assert.ok(selections.at(-1).includes('extra'));
+  assert.equal((await req('', 'GET', undefined, 'two')).body.plan.projects.length, before.plan.projects.length);
+  assert.equal((await req('/projects', 'POST', { projectId: 'extra', target: '2026-11-30', revision: 0 })).status, 409);
+  const repeated = await req('/projects', 'POST', { projectId: 'extra', target: '2026-11-30', revision: 1 });
+  assert.equal(repeated.body.plan.projects.length, before.plan.projects.length + 1);
+  assert.equal(calls.length, 0);
+}));
+
+test('moving a block persists its date and preserves time; conflicts and stale moves do not change saved data', () => fixture(async ({ req, calls }) => {
+  await req('/projects', 'POST', { projectId: 'extra', target: '2026-11-30', revision: 0 });
+  let plan = (await req()).body.plan;
+  const block = { id: 'drag-test', taskId: 'extra-task', date: '2026-11-02', start: '10:00', end: '10:30', activeMinutes: 30, kind: 'Computer', note: 'Drag test' };
+  let saved = await req('/plan', 'PUT', { ...plan, blocks: [...plan.blocks, block] });
+  assert.equal(saved.status, 200);
+  plan = saved.body;
+  const moved = { ...plan, blocks: plan.blocks.map(b => b.id === block.id ? { ...b, date: '2026-11-03' } : b) };
+  saved = await req('/plan', 'PUT', moved);
+  assert.equal(saved.status, 200);
+  assert.deepEqual(saved.body.blocks.find(b => b.id === block.id), { ...block, date: '2026-11-03' });
+  assert.equal((await req('/plan', 'PUT', moved)).status, 409);
+  const conflict = { ...saved.body, blocks: [...saved.body.blocks, { ...block, id: 'collision', date: '2026-11-03' }] };
+  assert.equal((await req('/plan', 'PUT', conflict)).status, 409);
+  assert.deepEqual((await req()).body.plan, saved.body);
   assert.equal(calls.length, 0);
 }));

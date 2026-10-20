@@ -355,3 +355,9 @@ All dates are October 2026 in Europe/London. One task may have multiple blocks. 
 | 31 Oct 2026 | 11:00–13:00 | Final catch-up buffer |
 
 Unallocated time is available time, not a requirement to fill every window. Buffer blocks do not count toward task progress or the 76 active-hour estimate.
+
+## Authorized revision — 20 October 2026
+
+Add an existing Todoist project picker above the timeline calendar and move individual work blocks between dates by dragging. Keep Today, Inbox exclusions, task creation, completion and explicit Todoist schedule application unchanged. User explicitly requests a direct production application release and no staging deployment or preview.
+
+Acceptance: accessible non-Inbox projects can be added without duplicates; their tasks and history load; selection persists per owner. Pointer dragging changes only the block date, retaining its time, duration and task. Invalid, overlapping, past or stale changes leave saved data intact. Clicking a block retains keyboard/touch date and time editing.
