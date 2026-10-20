@@ -53,3 +53,17 @@
 - Existing global .dark CSS shares the light palette; timeline inherits existing tokens without redesigning the theme.
 - Settings storage retains the existing single-user concurrency/storage behavior; no distributed transaction system added.
 - Normal app: http://localhost:3000/?view=projects-timeline (usual login; reconnect Todoist). Controlled review: http://localhost:3100/?view=projects-timeline (`npm run preview:timeline`). A fixture preview does not satisfy live-account acceptance.
+
+## Project picker and drag revision — active
+
+- [x] Inspect current code and preserve unrelated work in the original checkout.
+- [x] Add accessible Todoist project picker and selected-project history coverage.
+- [x] Add individual pointer-draggable blocks with existing conflict/revision checks.
+- [x] Targeted tests: 13/13 pass; TypeScript passes.
+- [x] Background browser: add Other project; drag paint-colour block from Oct 20 to Oct 23; reload retains project and move; attempted move to occupied Oct 21 rejects and preserves Oct 23. Controlled fixture only, no real Todoist writes.
+- [ ] Full merged-source lint/build/tests and production preflight.
+- [ ] Direct production immutable release and health/readiness/frontend/traffic verification.
+
+Amber log: normal feature changes in isolated clean checkout; no new dependency/schema/credential; local fixture uses independent port/data directory. Assumptions: add means include existing Todoist projects; dragging preserves time; target defaults to visible range end. Production application deployment explicitly authorized by user; staging prohibited. Live authenticated Todoist actions remain unavailable to automation without user login.
+
+Feature verification: Pass — npm run lint; npm run build; npm test (200/200). Existing bundle-size advisory only. Background browser confirmed picker, pointer drag, persistence and conflict rejection. A transient development hot-reload error occurred between sequential edits and was resolved before verification; final TypeScript and production build pass.

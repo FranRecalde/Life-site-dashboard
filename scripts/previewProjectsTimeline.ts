@@ -8,7 +8,8 @@ import { LocalSettingsStore } from '../server/storage/localSettingsStore';
 import seed from '../src/timeline/seed.json';
 import { localDate } from '../src/timeline/model';
 
-const directory = path.resolve('data/timeline-verification');
+const port = Number(process.env.TIMELINE_PREVIEW_PORT || 3100);
+const directory = path.resolve(`data/timeline-verification-${port}`);
 fs.mkdirSync(directory, { recursive: true });
 const file = path.join(directory, 'tasks.json');
 const store = new LocalSettingsStore(path.join(directory, 'settings.json'));
@@ -54,6 +55,6 @@ app.use('/api/timeline', createTimelineRouter({
 }));
 // Clearly label fixtures inside the app; source component is identical to localhost:3000.
 app.use('/api', (_req, res) => res.json([]));
-const vite = await createViteServer({ server: { middlewareMode: true, hmr: { port: 24679 } }, appType: 'spa' });
+const vite = await createViteServer({ server: { middlewareMode: true, hmr: { port: port + 21000 } }, appType: 'spa' });
 app.use(vite.middlewares);
-app.listen(3100, '127.0.0.1', () => console.log('Controlled fixture preview: http://localhost:3100/?view=projects-timeline — no live Todoist writes'));
+app.listen(port, '127.0.0.1', () => console.log(`Controlled fixture preview: http://localhost:${port}/?view=projects-timeline — no live Todoist writes`));
