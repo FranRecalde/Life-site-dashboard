@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { createTimelineRouter } from './server/timeline/timelineRoutes';
+import { initialPlan as initialTimelinePlan } from './src/timeline/model';
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -1055,7 +1057,8 @@ async function startServer() {
   app.put('/api/settings', authMiddleware, async (req, res) => {
     try {
       const settings = await loadSettings();
-      const updated = { ...settings, ...req.body };
+      const updated = { ...settings, ...req.body, ...(settings.timelineByUser ? { timelineByUser: settings.timelineByUser } : {}) };
+      if (!settings.timelineByUser) delete updated.timelineByUser;
       await saveSettings(updated);
       res.json({ success: true, data: updated });
     } catch (err: any) {
@@ -2478,7 +2481,31 @@ async function startServer() {
   // Todoist Projects Progress Service & Routes
   // -------------------------------------------------------------
 
+  app.use('/api/timeline', authMiddleware, createTimelineRouter({
+    loadSettings, saveSettings,
+    read: async () => {
+      const token = getTodoistToken();
+      if (!token) throw Object.assign(new Error('Connect Todoist in Settings → Connections, then retry.'), { status: 400 });
+      const projects = await fetchTodoistWithPagination('https://api.todoist.com/api/v1/projects', token);
+      const active = await fetchTodoistWithPagination('https://api.todoist.com/api/v1/tasks', token);
+      const selection = new Set(initialTimelinePlan().projects.map(p => p.id));
+      const selectedProjects = projects.filter(p => selection.has(p.id));
+      const history = await getCompletedTasksHistory(token, selectedProjects, true);
+      return { projects, active, history: history.items, historyComplete: history.progressScope === 'lifetime' && selectedProjects.length > 0 && selectedProjects.every(p => !!p.created_at) };
+    },
+    command: async (taskId, action, payload) => {
+      const token = getTodoistToken();
+      if (!token) throw new Error('Connect Todoist in Settings.');
+      const response = await fetch(`https://api.todoist.com/api/v1/tasks/${encodeURIComponent(taskId)}${action === 'complete' ? '/close' : action === 'reopen' ? '/reopen' : ''}`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, ...(payload ? { body: JSON.stringify(payload) } : {}),
+      });
+      if (!response.ok) throw Object.assign(new Error(`Todoist ${response.status}. ${response.status === 429 ? 'Rate limited; wait before retrying.' : 'Refresh or reconnect in Settings, then retry.'}`), { status: response.status });
+      invalidateCompletedTasksCache();
+    },
+  }));
+
   interface CompletedTasksCache {
+    key: string;
     items: any[];
     fetchedAt: number;
     progressScope: "lifetime" | "recent";
@@ -2531,9 +2558,10 @@ async function startServer() {
     return allItems;
   }
 
-  async function getCompletedTasksHistory(token: string, activeProjects: any[]): Promise<{ items: any[]; progressScope: "lifetime" | "recent" }> {
+  async function getCompletedTasksHistory(token: string, activeProjects: any[], force = false): Promise<{ items: any[]; progressScope: "lifetime" | "recent" }> {
     const now = Date.now();
-    if (completedTasksCache && (now - completedTasksCache.fetchedAt < CACHE_DURATION)) {
+    const key = activeProjects.map(p => p.id).sort().join(',');
+    if (!force && completedTasksCache?.key === key && (now - completedTasksCache.fetchedAt < CACHE_DURATION)) {
       return {
         items: completedTasksCache.items,
         progressScope: completedTasksCache.progressScope
@@ -2575,7 +2603,7 @@ async function startServer() {
         since: currentStart.toISOString().replace(/\.\d+Z$/, 'Z'),
         until: currentEnd.toISOString().replace(/\.\d+Z$/, 'Z')
       });
-      currentStart = new Date(currentEnd.getTime() + 1000);
+      currentStart = new Date(currentEnd.getTime()); // API until is exclusive; no gaps between ranges.
     }
 
     let finalRanges = ranges;
@@ -2610,6 +2638,7 @@ async function startServer() {
     }
 
     completedTasksCache = {
+      key,
       items: completedTasks,
       fetchedAt: now,
       progressScope: progressScope

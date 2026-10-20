@@ -4,6 +4,7 @@ export type EntranceHallView =
   | 'rundown'
   | 'tasks'
   | 'projects'
+  | 'projects-timeline'
   | 'notes'
   | 'reading-capture'
   | 'signal'

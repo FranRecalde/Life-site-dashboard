@@ -58,6 +58,7 @@ import { EntranceHallDashboard } from './components/layout/EntranceHallDashboard
 import { ObsidianErrorBox } from './components/feedback/ObsidianErrorBox';
 import { ReadingCaptureWorkspace } from './components/ReadingCaptureWorkspace';
 import { SignalWorkspace } from './components/SignalWorkspace';
+import { ProjectsTimeline } from './components/ProjectsTimeline';
 import {
   DashboardSnapshot,
   UserSettings,
@@ -88,7 +89,7 @@ export default function App() {
   const [layout, setLayout] = useState<LifeSiteLayout>(() => getLayoutFromUrl());
 
   // Entrance Hall Layout State
-  const [entranceHallView, setEntranceHallView] = useState<EntranceHallView>('dashboard');
+  const [entranceHallView, setEntranceHallView] = useState<EntranceHallView>(() => new URLSearchParams(window.location.search).get('view') === 'projects-timeline' ? 'projects-timeline' : 'dashboard');
 
   // Synchronise with browser history back/forward
   useEffect(() => {
@@ -2840,6 +2841,8 @@ export default function App() {
               }}
             />
           )}
+
+          {entranceHallView === 'projects-timeline' && <ProjectsTimeline onChanged={triggerRefresh} onSettings={() => handleEntranceHallViewChange('settings')} />}
 
           {entranceHallView === 'rundown' && <DailyRundown
             tasks={filteredData?.tasks || []} activeContext={activeTab} onContextChange={setActiveTab}

@@ -84,6 +84,7 @@ export type WeatherSnapshot = {
 };
 
 export type UserSettings = {
+  timelineByUser?: Record<string, import('./timeline/model').TimelinePlan>;
   theme: 'light' | 'dark' | 'system';
   refreshIntervalMinutes: number;
   defaultCalendarView: 'day' | 'week' | 'month';
