@@ -361,3 +361,17 @@ Unallocated time is available time, not a requirement to fill every window. Buff
 Add an existing Todoist project picker above the timeline calendar and move individual work blocks between dates by dragging. Keep Today, Inbox exclusions, task creation, completion and explicit Todoist schedule application unchanged. User explicitly requests a direct production application release and no staging deployment or preview.
 
 Acceptance: accessible non-Inbox projects can be added without duplicates; their tasks and history load; selection persists per owner. Pointer dragging changes only the block date, retaining its time, duration and task. Invalid, overlapping, past or stale changes leave saved data intact. Clicking a block retains keyboard/touch date and time editing.
+
+## Timeline usability revision — 22 October 2026
+
+User requirements: make horizontal navigation usable on phones, fix moving individual work blocks between days, retain the two-week view and add day, week and month views. Explain waiting/buffer blocks in the selected-day schedule.
+
+Acceptance: default two-week range contains 14 dates (20 October through 2 November); previous/next and selected-date navigation work beyond month/year boundaries. View selection survives reload. Phone gestures on block content scroll normally, while an explicit grip moves blocks. Mouse drag and click-to-edit remain available. Successful moves retain task, time and duration and survive reload; rejected moves leave the saved plan unchanged and show a reason. All dates remain reachable through scroll controls or date selection.
+
+Assumptions: month means calendar month; week means seven consecutive days starting at the selected date. Scheduling constraints and the explicit Todoist date-application workflow remain unchanged. This revision authorizes local implementation and verification, not a production deployment.
+
+## Direct draft placement correction — 22 October 2026
+
+The user's second recording demonstrates that opening a conflict editor still fails the requested interaction: the box does not move and Save is disabled. For manual draft planning, drops now save to the chosen day while preserving time and duration. Overlap, work-window, computer-only, dependency and target checks remain visible scheduling warnings rather than draft-save blockers. This supersedes the earlier requirement to reject all such manual draft edits. Malformed blocks, invalid estimates, foreign task IDs, stale revisions and scheduling new work in the past remain rejected. Todoist preview/application still requires the complete schedule checks and explicit application action.
+
+Acceptance: the exact Friday 09:30 paint block moves to occupied Saturday 24 October without a modal, persists after reload, and shows nonblocking schedule warnings. The Friday plumber block can likewise move to Sunday beyond its project target. No target, time, duration, other blocks or Todoist dates are silently changed.

@@ -81,7 +81,9 @@ const orderChains = [
   ['6hpVHPcVWmq6c7QQ', '6hpVHPXF5QR5VmMx'], ['6hpVHPcVWmq6c7QQ', '6hpVHPfGCv6HxWXQ'],
   ['6hpVGWrXFW86m2MQ', '6hpVGWxfPQ4hVrCQ', '6hpVGX23fWg6m5cx', '6hpVGWxxQP66gPRx', '6hpVGX5hm65CM3GQ', '6hpVGX4grGp6Pf2Q', '6hpVGX3qmRP9pFcQ'],
 ];
-export function conflicts(plan: TimelinePlan): string[] {
+// Drafts may contain scheduling warnings; malformed records are always rejected.
+// Todoist preview/apply use the default strict schedule checks.
+export function conflicts(plan: TimelinePlan, { schedule = true }: { schedule?: boolean } = {}): string[] {
   const errors: string[] = [];
   const ids = new Set<string>();
   const blocks = [...plan.blocks].sort((a, b) => `${a.date}T${a.start}`.localeCompare(`${b.date}T${b.start}`));
@@ -91,6 +93,7 @@ export function conflicts(plan: TimelinePlan): string[] {
     ids.add(b.id);
     if (!/^\d{4}-\d\d-\d\d$/.test(b.date) || Number.isNaN(Date.parse(b.date)) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(b.start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(b.end) || mins(b.end) <= mins(b.start) || !Number.isFinite(b.activeMinutes) || b.activeMinutes < 0 || b.activeMinutes > mins(b.end) - mins(b.start)) { errors.push(`${tag}: invalid date, time or active estimate`); continue; }
     if (!['Computer', 'In person', 'Visit', 'Teaching', 'Buffer', 'Wait'].includes(b.kind)) errors.push(`${tag}: unknown work type`);
+    if (!schedule) continue;
     // Reservations can include a lunch break; they still block active work.
     if (b.kind !== 'Wait' && !plan.windows.some(w => b.start >= w.start && b.end <= w.end && (!w.computerOnly || b.kind === 'Computer' || b.kind === 'Buffer'))) errors.push(`${tag}: outside a suitable work window`);
     if (plan.computerOnlyDates.includes(b.date) && !['Computer', 'Buffer', 'Wait'].includes(b.kind)) errors.push(`${tag}: computer-only date`);
@@ -100,6 +103,7 @@ export function conflicts(plan: TimelinePlan): string[] {
     if (b.taskId?.startsWith('6hpVPr') && !['2026-10-20', '2026-10-22', '2026-10-24'].includes(b.date)) errors.push(`${tag}: Spanish is only on 20, 22 and 24 October`);
     if (b.taskId?.startsWith('6hpVPr') && (b.start !== '18:00' || b.end !== '18:30')) errors.push(`${tag}: Spanish is 18:00–18:30`);
   }
+  if (!schedule) return errors;
   for (let i = 0; i < blocks.length; i++) for (let j = i + 1; j < blocks.length && blocks[j].date === blocks[i].date; j++) {
     if (blocks[j].start < blocks[i].end && blocks[i].start < blocks[j].end) errors.push(`${blocks[i].date}: ${blocks[i].start}–${blocks[i].end} (${blocks[i].taskId || blocks[i].note}) overlaps ${blocks[j].start}–${blocks[j].end} (${blocks[j].taskId || blocks[j].note})`);
   }

@@ -80,12 +80,12 @@ test('preview never writes, stale due rejects, partial failures retry without re
   assert.ok(nextPreview.changes.every(c => c.taskId === staleId));
   assert.equal((await req('/apply', 'POST', { previewId: 'forged' })).status, 409);
 }));
-test('draft writes reject stale revisions, conflicts and foreign task IDs', () => fixture(async ({ req }) => {
+test('draft writes reject stale revisions, malformed records and foreign task IDs', () => fixture(async ({ req }) => {
   const plan = (await req()).body.plan;
   assert.equal((await req('/plan', 'PUT', { ...plan, revision: -1 })).status, 409);
   const bad = { ...plan, blocks: [...plan.blocks, { ...plan.blocks[0], id: 'new', taskId: 'foreign', date: '2027-01-01' }] };
   assert.equal((await req('/plan', 'PUT', bad)).status, 403);
-  assert.equal((await req('/plan', 'PUT', { ...plan, blocks: [...plan.blocks, { ...plan.blocks[0], id: 'dup' }] })).status, 409);
+  assert.equal((await req('/plan', 'PUT', { ...plan, blocks: [...plan.blocks, { ...plan.blocks[0] }] })).status, 409);
 }));
 test('expired Todoist connection retains an honest draft and blocks all task writes', () => fixture(async ({ req, setFailRead, calls }) => {
   setFailRead(true);
@@ -118,7 +118,7 @@ test('project picker accepts only accessible projects, loads their tasks/history
   assert.equal(calls.length, 0);
 }));
 
-test('moving a block persists its date and preserves time; conflicts and stale moves do not change saved data', () => fixture(async ({ req, calls }) => {
+test('draft moves persist even with overlap warnings; stale moves and Todoist apply stay protected', () => fixture(async ({ req, calls }) => {
   await req('/projects', 'POST', { projectId: 'extra', target: '2026-11-30', revision: 0 });
   let plan = (await req()).body.plan;
   const block = { id: 'drag-test', taskId: 'extra-task', date: '2026-11-02', start: '10:00', end: '10:30', activeMinutes: 30, kind: 'Computer', note: 'Drag test' };
@@ -131,7 +131,29 @@ test('moving a block persists its date and preserves time; conflicts and stale m
   assert.deepEqual(saved.body.blocks.find(b => b.id === block.id), { ...block, date: '2026-11-03' });
   assert.equal((await req('/plan', 'PUT', moved)).status, 409);
   const conflict = { ...saved.body, blocks: [...saved.body.blocks, { ...block, id: 'collision', date: '2026-11-03' }] };
-  assert.equal((await req('/plan', 'PUT', conflict)).status, 409);
-  assert.deepEqual((await req()).body.plan, saved.body);
+  const overlapping = await req('/plan', 'PUT', conflict);
+  assert.equal(overlapping.status, 200);
+  assert.deepEqual((await req()).body.plan, overlapping.body);
+  const preview = await req('/preview', 'POST');
+  assert.equal(preview.status, 409); assert.match(preview.body.error, /overlaps/);
+  assert.equal((await req('/apply', 'POST', { previewId: 'old-preview' })).status, 409);
+  assert.equal(calls.length, 0);
+}));
+
+test('clip regression: painting and plumber blocks can be dropped onto occupied days beyond targets', () => fixture(async ({ req, calls }) => {
+  let plan = (await req()).body.plan;
+  for (const [id, date] of [['6hpVFvV7hhgVV6cV-1', '2026-10-24'], ['6hpVFwP6HVQQWgc3-0', '2026-10-25']]) {
+    // Paint has split blocks; choose its Friday occurrence by task identity.
+    const source = id.startsWith('6hpVFvV7') ? plan.blocks.find(b => b.taskId === '6hpVFvV7hhgVV6cV' && b.date === '2026-10-23') : plan.blocks.find(b => b.id === id);
+    assert.ok(source);
+    const result = await req('/plan', 'PUT', { ...plan, blocks: plan.blocks.map(b => b.id === source.id ? { ...b, date } : b) });
+    assert.equal(result.status, 200);
+    plan = result.body;
+    assert.deepEqual(plan.blocks.find(b => b.id === source.id), { ...source, date });
+    assert.equal((await req()).body.plan.blocks.find(b => b.id === source.id).date, date);
+  }
+  assert.equal((await req('/preview', 'POST')).status, 409);
+  const bad = { ...plan, blocks: plan.blocks.map((b, i) => i === 0 ? { ...b, activeMinutes: -1 } : b) };
+  assert.equal((await req('/plan', 'PUT', bad)).status, 409);
   assert.equal(calls.length, 0);
 }));
