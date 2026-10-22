@@ -84,7 +84,7 @@ export function createTimelineRouter(deps: Dependencies) {
     }
     const next = { ...plan, blocks, windows, computerOnlyDates, projects: projects.map((p, i) => ({ ...plan.projects[i], target: p.target, selected: p.selected })), revision: plan.revision + 1 };
     delete next.preview;
-    const errors = conflicts(next);
+    const errors = conflicts(next, { schedule: false });
     if (errors.length) return res.status(409).json({ error: errors.join('\n') });
     await savePlan(req, next);
     res.json(next);
