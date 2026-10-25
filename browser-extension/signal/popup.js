@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const origin = $('origin'), token = $('token'), text = $('text'), status = $('status'), retry = $('retry');
 const saved = await chrome.storage.local.get(['signalApiOrigin', 'signalCaptureToken', 'signalFailedCapture']);
-origin.value = saved.signalApiOrigin || 'http://localhost:3000'; token.value = saved.signalCaptureToken || ''; retry.hidden = !saved.signalFailedCapture;
+origin.value = saved.signalApiOrigin || 'https://life-site-dashboard-708819606972.europe-west2.run.app'; token.value = saved.signalCaptureToken || ''; retry.hidden = !saved.signalFailedCapture;
 const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 function message(value, ok = false) { status.textContent = value; status.className = ok ? 'success' : 'error'; }
 async function submit(payload) {
