@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
+import seed from '../../src/timeline/seed.json';
 import { UserSettings } from '../../src/types';
 import { conflicts, dueKey, initialPlan, localDate, reconcile, taskDate, zonedISO, type TimelinePlan, type TimelineSnapshot, type TimelineTask } from '../../src/timeline/model';
 
@@ -7,6 +8,7 @@ type Dependencies = {
   now?(): Date;
   loadSettings(): Promise<UserSettings>; saveSettings(settings: UserSettings): Promise<void>;
   read(selectedProjectIds: string[]): Promise<{ active: any[]; projects: any[]; history: any[]; historyComplete: boolean; verificationNotice?: string }>;
+  deleteProject(projectId: string): Promise<void>;
   command(taskId: string, action: 'complete' | 'schedule' | 'reopen', payload?: object): Promise<void>;
 };
 export function createTimelineRouter(deps: Dependencies) {
@@ -51,6 +53,43 @@ export function createTimelineRouter(deps: Dependencies) {
     return data;
   };
   router.get('/', handle(async (req, res) => res.json(await snapshot(req))));
+  router.delete('/projects/:id', handle((req, res) => exclusive(async () => {
+    const plan = await getPlan(req);
+    const project = plan.projects.find(p => p.id === req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project unavailable in this timeline.' });
+    if (req.body.confirmName !== project.name || req.body.revision !== plan.revision) return res.status(409).json({ error: 'Project or plan changed. Refresh and confirm deletion again.' });
+    // A successful fresh read is required, including when retrying local cleanup.
+    const data = await deps.read(plan.projects.map(p => p.id));
+    const remote = data.projects.find(p => p.id === project.id);
+    if (remote && (remote.is_inbox_project || remote.inbox_project || remote.is_inbox)) return res.status(403).json({ error: 'The Todoist Inbox cannot be deleted.' });
+    if (data.projects.some(p => p.parent_id === project.id)) return res.status(409).json({ error: 'This project contains subprojects. Delete or move them in Todoist first, then retry.' });
+    const taskIds = new Set([
+      ...(plan.deletionTaskIds?.[project.id] || []),
+      ...data.active.filter(t => t.project_id === project.id).map(t => t.id),
+      ...data.history.filter(t => t.project_id === project.id).map(t => t.task_id || t.id),
+      ...seed.tasks.filter(t => t.projectId === project.id).map(t => t.id),
+      ...Object.values(plan.occurrences).filter(t => t.projectId === project.id).map(t => t.id),
+    ]);
+    if (remote) {
+      // Save task ownership before the irreversible write so cleanup survives lost
+      // responses or a later storage outage, including tasks absent from the seed.
+      plan.deletionTaskIds = { ...plan.deletionTaskIds, [project.id]: [...taskIds] };
+      await savePlan(req, plan);
+      await deps.deleteProject(project.id);
+    }
+    if (plan.deletionTaskIds) {
+      delete plan.deletionTaskIds[project.id];
+      if (!Object.keys(plan.deletionTaskIds).length) delete plan.deletionTaskIds;
+    }
+    plan.projects = plan.projects.filter(p => p.id !== project.id);
+    plan.blocks = plan.blocks.filter(b => !b.taskId || !taskIds.has(b.taskId));
+    for (const id of taskIds) delete plan.started[id];
+    plan.occurrences = Object.fromEntries(Object.entries(plan.occurrences).filter(([, t]) => t.projectId !== project.id));
+    delete plan.preview;
+    plan.revision++;
+    try { await savePlan(req, plan); } catch { return res.status(503).json({ error: 'Todoist project deleted, but saving timeline cleanup failed. Retry Delete project to finish removing its saved schedule.' }); }
+    res.json({ deleted: true, plan });
+  })));
   router.post('/projects', handle((req, res) => exclusive(async () => {
     const data = await connectedSnapshot(req);
     if (req.body.revision !== data.plan.revision) return res.status(409).json({ error: 'Plan changed. Refresh before adding a project.' });
