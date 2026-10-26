@@ -23,7 +23,7 @@ baseTasks[0].due = { date: localDate() };
 baseTasks.push({ id: 'fixture-today', content: 'Review today’s priorities', project_id: 'fixture-other', labels: ['personal'], due: { date: localDate() } });
 baseTasks.push({ id: 'fixture-recurring', content: 'Daily planning check', project_id: 'fixture-other', labels: [], due: { date: localDate(), is_recurring: true } });
 baseTasks.push({ id: 'fixture-inbox', content: 'THIS INBOX TASK MUST NEVER APPEAR', project_id: 'fixture-inbox', due: { date: localDate() } });
-const state: { active: any[]; history: any[] } = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { active: baseTasks, history: [] };
+const state: { active: any[]; history: any[]; deletedProjects?: string[] } = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { active: baseTasks, history: [] };
 const persist = () => fs.writeFileSync(file, JSON.stringify(state));
 let failNext = false;
 const projects = [...seed.projects.map(p => ({ id: p.id, name: p.name, created_at: '2026-10-20T00:00:00Z' })), { id: 'fixture-other', name: 'Other project' }, { id: 'fixture-inbox', name: 'Renamed Inbox', is_inbox_project: true }];
@@ -37,7 +37,14 @@ app.get('/api/habits', (_req, res) => res.json([]));
 app.post('/api/verification/fail-next', (_req, res) => { failNext = true; res.json({ fixture: true }); });
 app.use('/api/timeline', createTimelineRouter({
   loadSettings: async () => store.loadSettings(), saveSettings: s => store.saveSettings(s),
-  read: async () => ({ ...state, projects, historyComplete: true, verificationNotice: 'LOCAL VERIFICATION FIXTURE · This is the existing app with controlled test data. Actions here never change your real Todoist account.' }),
+  read: async () => ({ ...state, projects: projects.filter(p => !state.deletedProjects?.includes(p.id)), historyComplete: true, verificationNotice: 'LOCAL VERIFICATION FIXTURE · This is the existing app with controlled test data. Actions here never change your real Todoist account.' }),
+  deleteProject: async id => {
+    if (failNext) { failNext = false; throw new Error('Controlled Todoist deletion failure. No project was changed. Retry.'); }
+    state.deletedProjects = [...(state.deletedProjects || []), id];
+    state.active = state.active.filter(t => t.project_id !== id);
+    state.history = state.history.filter(t => t.project_id !== id);
+    persist();
+  },
   command: async (id, action, payload: any) => {
     if (failNext) { failNext = false; throw new Error('Controlled Todoist failure. No task was changed. Retry.'); }
     const task = state.active.find(t => t.id === id);

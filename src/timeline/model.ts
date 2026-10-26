@@ -7,6 +7,7 @@ export type ScheduleChange = { taskId: string; title: string; oldDue: string; ne
 export type TimelinePlan = {
   revision: number; timezone: string; projects: ProjectPlan[]; blocks: WorkBlock[];
   windows: { name: string; start: string; end: string; computerOnly: boolean }[];
+  deletionTaskIds?: Record<string, string[]>;
   computerOnlyDates: string[]; started: Record<string, boolean>;
   occurrences: Record<string, TimelineTask>;
   preview?: { id: string; revision: number; changes: ScheduleChange[] };

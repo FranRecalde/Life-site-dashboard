@@ -12,16 +12,26 @@ async function fixture(run: (f: any) => Promise<void>) {
   let history: any[] = [];
   let fail = false;
   let failRead = false;
+  let failSave = false;
+  let failSaveAfterDelete = false;
   const selections: string[][] = [];
-  const projects = [...seed.projects.map(p => ({ id: p.id, name: p.name })), { id: 'extra', name: 'Additional project' }, { id: 'inbox', name: 'Renamed Inbox', is_inbox_project: true }, { id: 'archived', name: 'Archived', is_archived: true }];
+  let projects: any[] = [...seed.projects.map(p => ({ id: p.id, name: p.name })), { id: 'extra', name: 'Additional project' }, { id: 'inbox', name: 'Renamed Inbox', is_inbox_project: true }, { id: 'archived', name: 'Archived', is_archived: true }];
   active.push({ id: 'extra-task', content: 'New project task', project_id: 'extra' });
   const calls: any[] = [];
   const app = express(); app.use(express.json());
   app.use((req: any, _res, next) => { req.user = req.headers['x-user'] || 'one'; next(); });
   app.use('/api/timeline', createTimelineRouter({
     now: () => new Date('2026-10-20T09:00:00Z'),
-    loadSettings: async () => structuredClone(settings), saveSettings: async s => { settings = structuredClone(s); },
+    loadSettings: async () => structuredClone(settings), saveSettings: async s => { if (failSave) throw new Error('Controlled save failure'); settings = structuredClone(s); },
     read: async ids => { selections.push(ids); if (failRead) throw Object.assign(new Error('Expired credential'), { status: 401 }); return { active, history, projects, historyComplete: true }; },
+    deleteProject: async projectId => {
+      calls.push({ projectId, action: 'deleteProject' });
+      if (fail) throw new Error('Controlled Todoist failure');
+      projects = projects.filter(p => p.id !== projectId);
+      active = active.filter(t => t.project_id !== projectId);
+      history = history.filter(t => t.project_id !== projectId);
+      if (failSaveAfterDelete) failSave = true;
+    },
     command: async (taskId, action, payload: any) => {
       calls.push({ taskId, action, payload });
       if (fail) throw new Error('Controlled Todoist failure');
@@ -39,7 +49,7 @@ async function fixture(run: (f: any) => Promise<void>) {
     const res = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', 'x-user': user }, ...(body ? { body: JSON.stringify(body) } : {}) });
     return { status: res.status, body: await res.json() };
   };
-  try { await run({ req, calls, selections, setFail: (v: boolean) => fail = v, setFailRead: (v: boolean) => failRead = v, active: () => active }); }
+  try { await run({ req, calls, selections, setFail: (v: boolean) => fail = v, setFailRead: (v: boolean) => failRead = v, active: () => active, projects: () => projects, setFailSave: (v: boolean) => failSave = v, setFailSaveAfterDelete: (v: boolean) => failSaveAfterDelete = v, setPlan: (plan: any) => { const key = Object.keys(settings.timelineByUser || {})[0]; if (key) settings.timelineByUser[key] = plan; }, settings: () => settings }); }
   finally { await new Promise<void>(r => server.close(() => r())); }
 }
 
@@ -156,4 +166,81 @@ test('clip regression: painting and plumber blocks can be dropped onto occupied 
   const bad = { ...plan, blocks: plan.blocks.map((b, i) => i === 0 ? { ...b, activeMinutes: -1 } : b) };
   assert.equal((await req('/plan', 'PUT', bad)).status, 409);
   assert.equal(calls.length, 0);
+}));
+
+test('project deletion rejects invalid targets/confirmation/revision and protects Inbox and subprojects', () => fixture(async ({ req, calls, projects }) => {
+  const plan = (await req()).body.plan;
+  const p = plan.projects[0];
+  const body = { revision: plan.revision, confirmName: p.name };
+  const path = `/projects/${p.id}`;
+  assert.equal((await req('/projects/foreign', 'DELETE', body)).status, 404);
+  assert.equal((await req(path, 'DELETE', { ...body, confirmName: 'wrong' })).status, 409);
+  assert.equal((await req(path, 'DELETE', { ...body, revision: -1 })).status, 409);
+  projects()[0].is_inbox_project = true;
+  assert.equal((await req(path, 'DELETE', body)).status, 403);
+  delete projects()[0].is_inbox_project;
+  projects().push({ id: 'child', parent_id: p.id, name: 'Child' });
+  assert.equal((await req(path, 'DELETE', body)).status, 409);
+  assert.equal(calls.length, 0);
+}));
+
+test('project deletion removes completed project, blocks, starts, occurrences and preview; preserves others across reads', () => fixture(async ({ req, calls }) => {
+  let snapshot = (await req()).body;
+  const p = snapshot.plan.projects[0];
+  const ids = seed.tasks.filter(t => t.projectId === p.id).map(t => t.id);
+  await req(`/tasks/${ids[0]}/start`, 'POST');
+  for (const id of ids) await req(`/tasks/${id}/complete`, 'POST');
+  await req('/preview', 'POST');
+  snapshot = (await req()).body;
+  const before = snapshot.plan;
+  const result = await req(`/projects/${p.id}`, 'DELETE', { revision: before.revision, confirmName: p.name });
+  assert.equal(result.status, 200);
+  for (let i = 0; i < 2; i++) {
+    const after = (await req()).body;
+    assert.deepEqual(after.plan.projects, before.projects.filter(v => v.id !== p.id));
+    assert.deepEqual(after.plan.blocks, before.blocks.filter(b => !ids.includes(b.taskId)));
+    assert.ok(!after.tasks.some(t => t.projectId === p.id));
+    assert.ok(ids.every(id => !(id in after.plan.started)));
+    assert.equal(after.plan.preview, undefined);
+    assert.equal(after.plan.revision, before.revision + 1);
+  }
+  assert.equal(calls.filter(c => c.action === 'deleteProject').length, 1);
+  assert.equal((await req(`/projects/${p.id}`, 'DELETE', { revision: before.revision, confirmName: p.name })).status, 404);
+}));
+
+test('remote failure and unavailable connection preserve plan; partial local failure retries without another remote delete', () => fixture(async ({ req, calls, setFail, setFailRead, setFailSave, setFailSaveAfterDelete, active, setPlan, settings }) => {
+  const before = (await req()).body.plan;
+  const p = before.projects[1];
+  // Materialize a plan and include a task created after the static seed.
+  await req(`/tasks/${seed.tasks.find(t => t.projectId === p.id)!.id}/start`, 'POST');
+  const saved = (await req()).body.plan;
+  saved.blocks.push({ ...saved.blocks[0], id: 'dynamic-block', taskId: 'dynamic-task' });
+  saved.occurrences['2026-10-20:dynamic-task'] = { id: 'dynamic-task', projectId: p.id };
+  active().push({ id: 'dynamic-task', project_id: p.id, content: 'New task' });
+  setPlan(saved);
+  const body = { revision: saved.revision, confirmName: p.name };
+  const path = `/projects/${p.id}`;
+  setFailRead(true);
+  assert.equal((await req(path, 'DELETE', body)).status, 401);
+  assert.equal(calls.length, 0);
+  setFailRead(false); setFail(true);
+  assert.equal((await req(path, 'DELETE', body)).status, 500);
+  const retained = (await req()).body.plan;
+  assert.deepEqual(retained.blocks, saved.blocks);
+  assert.deepEqual(retained.projects, saved.projects);
+  setFail(false); setFailSave(true); calls.length = 0;
+  assert.equal((await req(path, 'DELETE', body)).status, 500);
+  assert.equal(calls.length, 0);
+  setFailSave(false); setFailSaveAfterDelete(true);
+  const partial = await req(path, 'DELETE', body);
+  assert.equal(partial.status, 503);
+  assert.match(partial.body.error, /Todoist project deleted/);
+  setFailSave(false);
+  assert.equal((await req(path, 'DELETE', body)).status, 200);
+  assert.equal(calls.filter(c => c.action === 'deleteProject').length, 1);
+  const after = (await req()).body.plan;
+  assert.ok(!after.projects.some(v => v.id === p.id));
+  assert.ok(!after.blocks.some(b => b.taskId === 'dynamic-task'));
+  assert.equal(after.occurrences['2026-10-20:dynamic-task'], undefined);
+  assert.equal(after.deletionTaskIds, undefined);
 }));

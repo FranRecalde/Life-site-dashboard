@@ -2482,6 +2482,16 @@ async function startServer() {
 
   app.use('/api/timeline', authMiddleware, createTimelineRouter({
     loadSettings, saveSettings,
+    deleteProject: async projectId => {
+      const token = getTodoistToken();
+      if (!token) throw new Error('Connect Todoist in Settings.');
+      const response = await fetch(`https://api.todoist.com/api/v1/projects/${encodeURIComponent(projectId)}`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+      });
+      // Already absent is safe when retrying after a lost acknowledgement.
+      if (!response.ok && response.status !== 404) throw Object.assign(new Error(`Todoist ${response.status}. Project deletion failed; retry after refreshing or reconnecting.`), { status: response.status });
+      invalidateCompletedTasksCache();
+    },
     read: async (selectedProjectIds) => {
       const token = getTodoistToken();
       if (!token) throw Object.assign(new Error('Connect Todoist in Settings → Connections, then retry.'), { status: 400 });
