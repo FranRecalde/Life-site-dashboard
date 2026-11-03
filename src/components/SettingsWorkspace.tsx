@@ -382,7 +382,7 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                   <div className="flex justify-between items-center">
                     <span>Google Calendar Status:</span>
                     <span className={`font-semibold font-mono uppercase ${connectionsStatus.googleConnected === 'connected' ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'}`}>
-                      {connectionsStatus.googleConnected === 'connected' ? 'Connected' : 'Disconnected'}
+                      {connectionsStatus.googleConnected === 'connected' ? 'Token saved' : 'No token saved'}
                     </span>
                   </div>
                   {connectionsStatus.googleConnected === 'connected' && !connectionsStatus.googleWriteAuthorized && (
@@ -410,10 +410,12 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                 </div>
               )}
 
-              <form onSubmit={handleSaveConnections} className="space-y-3 pt-2">
+              <form autoComplete="off" onSubmit={handleSaveConnections} className="space-y-3 pt-2">
                 <div>
-                  <label className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase">Todoist API token</label>
+                  <label htmlFor="connections-todoist-token" className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase">Todoist API token</label>
                   <input
+                    id="connections-todoist-token"
+                    autoComplete="off"
                     type="password"
                     value={secretsForm.todoistToken}
                     onChange={(e) => setSecretsForm(prev => ({ ...prev, todoistToken: e.target.value }))}
@@ -424,8 +426,16 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase">Google Client ID</label>
+                    <label htmlFor="connections-google-client-id" className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase">Google Client ID</label>
+                    <p id="saved-google-client-id" className="text-[10px] text-[var(--color-secondary)] font-mono">
+                      {connectionsStatus?.googleClientIdPrefix ? `Saved ID: ${connectionsStatus.googleClientIdPrefix}…` : 'No saved Client ID'}
+                    </p>
                     <input
+                      id="connections-google-client-id"
+                      autoComplete="off"
+                      aria-describedby="saved-google-client-id"
+                      pattern={'\\s*[^\\s]+\\.apps\\.googleusercontent\\.com\\s*'}
+                      title="Google Client ID must end in .apps.googleusercontent.com. Copy the full Client ID from Google Cloud."
                       type="text"
                       value={secretsForm.googleClientId}
                       onChange={(e) => setSecretsForm(prev => ({ ...prev, googleClientId: e.target.value }))}
@@ -434,8 +444,10 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase">Google Client Secret</label>
+                    <label htmlFor="connections-google-client-secret" className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase">Google Client Secret</label>
                     <input
+                      id="connections-google-client-secret"
+                      autoComplete="off"
                       type="password"
                       value={secretsForm.googleClientSecret}
                       onChange={(e) => setSecretsForm(prev => ({ ...prev, googleClientSecret: e.target.value }))}
@@ -501,8 +513,10 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase">Obsidian API Key</label>
+                      <label htmlFor="connections-obsidian-key" className="block text-[10px] font-semibold text-[var(--color-secondary)] uppercase">Obsidian API Key</label>
                       <input
+                        id="connections-obsidian-key"
+                        autoComplete="off"
                         type="password"
                         value={obsidianApiKeyInput}
                         onChange={(e) => handleObsidianApiKeyChange(e.target.value)}

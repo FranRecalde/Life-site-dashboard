@@ -38,6 +38,8 @@ import {
   buildGoogleAuthorizationUrl,
   buildGoogleRefreshTokenBody,
   buildGoogleTokenExchangeBody,
+  getGoogleConnectionSummary,
+  parseGoogleClientIdUpdate,
   createSignedGoogleOAuthState,
   isUsableGoogleOAuthSession,
   persistGoogleOAuthAuthorization,
@@ -1105,10 +1107,7 @@ async function startServer() {
       data: {
         todoistToken: secrets.todoistToken ? 'configured' : 'not_configured',
         todoistConfigured: !!getTodoistToken(),
-        googleClientId: secrets.googleClientId ? 'configured' : 'not_configured',
-        googleClientSecret: secrets.googleClientSecret ? 'configured' : 'not_configured',
-        googleConnected: secrets.googleRefreshToken ? 'connected' : 'disconnected',
-        googleWriteAuthorized: !!secrets.googleWriteAuthorized
+        ...getGoogleConnectionSummary(secrets),
       }
     });
   });
@@ -1149,6 +1148,13 @@ async function startServer() {
         return res.json({ success: true, message: 'Todoist token removed successfully.' });
       }
 
+      let updatedClientId: string | undefined;
+      try {
+        updatedClientId = parseGoogleClientIdUpdate(googleClientId);
+      } catch (err: any) {
+        return res.status(400).json({ success: false, error: err.message });
+      }
+
       if (todoistToken !== undefined) {
         const lowerToken = todoistToken.trim().toLowerCase();
         if (lowerToken !== '' && lowerToken !== 'configured' && lowerToken !== 'not_configured') {
@@ -1158,14 +1164,7 @@ async function startServer() {
           secrets.todoistToken = '';
         }
       }
-      if (googleClientId !== undefined) {
-        const lowerClientId = googleClientId.trim().toLowerCase();
-        if (lowerClientId !== '' && lowerClientId !== 'configured' && lowerClientId !== 'not_configured') {
-          secrets.googleClientId = googleClientId.trim();
-        } else if (googleClientId === '') {
-          secrets.googleClientId = '';
-        }
-      }
+      if (updatedClientId !== undefined) secrets.googleClientId = updatedClientId;
       if (googleClientSecret !== undefined) {
         const lowerSecret = googleClientSecret.trim().toLowerCase();
         if (lowerSecret !== '' && lowerSecret !== 'configured' && lowerSecret !== 'not_configured') {
