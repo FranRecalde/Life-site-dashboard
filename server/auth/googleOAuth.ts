@@ -1,6 +1,29 @@
 import crypto from 'crypto';
 import type { SecretStore } from '../storage/secretStore';
 
+export function parseGoogleClientIdUpdate(value: unknown): string | undefined {
+  if (value === undefined || (typeof value === 'string' && value.trim() === '')) return undefined;
+  if (typeof value !== 'string' || !/^[^\s]+\.apps\.googleusercontent\.com$/.test(value.trim())) {
+    throw new Error('Google Client ID must end in .apps.googleusercontent.com. Copy the full Client ID from Google Cloud.');
+  }
+  return value.trim();
+}
+
+export function getGoogleConnectionSummary(secrets: {
+  googleClientId: string;
+  googleClientSecret: string;
+  googleRefreshToken: string;
+  googleWriteAuthorized?: boolean;
+}) {
+  return {
+    googleClientId: secrets.googleClientId ? 'configured' : 'not_configured',
+    googleClientIdPrefix: secrets.googleClientId.trim().slice(0, 12),
+    googleClientSecret: secrets.googleClientSecret ? 'configured' : 'not_configured',
+    googleConnected: secrets.googleRefreshToken ? 'connected' : 'disconnected',
+    googleWriteAuthorized: !!secrets.googleWriteAuthorized,
+  };
+}
+
 export const GOOGLE_OAUTH_CALLBACK_PATH = '/api/auth/google/callback';
 export const GOOGLE_OAUTH_PRODUCTION_ORIGIN =
   'https://life-site-dashboard-708819606972.europe-west2.run.app';

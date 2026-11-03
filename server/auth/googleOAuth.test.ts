@@ -4,6 +4,8 @@ import {
   buildGoogleAuthorizationUrl,
   buildGoogleRefreshTokenBody,
   buildGoogleTokenExchangeBody,
+  getGoogleConnectionSummary,
+  parseGoogleClientIdUpdate,
   createSignedGoogleOAuthState,
   GOOGLE_OAUTH_CALLBACK_PATH,
   GOOGLE_OAUTH_PRODUCTION_ORIGIN,
@@ -17,6 +19,37 @@ import {
   validateSignedGoogleOAuthState,
 } from './googleOAuth';
 import type { SecretStore } from '../storage/secretStore';
+
+test('Google client ID updates reject autofilled names and malformed input, and trim valid IDs', () => {
+  for (const value of ['Francisco', 'configured', '123.apps.googleusercontent.com.evil', 'x y.apps.googleusercontent.com', null, 123, {}]) {
+    assert.throws(() => parseGoogleClientIdUpdate(value), /Google Client ID must end in \.apps\.googleusercontent\.com/);
+  }
+  assert.strictEqual(parseGoogleClientIdUpdate('  123-example.apps.googleusercontent.com\n'), '123-example.apps.googleusercontent.com');
+});
+
+test('blank or omitted client ID updates preserve the saved ID when saving other credentials', () => {
+  for (const value of [undefined, '', ' \t\n']) {
+    assert.strictEqual(parseGoogleClientIdUpdate(value), undefined);
+  }
+});
+
+test('connection summary exposes only the saved ID prefix and credential-presence markers', () => {
+  const id = '397169406918-stored-client.apps.googleusercontent.com';
+  const summary = getGoogleConnectionSummary({
+    googleClientId: id,
+    googleClientSecret: 'private-client-secret',
+    googleRefreshToken: 'private-refresh-token',
+  });
+  assert.strictEqual(summary.googleClientIdPrefix, '397169406918');
+  assert.strictEqual(summary.googleClientIdPrefix.length, 12);
+  assert.strictEqual(summary.googleConnected, 'connected');
+  for (const value of [id, 'private-client-secret', 'private-refresh-token']) {
+    assert.strictEqual(JSON.stringify(summary).includes(value), false);
+  }
+  const empty = getGoogleConnectionSummary({ googleClientId: '', googleClientSecret: '', googleRefreshToken: '' });
+  assert.strictEqual(empty.googleClientIdPrefix, '');
+  assert.strictEqual(empty.googleConnected, 'disconnected');
+});
 
 const productionHost = new URL(GOOGLE_OAUTH_PRODUCTION_ORIGIN).hostname;
 const stagingHost = new URL(GOOGLE_OAUTH_STAGING_ORIGIN).hostname;
