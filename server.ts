@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { createTodoistCardRouter } from './server/todoist/cardRoutes';
 import { createTimelineRouter } from './server/timeline/timelineRoutes';
 import express from 'express';
 import path from 'path';
@@ -1602,6 +1603,12 @@ async function startServer() {
     }
   }
 
+  app.use('/api/todoist/card', authMiddleware, createTodoistCardRouter({
+    configured: () => !!getTodoistToken(),
+    tasks: fetchTodoistTasks,
+    projects: () => fetchTodoistWithPagination('https://api.todoist.com/api/v1/projects', getTodoistToken()),
+  }));
+
   app.get('/api/tasks', authMiddleware, async (req, res) => {
     try {
       const tasks = await fetchTodoistTasks();
@@ -2077,6 +2084,7 @@ async function startServer() {
     try {
       const response = await fetch(`https://api.todoist.com/api/v1/tasks/${taskId}/close`, {
         method: 'POST',
+        signal: AbortSignal.timeout(20000),
         headers: {
           'Authorization': `Bearer ${token}`
         }

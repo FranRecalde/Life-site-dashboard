@@ -122,11 +122,15 @@ export class ApiClient {
   }
 
   static async saveConnections(config: any): Promise<any> {
-    return this.request('/api/settings/connections', {
+    const result = await this.request('/api/settings/connections', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config)
     });
+    if (config.todoistToken !== undefined || config.action === 'remove_todoist_token') {
+      window.dispatchEvent(new Event('todoist-connection-changed'));
+    }
+    return result;
   }
 
   static async createTodoistTask(

@@ -45,6 +45,7 @@ import { CalendarPanel } from './components/CalendarPanel';
 import { HabitPanel } from './components/HabitPanel';
 import { TodoistProjectsPanel } from './components/TodoistProjectsPanel';
 import { TodoistTasksWorkspace } from './components/TodoistTasksWorkspace';
+import { TodoistFloatingCard } from './components/TodoistFloatingCard';
 import { ThoughtCatcher } from './components/ThoughtCatcher';
 import { ObsidianNotesInbox } from './components/ObsidianNotesInbox';
 import { SettingsWorkspace } from './components/SettingsWorkspace';
@@ -1919,8 +1920,10 @@ export default function App() {
     return sectionsData.columns[0].id;
   }, [sectionsData.columns, selectedMobileSectionId]);
 
+  const completingTaskLock = useRef(new Set<string>());
   const handleCompleteTask = async (taskId: string) => {
-    if (completingTaskIds.has(taskId)) return;
+    if (completingTaskLock.current.has(taskId) || completingTaskIds.has(taskId)) return;
+    completingTaskLock.current.add(taskId);
     const currentGen = authGenerationRef.current;
 
     // Clear any previous error
@@ -1984,6 +1987,8 @@ export default function App() {
         next.delete(taskId);
         return next;
       });
+    } finally {
+      completingTaskLock.current.delete(taskId);
     }
   };
 
@@ -2783,6 +2788,14 @@ export default function App() {
 
   return (
     <>
+      <TodoistFloatingCard
+        tasks={dashboardData?.tasks}
+        completing={completingTaskIds}
+        errors={taskErrors}
+        onComplete={handleCompleteTask}
+        onTasks={(tasks, inbox) => setDashboardData(prev => prev ? { ...prev, tasks, todoistInboxProjectId: inbox } : prev)}
+        onConnections={() => { if (isEntranceHallPreview) { void handleEntranceHallViewChange('settings'); } else { void openSettings(); } }}
+      />
       {isEntranceHallPreview ? (
         <LifeSiteShell
           activeView={entranceHallView}
